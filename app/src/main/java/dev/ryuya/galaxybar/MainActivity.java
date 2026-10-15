@@ -29,6 +29,10 @@ import java.util.concurrent.TimeUnit;
 public final class MainActivity extends AppCompatActivity {
   private SharedPreferences prefs;
   private MaterialTextView status;
+  private MaterialTextView guardSummary;
+  private MaterialSwitch enabledControl;
+  private MaterialButton guardResetControl;
+  private boolean guardResetting;
   private final Handler handler = new Handler(Looper.getMainLooper());
   private final Runnable refresh =
       new Runnable() {
@@ -36,10 +40,21 @@ public final class MainActivity extends AppCompatActivity {
         public void run() {
           SharedPreferences latest = getSharedPreferences("status", MODE_PRIVATE);
           long age = (System.currentTimeMillis() - latest.getLong("time", 0)) / 1000;
+          boolean blocked =
+              getSharedPreferences("guard", MODE_PRIVATE).getBoolean("blocked", false);
+          enabledControl.setEnabled(!blocked);
+          enabledControl.setChecked(!blocked && prefs.getBoolean("enabled", false));
+          guardSummary.setText(getString(blocked ? R.string.guard_blocked : R.string.guard_note));
+          if (!blocked) guardResetting = false;
+          guardResetControl.setEnabled(blocked && !guardResetting);
           status.setText(
-              age < 15
-                  ? latest.getString("text", "") + "\n" + getString(R.string.updated_seconds, age)
-                  : getString(R.string.waiting_hook));
+              blocked
+                  ? getString(R.string.guard_blocked)
+                  : age < 15
+                      ? latest.getString("text", "")
+                          + "\n"
+                          + getString(R.string.updated_seconds, age)
+                      : getString(R.string.waiting_hook));
           handler.postDelayed(this, 2000);
         }
       };
@@ -84,6 +99,8 @@ public final class MainActivity extends AppCompatActivity {
         getString(R.string.hero_body),
         com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
     MaterialSwitch enabled = toggle(hero, getString(R.string.enabled), "enabled", false);
+    enabledControl = enabled;
+    enabled.setId(R.id.module_enabled);
     text(
         body,
         getString(R.string.color_targets),
@@ -195,6 +212,23 @@ public final class MainActivity extends AppCompatActivity {
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     toggle(diagnostic, getString(R.string.fixed_test), "fixed", false);
     toggle(diagnostic, getString(R.string.debug), "debug", false);
+    text(
+        diagnostic,
+        getString(R.string.guard_title),
+        com.google.android.material.R.style.TextAppearance_Material3_TitleSmall);
+    guardSummary =
+        text(
+            diagnostic,
+            getString(R.string.guard_note),
+            com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
+    guardResetControl = button(diagnostic, getString(R.string.guard_reset), this::resetCrashGuard);
+    guardResetControl.setId(R.id.guard_reset);
+    guardResetControl.setEnabled(
+        getSharedPreferences("guard", MODE_PRIVATE).getBoolean("blocked", false));
+    text(
+        diagnostic,
+        getString(R.string.guard_reload_note),
+        com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     button(diagnostic, getString(R.string.root_check), this::checkRoot);
     text(
         body,
@@ -307,11 +341,53 @@ public final class MainActivity extends AppCompatActivity {
     parent.addView(field, params);
   }
 
-  private void button(LinearLayout parent, String label, Runnable action) {
+  private MaterialButton button(LinearLayout parent, String label, Runnable action) {
     MaterialButton button = new MaterialButton(this);
     button.setText(label);
     button.setOnClickListener(view -> action.run());
     parent.addView(button, new LinearLayout.LayoutParams(-1, -2));
+    return button;
+  }
+
+  private void resetCrashGuard() {
+    guardResetting = true;
+    guardResetControl.setEnabled(false);
+    new Thread(
+            () -> {
+              boolean success = false;
+              try {
+                boolean saved =
+                    prefs
+                        .edit()
+                        .putString("guard_reset_token", java.util.UUID.randomUUID().toString())
+                        .putBoolean("enabled", false)
+                        .commit();
+                if (!saved) throw new IllegalStateException("Reset request could not be saved");
+                Process process =
+                    new ProcessBuilder("su", "-c", "kill -TERM $(pidof com.android.systemui)")
+                        .redirectErrorStream(true)
+                        .start();
+                if (!process.waitFor(15, TimeUnit.SECONDS)) process.destroy();
+                else success = process.exitValue() == 0;
+              } catch (Exception ignored) {
+              }
+              boolean completed = success;
+              runOnUiThread(
+                  () -> {
+                    if (isFinishing() || isDestroyed()) return;
+                    if (!completed) guardResetting = false;
+                    guardResetControl.setEnabled(!completed);
+                    new MaterialAlertDialogBuilder(this)
+                        .setTitle(getString(R.string.guard_title))
+                        .setMessage(
+                            getString(
+                                completed ? R.string.guard_reloaded : R.string.guard_reload_failed))
+                        .setPositiveButton(getString(R.string.close), null)
+                        .show();
+                  });
+            },
+            "GalaxyBarGuardReset")
+        .start();
   }
 
   private void checkRoot() {

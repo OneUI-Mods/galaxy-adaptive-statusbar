@@ -56,4 +56,11 @@
     <string name="fade_duration_value">フェード時間: %1$d ms</string>
     <string name="fade_milliseconds">%1$d ms</string>
     <string name="fade_duration_note">0msで即時切り替え。長くすると滑らかになりますが、背景の変化への追従は遅くなります。</string>
+    <string name="guard_title">SystemUIのクラッシュ保護</string>
+    <string name="guard_note">2分以内に3回の異常終了を検出すると、次回起動から本モジュールのフックを停止します。</string>
+    <string name="guard_blocked">クラッシュ保護が働き、自動配色は停止しています。原因を確認してから保護を解除してください。</string>
+    <string name="guard_reset">保護を解除してSystemUIを再読み込み</string>
+    <string name="guard_reload_note">再読み込みでロック画面に戻る場合があります。root権限が必要です。</string>
+    <string name="guard_reloaded">再読み込みを開始しました。準備ができたら自動配色をONにしてください。</string>
+    <string name="guard_reload_failed">SystemUIを再読み込みできませんでした。保存された解除リクエストは、次の手動再読み込み時に反映されます。</string>
 </resources>

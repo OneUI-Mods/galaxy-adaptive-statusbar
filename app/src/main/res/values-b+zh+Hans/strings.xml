@@ -56,4 +56,11 @@
     <string name="fade_duration_value">渐变时长：%1$d ms</string>
     <string name="fade_milliseconds">%1$d ms</string>
     <string name="fade_duration_note">0ms 表示立即切换。时长越长，变化越平滑，但对背景变化的响应也越慢。</string>
+    <string name="guard_title">SystemUI 崩溃保护</string>
+    <string name="guard_note">两分钟内发生三次异常退出后，将从下次启动起停止本模块的挂钩。</string>
+    <string name="guard_blocked">崩溃保护已启用，自动配色已停止。请先检查原因，再解除保护。</string>
+    <string name="guard_reset">解除保护并重新加载 SystemUI</string>
+    <string name="guard_reload_note">可能返回锁屏界面，需要 root 权限。</string>
+    <string name="guard_reloaded">已开始重新加载。准备好后请开启自动配色。</string>
+    <string name="guard_reload_failed">无法重新加载 SystemUI。已保存的解除请求将在下次手动重新加载时生效。</string>
 </resources>

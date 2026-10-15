@@ -2,7 +2,7 @@
 
 Galaxy One UIの時計を文字ごとに、通知・通信表示をアイコンごとに、実際の背景とのコントラストで黒／白へ切り替えるlegacy Xposed / VectorモジュールとMaterial 3設定アプリです。
 
-**0.4.2は実験版です。** SM-S948Q / Android 16 / One UI 8.5の縦画面で、SystemUI自身を除外した背景取得、時計・通知・Wi-Fi・デュアルSIM表示の配色を実機確認しました。電池本体と残量文字、SurfaceViewアニメーションと自作動画への追従、保護画面での取得拒否も確認しました。現在のライブ壁紙のページ切替とChromeスクロールでも継続取得を確認しました。横画面、長時間負荷、One UI 9は未検証です。
+**0.4.3は実験版です。** SM-S948Q / Android 16 / One UI 8.5の縦画面で、SystemUI自身を除外した背景取得、時計・通知・Wi-Fi・デュアルSIM表示の配色を実機確認しました。電池本体と残量文字、SurfaceViewアニメーションと自作動画への追従、保護画面での取得拒否も確認しました。現在のライブ壁紙のページ切替とChromeスクロールでも継続取得を確認しました。横画面、長時間負荷、One UI 9は未検証です。
 
 GitHub: https://github.com/ryuya0124/galaxy-adaptive-statusbar （非公開）
 
@@ -72,8 +72,8 @@ bash tools/adb.sh shell 'su -c "kill -TERM $(pidof com.android.systemui)"'
 |SurfaceView / 動画|動く縞とMediaPlayerの自作動画で継続取得・配色変化を確認|
 |保護画面|FLAG_SECURE fixtureでSecurityException、標準表示復帰・連続5回で停止|
 |安全な停止|設定OFFによる標準表示への復帰を実機確認|
-|UI|5言語×3画面の起動、Material設定・ToolbarのInsetsとフェード設定保存の実機テスト3件成功|
-|自動テスト|輝度・合成判定6件、フェード8件、ADB再発見4件、Lint、debug/releaseビルド|
+|UI|5言語×3画面の起動、Material設定・ToolbarのInsetsとフェード設定保存の実機テスト4件成功|
+|自動テスト|輝度・合成判定6件、フェード8件、クラッシュ保護11件、ADB再発見4件、Lint、debug/releaseビルド|
 
 動く縞で各約13秒の測定では10Hz設定で8.8〜9.0Hz、30Hz設定で28.4Hz。10HzでSystemUI CPUが1コア基準で約10ポイント増加しました。取得＋解析は約5〜23msの例がありますが、負荷・遅延の保証値ではありません。画面生成から反映までの遅延、GPU負荷、バッテリー消費、連続稼働時のメモリ増加は未評価です。SurfaceViewと同梱の自作動画、Chromeのローカルページを検証しました。ホームの既存MultiplePictureWallpaperで左右のページ移動に伴う背景変化と復帰も確認しました。すべてのライブ壁紙・動画アプリ・ゲームを検証したわけではありません。
 
@@ -88,6 +88,18 @@ bash tools/adb.sh shell 'su -c "kill -TERM $(pidof com.android.systemui)"'
 - ソースは[MIT License](LICENSE)。Xposed API 82はcompileOnlyでAPKに含めません。通知は`app/libs`とアプリ内に保存しています。
 
 依存の変更後は`./gradlew :app:writeRuntimeDependencyList && python3 tools/update_notices.py`で通知を更新します。未知のライセンスは生成を停止します。
+
+## SystemUIのクラッシュ保護
+
+本モジュールのフックを登録する前に、SystemUI自身の[Android終了履歴](https://developer.android.com/reference/android/app/ActivityManager#getHistoricalProcessExitReasons(java.lang.String,int,int))と、このモジュールが監視したプロセスの記録を照合します。
+
+- 2分以内に3回のJava/nativeクラッシュ・ANR・初期化失敗・過剰リソースによる終了を検出すると、次回起動で配色フックを登録しません。SIGABRT/SIGSEGVも対象です。
+- 手動再読み込みのSIGTERM、SIGKILL、メモリ不足、パッケージ更新による終了は回数に含めません。終了理由が取得できないまま30秒以内に3回再起動した場合も、保守的に停止します。
+- 停止状態はSystemUIのdevice-protectedデータへ原子的に保存し、通常の再起動やAPK更新では解除しません。フック初期化・監視状態の読出しや保存に失敗した場合も配色を開始しません。
+- 保護中は自動配色をOFFにし、設定画面へ停止状態を表示します。「保護を解除してSystemUIを再読み込み」から解除できます。rootが必要で、ロック画面へ戻る場合があります。解除後の自動配色は利用者がONにします。
+- 初期化途中のエラーでは、本モジュールが登録したフックを解除します。他モジュール・Vectorの設定は変更しません。起動時だけ確認し、常時の監視ポーリングや追加キャプチャは行いません。
+
+終了理由は有限の履歴で、SystemUIの停止原因を本モジュールへ特定するものではありません。他のモジュールやOS側の原因を修復する仕組みではありません。解除しても繰り返す場合は、原因を調べるまで本モジュールを無効にしてください。
 
 ## 停止・復旧
 

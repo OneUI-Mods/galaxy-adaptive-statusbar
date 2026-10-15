@@ -141,3 +141,34 @@ cropが小さくても、内部合成負荷まで小さいとは断定できま�
 時間変更がアニメーション途中で反映された場合は、その時点の表示色から新しい時間でつなぎます。同じ設定を毎回受信しても開始時刻を更新しません。フェードの単体テストは8件へ増やし、0ms・500ms・途中変更・補正を追加しました。
 
 実機instrumentationは3件成功（5言語×3画面、Insets、フェード設定のキー操作90ms→0ms・保存・再作成・Provider連携）。さらに実際のSystemUIの状態通知で300msと0msへの変更を確認し、同じSystemUIプロセスのまま反映することを検証しました。最後は元の80msに戻しています。
+
+## 0.4.3のSystemUIクラッシュ保護
+
+`Application.attach`後、配色フックを登録する前に監視状態を読み込みます。SystemUI自身の`ActivityManager.getHistoricalProcessExitReasons`と、フックを登録したプロセスのPID・開始時刻を照合します。[AndroidのAPI仕様](https://developer.android.com/reference/android/app/ActivityManager#getHistoricalProcessExitReasons(java.lang.String,int,int))では終了履歴は有限のリングバッファです。[ApplicationExitInfo](https://developer.android.com/reference/android/app/ApplicationExitInfo)の終了理由・signalを使い、Java/nativeクラッシュ、ANR、初期化失敗、過剰リソース、SIGABRT/SIGSEGVを判定します。
+
+2分以内に3回で停止をラッチし、次回起動には配色フックを登録しません。終了理由が不明なまま30秒以内に3回再起動した場合も停止します。手動のSIGTERM、SIGKILL、低メモリ・更新等の通常終了は数えません。監視したプロセスに対応しない履歴や、前回の履歴の重複も数えません。
+
+状態ファイルはSystemUIのdevice-protectedな`files/galaxybar-crash-guard.properties`です。AtomicFileで保存してからフックを開始します。停止ラッチは再起動やAPK更新で消さず、設定アプリが生成する新しい解除nonceだけで解除します。アプリの設定値は自動でOFFにし、利用者が準備できてから再びONにする動作です。フック初期化の失敗時には登録済みの本モジュールのフックだけを解除します。
+
+プロセス終了で失われるメモリ上のカウンターに依存せず、起動時だけ確認します。常時の監視ポーリング、画面キャプチャ、uncaught exception handlerの置換はしません。起動時にcompanionのcredential-encryptedデータが利用できない場合は、解除要求の読出しを保留し、解除を勝手に推測しません。状態表示はユーザーストレージが利用可能になってから通知します。
+
+実行済み:
+
+- 単体テスト11件で3回の判定・永続化・手動再読込みの除外・履歴重複・長時間後の単発クラッシュ・再起動をまたぐ停止・明示reset・PID再利用・不明な再起動・時刻逆行・壊れた状態の拒否を検証。
+- 実機instrumentation4件成功。5言語、Insets、フェード設定に加え、保護中のONスイッチ無効化・解除ボタン・一般アプリUIDからguard_statusの書込みを拒否することを確認。
+- 実際のSystemUI内で監視状態の保存と通常のフック登録を確認。
+- 状態ファイルへ検証用の3回分の異常終了時刻を入れて再読み込みし、停止ラッチ、ON設定の自動OFF、新しいPIDで時計フック・Engineが登録されないことを確認。SystemUIは正常起動。
+- 新しい解除nonceと再読み込みで監視を再開し、正常に時計フック・Engineを登録することを確認。検証前のON設定を復元。
+
+実機にJava/nativeクラッシュやANRを故意に起こす試験はしていません。OSが実際に採取したクラッシュ情報からの連続復旧は未実行で、終了理由の分類は単体テスト、停止経路は疑似記録で検証しています。他モジュールやOSの不具合を修復するものではありません。
+
+診断:
+
+```sh
+bash tools/adb.sh shell 'su -M -c "cat /data/user_de/0/com.android.systemui/files/galaxybar-crash-guard.properties"'
+bash tools/adb.sh shell 'dumpsys activity exit-info com.android.systemui'
+```
+
+Tail ADBの独立したmount名前空間ではprivate dataが見えず、run-asが失敗する場合があります。その場合の自分の診断ファイルの読出しは`su -M`を使います。所有者・権限を変更して対処しないでください。
+
+解除後に追加の手動SIGTERM再読み込みも実行し、異常終了数0のまま保護監視とフック登録が続くことを実機で確認しました。利用者が選択したフェード時間は維持しています。

@@ -20,7 +20,7 @@ final class ModernTintAdapter {
             "com.android.systemui.statusbar.pipeline.shared.ui.view.ModernStatusBarView", loader);
     Class<?> dispatcher =
         XposedHelpers.findClass("com.android.systemui.plugins.DarkIconDispatcher", loader);
-    XposedHelpers.findAndHookMethod(
+    HookRegistry.hook(
         type,
         "onDarkChangedWithContrast",
         ArrayList.class,
@@ -43,7 +43,7 @@ final class ModernTintAdapter {
             standard.put(view, new int[] {color, inverse});
           }
         });
-    XposedHelpers.findAndHookMethod(
+    HookRegistry.hook(
         type,
         "setStaticDrawableColor",
         int.class,

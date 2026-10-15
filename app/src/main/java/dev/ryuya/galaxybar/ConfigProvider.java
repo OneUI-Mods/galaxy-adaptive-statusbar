@@ -36,14 +36,33 @@ public final class ConfigProvider extends ContentProvider {
           "fade_ms", ColorFade.clampDuration(p.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)));
       b.putString("algorithm", p.getString("algorithm", "robust"));
       b.putDouble("hysteresis", p.getFloat("hysteresis", .15f));
+      b.putString("guard_reset_token", p.getString("guard_reset_token", ""));
       return b;
     }
-    if (method.equals("status")) {
+    if (method.equals("status") || method.equals("guard_status")) {
       boolean system = false;
       String[] names = getContext().getPackageManager().getPackagesForUid(Binder.getCallingUid());
       if (names != null)
         for (String name : names) if (name.equals("com.android.systemui")) system = true;
       if (!system) throw new SecurityException("SystemUI required");
+      if (method.equals("guard_status")) {
+        if (extras == null) throw new IllegalArgumentException("Guard status required");
+        boolean blocked = extras.getBoolean("blocked");
+        getContext()
+            .getSharedPreferences("guard", 0)
+            .edit()
+            .putBoolean("blocked", blocked)
+            .putInt("count", extras.getInt("count"))
+            .putString("cause", extras.getString("cause", ""))
+            .apply();
+        if (blocked)
+          getContext()
+              .getSharedPreferences("config", 0)
+              .edit()
+              .putBoolean("enabled", false)
+              .apply();
+        return Bundle.EMPTY;
+      }
       getContext()
           .getSharedPreferences("status", 0)
           .edit()

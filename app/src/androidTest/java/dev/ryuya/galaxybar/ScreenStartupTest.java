@@ -21,6 +21,44 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class ScreenStartupTest {
   @Test
+  public void crashProtectionDisablesMasterAndRequiresExplicitRecovery() {
+    var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
+    var guard = context.getSharedPreferences("guard", 0);
+    var prefs = context.getSharedPreferences("config", 0);
+    boolean had = guard.contains("blocked"), blocked = guard.getBoolean("blocked", false);
+    boolean wasEnabled = prefs.getBoolean("enabled", false);
+    guard.edit().putBoolean("blocked", true).commit();
+    prefs.edit().putBoolean("enabled", true).commit();
+    try (var screen = ActivityScenario.launch(MainActivity.class)) {
+      InstrumentationRegistry.getInstrumentation().waitForIdleSync();
+      screen.onActivity(
+          activity -> {
+            com.google.android.material.materialswitch.MaterialSwitch master =
+                activity.findViewById(R.id.module_enabled);
+            com.google.android.material.button.MaterialButton reset =
+                activity.findViewById(R.id.guard_reset);
+            assertFalse(master.isEnabled());
+            assertFalse(master.isChecked());
+            assertTrue(reset.isEnabled());
+            android.os.Bundle fake = new android.os.Bundle();
+            fake.putBoolean("blocked", false);
+            assertThrows(
+                SecurityException.class,
+                () ->
+                    activity
+                        .getContentResolver()
+                        .call(ConfigProvider.URI, "guard_status", null, fake));
+          });
+    } finally {
+      var edit = guard.edit();
+      if (had) edit.putBoolean("blocked", blocked);
+      else edit.remove("blocked");
+      edit.commit();
+      prefs.edit().putBoolean("enabled", wasEnabled).commit();
+    }
+  }
+
+  @Test
   public void fadeDurationSurvivesRecreationAndReachesProvider() {
     var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
     var prefs = context.getSharedPreferences("config", 0);

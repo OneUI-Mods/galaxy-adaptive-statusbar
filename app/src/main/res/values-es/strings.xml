@@ -56,4 +56,11 @@
     <string name="fade_duration_value">Duración del fundido: %1$d ms</string>
     <string name="fade_milliseconds">%1$d ms</string>
     <string name="fade_duration_note">0 ms cambia al instante. Un fundido más largo es más suave, pero responde más despacio a los cambios del fondo.</string>
+    <string name="guard_title">Protección de SystemUI</string>
+    <string name="guard_note">Tres cierres anómalos en dos minutos detienen los hooks de este módulo en el siguiente inicio.</string>
+    <string name="guard_blocked">La protección está activa y los colores adaptativos están detenidos. Revisa la causa antes de restablecerla.</string>
+    <string name="guard_reset">Restablecer y recargar SystemUI</string>
+    <string name="guard_reload_note">Puede volver a la pantalla de bloqueo. Requiere acceso root.</string>
+    <string name="guard_reloaded">Recarga iniciada. Activa los colores adaptativos cuando esté listo.</string>
+    <string name="guard_reload_failed">No se pudo recargar SystemUI. La solicitud guardada se aplicará en la próxima recarga manual.</string>
 </resources>

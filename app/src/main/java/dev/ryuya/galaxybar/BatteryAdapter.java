@@ -77,7 +77,7 @@ final class BatteryAdapter {
     XposedBridge.class
         .getMethod("deoptimizeMethod", java.lang.reflect.Member.class)
         .invoke(null, candidate.getDeclaredMethod("draw", Canvas.class));
-    XposedHelpers.findAndHookMethod(
+    HookRegistry.hook(
         candidate,
         "draw",
         Canvas.class,
@@ -108,7 +108,7 @@ final class BatteryAdapter {
             }
           }
         };
-    XposedHelpers.findAndHookMethod(
+    HookRegistry.hook(
         Canvas.class,
         "drawRect",
         float.class,
@@ -117,7 +117,7 @@ final class BatteryAdapter {
         float.class,
         Paint.class,
         replacePaint);
-    XposedHelpers.findAndHookMethod(
+    HookRegistry.hook(
         Canvas.class,
         "drawRoundRect",
         float.class,
@@ -128,7 +128,7 @@ final class BatteryAdapter {
         float.class,
         Paint.class,
         replacePaint);
-    XposedHelpers.findAndHookMethod(
+    HookRegistry.hook(
         Canvas.class,
         "drawText",
         String.class,
@@ -157,8 +157,8 @@ final class BatteryAdapter {
                       (android.graphics.ColorFilter) p.getObjectExtra("galaxy.oldFilter"));
           }
         };
-    XposedHelpers.findAndHookMethod(BitmapDrawable.class, "draw", Canvas.class, specialIcon);
-    XposedHelpers.findAndHookMethod(VectorDrawable.class, "draw", Canvas.class, specialIcon);
+    HookRegistry.hook(BitmapDrawable.class, "draw", Canvas.class, specialIcon);
+    HookRegistry.hook(VectorDrawable.class, "draw", Canvas.class, specialIcon);
     type = candidate;
   }
 
