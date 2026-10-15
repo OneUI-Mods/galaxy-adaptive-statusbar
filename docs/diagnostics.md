@@ -172,3 +172,24 @@ bash tools/adb.sh shell 'dumpsys activity exit-info com.android.systemui'
 Tail ADBの独立したmount名前空間ではprivate dataが見えず、run-asが失敗する場合があります。その場合の自分の診断ファイルの読出しは`su -M`を使います。所有者・権限を変更して対処しないでください。
 
 解除後に追加の手動SIGTERM再読み込みも実行し、異常終了数0のまま保護監視とフック登録が続くことを実機で確認しました。利用者が選択したフェード時間は維持しています。
+
+
+## 0.4.4のOFF時のフック解除
+
+従来はOFFでもImageView・ModernStatusBarView・電池描画のフックが登録されたままで、設定の読出しにも最大約1秒の遅れがありました。0.4.4はProviderのSharedPreferences変更通知をSystemUIのContentObserverへ送り、メインスレッドで描画世代を進めます。enabledの変更通知では設定を取得する前にフェード予約・補間・対象を捨て、標準色へ復元して色変更フック11件を解除します。処理途中のキャプチャは完了しても旧世代として描画を拒否します。mirrorの解放は取得worker上で行います。
+
+OFF→ONの間隔がProviderへの問い合わせより短い場合も、一度停止してから新しい設定を読みます。変更前に要求した設定の応答は採用しません。再ONは同一SystemUIプロセス内でフックを再登録し、電池合成テストとnative dispatcherからの通信表示の標準色取得をやり直します。OFF中のアプリ・テーマ変更前の色を復元用に使い回しません。
+
+OFFでも再ONを検出するための設定監視と時計Viewのライフサイクルフック2件は残します。配色やフェードは行いません。電池描画のART deoptimizationはSystemUIの再起動まで残ることがありますが、OFF中のCanvas差替えフックは解除します。クラッシュ保護による起動停止は従来どおりこの監視フックより前で判定します。
+
+診断の`Color hooks`、`fade callbacks`、`fade targets`、`applied views`で停止状態を確認できます。OFFは全て0です。
+
+実機ではロック中のMaterial Switch操作と15ms間隔8回のON/OFF、解除後の動く縞背景・500msフェード中のOFFと同じ連続切替を検証しました。OFFの2回連続の診断でフック・callback・フェード対象・適用Viewが全て0、取得フレーム数が増えないことを確認し、再ONで同一SystemUIプロセスのまま11フックと電池合成テスト、実際のフェードcallbackが再開しています。エラーなし、元のON・10Hz・110msへ復元しています。追加instrumentation2件は成功です。
+
+既存の起動UI4件も解除後は成功しました。途中、ロック中のUI試験2件は初期表示・Activity再作成待ちで失敗し、動く背景テストも設定画面の起動で背景を閉じてしまい再開時のフェード確認に失敗しました。後者は背景を維持したまま設定値を変更するテストへ修正し、画面が必要な試験は解除後に再実行しました。
+
+```sh
+bash tools/adb.sh install -r app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+# 対応端末で本モジュールを読み込み、画面を解除して実行
+bash tools/adb.sh shell am instrument -w -e class dev.ryuya.galaxybar.HookToggleTest dev.ryuya.galaxybar.test/androidx.test.runner.AndroidJUnitRunner
+```

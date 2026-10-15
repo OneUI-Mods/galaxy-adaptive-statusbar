@@ -13,13 +13,14 @@ final class ModernTintAdapter {
   private static final Map<View, Integer> applied = new WeakHashMap<>();
   private static boolean applying;
   private static Class<?> type;
+  private static Class<?> dispatcher, dependency;
 
   static void install(ClassLoader loader) {
     type =
         XposedHelpers.findClass(
             "com.android.systemui.statusbar.pipeline.shared.ui.view.ModernStatusBarView", loader);
-    Class<?> dispatcher =
-        XposedHelpers.findClass("com.android.systemui.plugins.DarkIconDispatcher", loader);
+    dispatcher = XposedHelpers.findClass("com.android.systemui.plugins.DarkIconDispatcher", loader);
+    dependency = XposedHelpers.findClass("com.android.systemui.Dependency", loader);
     HookRegistry.hook(
         type,
         "onDarkChangedWithContrast",
@@ -65,7 +66,23 @@ final class ModernTintAdapter {
   }
 
   static boolean canRestore(View view) {
+    if (!standard.containsKey(view)) {
+      // Hooks were absent while OFF. Ask the verified native dispatcher for today's baseline,
+      // rather than reusing a tint from before the user switched apps or changed the theme.
+      Object owner = XposedHelpers.getStaticObjectField(dependency, "sDependency");
+      if (owner != null) {
+        Object source = XposedHelpers.callMethod(owner, "getDependencyInner", dispatcher);
+        var receivers = (Map<?, ?>) XposedHelpers.getObjectField(source, "mReceivers");
+        if (receivers.containsKey(view)) XposedHelpers.callMethod(source, "applyDark", view);
+      }
+    }
     return standard.containsKey(view);
+  }
+
+  static void reset() {
+    standard.clear();
+    applied.clear();
+    type = null;
   }
 
   static void apply(View view, int color) {

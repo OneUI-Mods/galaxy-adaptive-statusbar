@@ -8,9 +8,18 @@ import android.os.*;
 /** Only non-sensitive preferences are publicly readable; diagnostic writes are SystemUI-only. */
 public final class ConfigProvider extends ContentProvider {
   public static final Uri URI = Uri.parse("content://dev.ryuya.galaxybar.config");
+  // Keep a strong reference: SharedPreferences holds listeners weakly.
+  private final android.content.SharedPreferences.OnSharedPreferenceChangeListener changes =
+      (prefs, key) ->
+          getContext()
+              .getContentResolver()
+              .notifyChange(key == null ? URI : URI.buildUpon().appendPath(key).build(), null);
 
   @Override
   public boolean onCreate() {
+    getContext()
+        .getSharedPreferences("config", 0)
+        .registerOnSharedPreferenceChangeListener(changes);
     return true;
   }
 

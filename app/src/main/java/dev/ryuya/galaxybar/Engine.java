@@ -3,8 +3,10 @@ package dev.ryuya.galaxybar;
 import android.animation.ValueAnimator;
 import android.app.KeyguardManager;
 import android.content.*;
+import android.database.ContentObserver;
 import android.graphics.*;
 import android.graphics.drawable.Drawable;
+import android.net.Uri;
 import android.os.*;
 import android.text.*;
 import android.text.style.ForegroundColorSpan;
@@ -22,6 +24,27 @@ final class Engine {
   private final Context context;
   private final Handler main = new Handler(Looper.getMainLooper());
   private final Runnable ticker = this::tick;
+  private final ContentObserver settingsObserver =
+      new ContentObserver(main) {
+        @Override
+        public void onChange(boolean selfChange, Uri uri) {
+          if (closed) return;
+          try {
+            configRevision++;
+            // A toggle invalidates the old session before the worker can read the new setting.
+            // This also handles OFF→ON faster than a capture or a provider round trip.
+            String key = uri == null ? null : uri.getLastPathSegment();
+            if (uri == null || uri.equals(ConfigProvider.URI) || "enabled".equals(key))
+              suspendColors();
+            else if (Set.of("clock", "notifications", "signals", "battery", "fixed").contains(key))
+              pendingTargetReset = true;
+            int revision = configRevision;
+            worker.execute(() -> refreshConfig(revision));
+          } catch (Throwable error) {
+            HookEntry.stopHooks(error);
+          }
+        }
+      };
   private final BroadcastReceiver screenState =
       new BroadcastReceiver() {
         @Override
@@ -66,8 +89,9 @@ final class Engine {
   private int[] framePixels = new int[0];
   private int frameHash, capturedRotation = -1;
   private long lastConfig, lastStatus, lastDebug;
-  private int errors, epoch;
-  private boolean stopped, wasEnabled, closed, applying;
+  private int errors, epoch, configRevision;
+  private volatile String renderState = "Color hooks: 0; fade callbacks: 0; fade targets: 0";
+  private boolean stopped, wasEnabled, closed, applying, pendingTargetReset;
   private LayerCapture capture;
   private String state = "Hook active; module disabled", lastError = "";
   private double lastMs;
@@ -95,7 +119,9 @@ final class Engine {
   Engine(View root) {
     this.root = root;
     context = root.getContext();
-    worker.execute(() -> BatteryAdapter.validate(context));
+    context
+        .getContentResolver()
+        .registerContentObserver(ConfigProvider.URI, true, settingsObserver);
     IntentFilter filter = new IntentFilter();
     filter.addAction(Intent.ACTION_SCREEN_OFF);
     filter.addAction(Intent.ACTION_SCREEN_ON);
@@ -118,13 +144,6 @@ final class Engine {
         busy = true;
         long now = SystemClock.elapsedRealtime();
         boolean enabled = config.getBoolean("enabled");
-        if (enabled != wasEnabled) {
-          epoch++;
-          stopped = false;
-          errors = 0;
-          wasEnabled = enabled;
-          if (!enabled) restore();
-        }
         PowerManager power = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         Rect crop = new Rect();
         boolean visible =
@@ -163,10 +182,20 @@ final class Engine {
         final int display = run ? root.getDisplay().getDisplayId() : 0;
         final int rotation = run ? root.getDisplay().getRotation() : 0;
         final Bundle settings = new Bundle(config);
+        final int revision = configRevision;
         worker.execute(
             () ->
                 process(
-                    now, run, crop, excluded, display, rotation, targets, generation, settings));
+                    now,
+                    run,
+                    crop,
+                    excluded,
+                    display,
+                    rotation,
+                    targets,
+                    generation,
+                    settings,
+                    revision));
       }
     } catch (Throwable t) {
       busy = false;
@@ -183,6 +212,77 @@ final class Engine {
         asleep ? 5000 : !config.getBoolean("enabled") || stopped ? 500 : Math.max(33, 1000 / hz));
   }
 
+  private void refreshConfig(int revision) {
+    try {
+      Bundle fresh = context.getContentResolver().call(ConfigProvider.URI, "config", null, null);
+      lastConfig = SystemClock.elapsedRealtime();
+      if (fresh != null) main.post(() -> acceptConfig(fresh, revision));
+    } catch (Throwable error) {
+      main.post(
+          () -> {
+            if (!closed && revision == configRevision) {
+              suspendColors();
+              fail(error);
+            }
+          });
+    }
+  }
+
+  private void acceptConfig(Bundle fresh, int revision) {
+    if (closed || revision != configRevision) return;
+    config = fresh;
+    if (pendingTargetReset) {
+      epoch++;
+      restore();
+      pendingTargetReset = false;
+    }
+    boolean enabled = fresh.getBoolean("enabled");
+    if (enabled != wasEnabled) {
+      epoch++;
+      restore();
+      stopped = false;
+      errors = 0;
+      wasEnabled = enabled;
+      if (enabled) {
+        try {
+          HookEntry.enableColors();
+          worker.execute(() -> BatteryAdapter.validate(context));
+        } catch (Throwable error) {
+          HookEntry.stopHooks(error);
+          return;
+        }
+      } else HookEntry.disableColors();
+    }
+    updateRenderState();
+    main.removeCallbacks(ticker);
+    main.post(ticker);
+  }
+
+  private void suspendColors() {
+    epoch++;
+    Bundle disabled = new Bundle(config);
+    disabled.putBoolean("enabled", false);
+    config = disabled;
+    wasEnabled = false;
+    // Restore through the live adapters before unregistering their hooks and clearing baselines.
+    restore();
+    HookEntry.disableColors();
+    updateRenderState();
+    worker.execute(this::releaseCapture);
+  }
+
+  private void updateRenderState() {
+    renderState =
+        "Color hooks: "
+            + HookRegistry.colorCount()
+            + "; fade callbacks: "
+            + (fadeScheduled ? 1 : 0)
+            + "; fade targets: "
+            + fadeTargets.size()
+            + "; applied views: "
+            + (originals.size() + texts.size() + modern.size() + batteries.size());
+  }
+
   private void process(
       long now,
       boolean run,
@@ -192,15 +292,15 @@ final class Engine {
       int rotation,
       List<Target> targets,
       int generation,
-      Bundle settings) {
+      Bundle settings,
+      int revision) {
     try {
       if (now - lastConfig > 750) {
-        Bundle fresh = context.getContentResolver().call(ConfigProvider.URI, "config", null, null);
-        if (fresh != null) config = fresh;
-        lastConfig = now;
+        refreshConfig(revision);
       }
       run &=
-          context.getSystemService(PowerManager.class).isInteractive()
+          config.getBoolean("enabled")
+              && context.getSystemService(PowerManager.class).isInteractive()
               && !context.getSystemService(KeyguardManager.class).isKeyguardLocked();
       if (run && !targets.isEmpty()) {
         if (capturedRotation != rotation) {
@@ -282,7 +382,8 @@ final class Engine {
           main.post(
               () -> {
                 Rect current = new Rect();
-                if (epoch == generation
+                if (!closed
+                    && epoch == generation
                     && config.getBoolean("enabled")
                     && !stopped
                     && root.getGlobalVisibleRect(current)
@@ -325,6 +426,8 @@ final class Engine {
                 + "\nFade: "
                 + config.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)
                 + " ms"
+                + "\n"
+                + renderState
                 + "\nLast error: "
                 + lastError;
         context.getContentResolver().call(ConfigProvider.URI, "status", text, null);
@@ -555,6 +658,7 @@ final class Engine {
         fadeScheduled = true;
         choreographer.postFrameCallback(fadeFrame);
       }
+      updateRenderState();
     } catch (Throwable error) {
       fail(error);
     }
@@ -641,6 +745,7 @@ final class Engine {
     } finally {
       applying = false;
     }
+    updateRenderState();
   }
 
   private static boolean sameSpans(CharSequence a, SpannableString b) {
@@ -682,6 +787,7 @@ final class Engine {
     } finally {
       applying = false;
     }
+    updateRenderState();
   }
 
   void standardFilter(ImageView view, ColorFilter filter) {
@@ -729,9 +835,9 @@ final class Engine {
     closed = true;
     main.removeCallbacks(ticker);
     context.unregisterReceiver(screenState);
+    context.getContentResolver().unregisterContentObserver(settingsObserver);
     epoch++;
-    restore();
-    worker.execute(this::releaseCapture);
+    suspendColors();
     worker.shutdown();
   }
 }

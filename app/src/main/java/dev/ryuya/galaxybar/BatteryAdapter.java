@@ -70,7 +70,7 @@ final class BatteryAdapter {
     }
   }
 
-  static void install(ClassLoader loader) throws Exception {
+  static synchronized void install(ClassLoader loader) throws Exception {
     Class<?> candidate =
         XposedHelpers.findClass("com.android.systemui.battery.SamsungBatteryMeterDrawable", loader);
     // Boot-framework Canvas calls may have been inlined into Samsung's precompiled renderer.
@@ -206,6 +206,14 @@ final class BatteryAdapter {
 
   static String health() {
     return health;
+  }
+
+  static synchronized void reset() {
+    active.clear();
+    drawing.remove();
+    type = null;
+    validated = false;
+    health = "color hooks disabled";
   }
 
   static boolean supports(ImageView view) {

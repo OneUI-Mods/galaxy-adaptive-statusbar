@@ -17,6 +17,7 @@ public final class HookEntry implements IXposedHookLoadPackage {
   private static Engine engine;
   private static CrashGuard protection;
   private static boolean initialized;
+  private static ClassLoader systemLoader;
 
   @Override
   public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lp) throws Throwable {
@@ -57,6 +58,7 @@ public final class HookEntry implements IXposedHookLoadPackage {
     try {
       protection = CrashGuard.open(context);
       if (!protection.allowsHooks()) return;
+      systemLoader = loader;
       installHooks(loader);
     } catch (Throwable error) {
       stopHooks(error);
@@ -64,7 +66,7 @@ public final class HookEntry implements IXposedHookLoadPackage {
     }
   }
 
-  private static void stopHooks(Throwable error) {
+  static void stopHooks(Throwable error) {
     if (engine != null) {
       try {
         engine.close();
@@ -72,6 +74,7 @@ public final class HookEntry implements IXposedHookLoadPackage {
       }
       engine = null;
     }
+    disableColors();
     HookRegistry.clear();
     if (protection != null) protection.initializationFailed(error);
     XposedBridge.log(error);
@@ -81,29 +84,7 @@ public final class HookEntry implements IXposedHookLoadPackage {
     Class<?> clock =
         XposedHelpers.findClass(
             "com.android.systemui.statusbar.policy.QSClockIndicatorView", loader);
-    ModernTintAdapter.install(loader);
-    BatteryAdapter.install(loader);
-    HookRegistry.hook(
-        ImageView.class,
-        "setColorFilter",
-        ColorFilter.class,
-        new XC_MethodHook() {
-          @Override
-          protected void beforeHookedMethod(MethodHookParam p) {
-            if (engine != null)
-              engine.standardFilter((ImageView) p.thisObject, (ColorFilter) p.args[0]);
-          }
-        });
-    XC_MethodHook tintChange =
-        new XC_MethodHook() {
-          @Override
-          protected void beforeHookedMethod(MethodHookParam p) {
-            if (engine != null) engine.standardDrawable((ImageView) p.thisObject);
-          }
-        };
-    HookRegistry.hook(ImageView.class, "setImageTintList", ColorStateList.class, tintChange);
-    HookRegistry.hook(ImageView.class, "setImageDrawable", Drawable.class, tintChange);
-    HookRegistry.all(
+    HookRegistry.lifecycle(
         clock,
         "onLayout",
         new XC_MethodHook() {
@@ -125,7 +106,47 @@ public final class HookEntry implements IXposedHookLoadPackage {
             }
           }
         });
-    HookRegistry.all(
+    installAttachmentHook(clock);
+    XposedBridge.log("GalaxyBar: QSClockIndicatorView lifecycle hook installed " + Build.DISPLAY);
+  }
+
+  static void enableColors() throws Exception {
+    if (HookRegistry.colorCount() != 0) return;
+    ModernTintAdapter.install(systemLoader);
+    BatteryAdapter.install(systemLoader);
+    HookRegistry.hook(
+        ImageView.class,
+        "setColorFilter",
+        ColorFilter.class,
+        new XC_MethodHook() {
+          @Override
+          protected void beforeHookedMethod(MethodHookParam p) {
+            if (engine != null)
+              engine.standardFilter((ImageView) p.thisObject, (ColorFilter) p.args[0]);
+          }
+        });
+    XC_MethodHook tintChange =
+        new XC_MethodHook() {
+          @Override
+          protected void beforeHookedMethod(MethodHookParam p) {
+            if (engine != null) engine.standardDrawable((ImageView) p.thisObject);
+          }
+        };
+    HookRegistry.hook(ImageView.class, "setImageTintList", ColorStateList.class, tintChange);
+    HookRegistry.hook(ImageView.class, "setImageDrawable", Drawable.class, tintChange);
+    XposedBridge.log("GalaxyBar: color hooks enabled count=" + HookRegistry.colorCount());
+  }
+
+  static void disableColors() {
+    boolean hadHooks = HookRegistry.colorCount() != 0;
+    HookRegistry.clearColors();
+    ModernTintAdapter.reset();
+    BatteryAdapter.reset();
+    if (hadHooks) XposedBridge.log("GalaxyBar: color hooks disabled count=0");
+  }
+
+  private static void installAttachmentHook(Class<?> clock) {
+    HookRegistry.lifecycle(
         clock,
         "onAttachedToWindow",
         new XC_MethodHook() {
@@ -175,6 +196,5 @@ public final class HookEntry implements IXposedHookLoadPackage {
             }
           }
         });
-    XposedBridge.log("GalaxyBar: QSClockIndicatorView hook installed " + Build.DISPLAY);
   }
 }

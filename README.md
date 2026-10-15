@@ -2,7 +2,7 @@
 
 Galaxy One UIの時計を文字ごとに、通知・通信表示をアイコンごとに、実際の背景とのコントラストで黒／白へ切り替えるlegacy Xposed / VectorモジュールとMaterial 3設定アプリです。
 
-**0.4.3は実験版です。** SM-S948Q / Android 16 / One UI 8.5の縦画面で、SystemUI自身を除外した背景取得、時計・通知・Wi-Fi・デュアルSIM表示の配色を実機確認しました。電池本体と残量文字、SurfaceViewアニメーションと自作動画への追従、保護画面での取得拒否も確認しました。現在のライブ壁紙のページ切替とChromeスクロールでも継続取得を確認しました。横画面、長時間負荷、One UI 9は未検証です。
+**0.4.4は実験版です。** SM-S948Q / Android 16 / One UI 8.5の縦画面で、SystemUI自身を除外した背景取得、時計・通知・Wi-Fi・デュアルSIM表示の配色を実機確認しました。電池本体と残量文字、SurfaceViewアニメーションと自作動画への追従、保護画面での取得拒否も確認しました。現在のライブ壁紙のページ切替とChromeスクロールでも継続取得を確認しました。横画面、長時間負荷、One UI 9は未検証です。
 
 GitHub: https://github.com/ryuya0124/galaxy-adaptive-statusbar （非公開）
 
@@ -42,7 +42,7 @@ bash tools/adb.sh shell 'su -c "kill -TERM $(pidof com.android.systemui)"'
 
 `install.sh`はAPK導入、既存Vector CLIによる本モジュールの有効化、`com.android.systemui/0`のscope登録を行います。CLIがない環境ではVectorマネージャーで設定してください。初回読込み・APKのフック更新時にはSystemUI再起動が必要で、ロック画面に戻る場合があります。
 
-新規インストール時は処理OFFです。解除後に設定アプリでONにすると反映します。通常の設定変更は約1秒で反映され、SystemUI再起動は不要です。既存OneUiLiveColors・OneUIX等の設定は変更しません。ほかの配色モジュールが同じ対象を制御する場合の競合試験は未完了です。
+新規インストール時は処理OFFです。解除後に設定アプリでONにすると反映します。設定変更はProviderの変更通知で反映し、SystemUI再起動は不要です。通知を取り逃した場合に備えた定期確認も残しています。既存OneUiLiveColors・OneUIX等の設定は変更しません。ほかの配色モジュールが同じ対象を制御する場合の競合試験は未完了です。
 
 ## 実装
 
@@ -53,6 +53,7 @@ bash tools/adb.sh shell 'su -c "kill -TERM $(pidof com.android.systemui)"'
 - WMS `mirrorDisplay` + Samsung `ScreenCaptureInternal.captureLayers`で、SystemUI自身のViewRoot Surfaceを除外します。mirror生成直後にworkerで50ms待ち、一時的な取得失敗時もmirrorを保持することで実機の準備待ち問題を修正しました。
 - キャプチャ要求はステータスバー領域・1/2スケール。サイズと不透明画素を検証します。解析は線形sRGB、平均／中央値／投票／低コントラスト領域優先、ヒステリシスです。
 - 白黒の切替は設定できる色フェード（0〜500ms、10ms刻み、初期80ms）。0msで即時切替になり、設定変更はSystemUI再起動なしで反映します。同じ判定では延長せず、逆方向への変更は現在の表示色からつなぎます。初回表示・標準色への復帰・AndroidのアニメーションOFF時は即時反映します。フェード中だけ画面更新を行い、追加キャプチャは行いません。
+- OFF通知でフェードcallback・補間状態・旧セッションの結果を破棄し、標準色へ即時復元して色変更用の11フックを解除します。再ON時は登録し直し、通信表示の標準色もnative dispatcherから取得し直します。OFF中は再有効化に必要なView検出と設定監視だけを残します。
 - キャプチャと背景解析は単一worker。メインスレッドは座標取得と色反映を担当し、同色の再描画を抑えます。
 - 設定は5/10/15/30Hz、初期10Hz。30Hzは実験設定で、10Hzより負荷が増えます。静止背景を20回続けて検出したときと省電力時は最大5Hzに下げます。変化検出後は設定値に戻ります。
 - **消灯・ロック中はキャプチャしません。** 消灯通知で即座に色を復元し、workerでmirrorと画素バッファを解放します。画面点灯・ロック解除後に再開します。停止中の設定確認は5秒間隔です。消灯直前に既に開始したnative取得がある場合は完了後に破棄します。
@@ -71,8 +72,8 @@ bash tools/adb.sh shell 'su -c "kill -TERM $(pidof com.android.systemui)"'
 |消灯・ロック|最新モジュールで約31秒間、取得フレーム数0を維持|
 |SurfaceView / 動画|動く縞とMediaPlayerの自作動画で継続取得・配色変化を確認|
 |保護画面|FLAG_SECURE fixtureでSecurityException、標準表示復帰・連続5回で停止|
-|安全な停止|設定OFFによる標準表示への復帰を実機確認|
-|UI|5言語×3画面の起動、Material設定・ToolbarのInsetsとフェード設定保存の実機テスト4件成功|
+|安全な停止|フェード中のOFFと15ms間隔8回の切替。色変更フック・callback・対象が0になり取得数が停止、再ONでフェード再開を実機確認|
+|UI|5言語×3画面の起動、Material設定・ToolbarのInsetsとフェード設定保存の実機UIテスト4件と停止・再開テスト2件成功|
 |自動テスト|輝度・合成判定6件、フェード8件、クラッシュ保護11件、ADB再発見4件、Lint、debug/releaseビルド|
 
 動く縞で各約13秒の測定では10Hz設定で8.8〜9.0Hz、30Hz設定で28.4Hz。10HzでSystemUI CPUが1コア基準で約10ポイント増加しました。取得＋解析は約5〜23msの例がありますが、負荷・遅延の保証値ではありません。画面生成から反映までの遅延、GPU負荷、バッテリー消費、連続稼働時のメモリ増加は未評価です。SurfaceViewと同梱の自作動画、Chromeのローカルページを検証しました。ホームの既存MultiplePictureWallpaperで左右のページ移動に伴う背景変化と復帰も確認しました。すべてのライブ壁紙・動画アプリ・ゲームを検証したわけではありません。
