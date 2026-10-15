@@ -12,12 +12,13 @@ public final class CaptureProbe {
     long[] ids = (long[]) sc.getMethod("getPhysicalDisplayIds").invoke(null);
     IBinder token = (IBinder) sc.getMethod("getPhysicalDisplayToken", long.class).invoke(null, ids[0]);
     Class<?> cap = Class.forName("android.window.ScreenCaptureInternal");
-    boolean layers=argv.length>1;
+    boolean layers=argv.length>1 && argv[1].equals("layers");
     Object mirror=null;
     if(layers) {
       mirror=sc.getConstructor().newInstance();
       Object wm=Class.forName("android.view.WindowManagerGlobal").getMethod("getWindowManagerService").invoke(null);
       System.out.println("mirror="+Class.forName("android.view.IWindowManager").getMethod("mirrorDisplay",int.class,sc).invoke(wm,0,mirror));
+      if(argv.length>2)Thread.sleep(Math.min(1000,Integer.parseInt(argv[2])));
     }
     Class<?> builder = Class.forName(cap.getName()+(layers?"$LayerCaptureArgs$Builder":"$DisplayCaptureArgs$Builder"));
     Object b = layers?builder.getConstructor(sc).newInstance(mirror):builder.getConstructor(IBinder.class).newInstance(token);
