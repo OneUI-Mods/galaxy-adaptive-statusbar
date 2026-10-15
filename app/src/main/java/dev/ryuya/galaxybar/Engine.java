@@ -1,5 +1,6 @@
 package dev.ryuya.galaxybar;
 
+import android.animation.ValueAnimator;
 import android.app.KeyguardManager;
 import android.content.*;
 import android.graphics.*;
@@ -47,6 +48,18 @@ final class Engine {
   private final Set<Drawable> batteries = Collections.newSetFromMap(new IdentityHashMap<>());
   private final Set<TextView> texts = Collections.newSetFromMap(new IdentityHashMap<>());
   private final Map<String, Integer> previous = new ConcurrentHashMap<>();
+  private final Map<String, ColorFade> fades = new HashMap<>();
+  private final Choreographer choreographer = Choreographer.getInstance();
+  private final Choreographer.FrameCallback fadeFrame =
+      ignored -> {
+        fadeScheduled = false;
+        renderFade();
+      };
+  private boolean fadeScheduled;
+  private List<Target> fadeTargets = Collections.emptyList();
+  private final Rect fadeCrop = new Rect();
+  private int fadeEpoch, fadeRotation;
+  private int[] fadeColors = new int[0], fadePercentages = new int[0];
   private volatile Bundle config = new Bundle();
   private volatile boolean busy;
   private volatile int unchangedFrames;
@@ -278,7 +291,7 @@ final class Engine {
                     && context.getSystemService(PowerManager.class).isInteractive()
                     && !context.getSystemService(KeyguardManager.class).isKeyguardLocked())
                   try {
-                    apply(targets, colors, percentageColors);
+                    transition(targets, colors, percentageColors, crop, generation, rotation);
                   } catch (Throwable e) {
                     fail(e);
                   }
@@ -466,6 +479,82 @@ final class Engine {
     return id(v) + "@" + System.identityHashCode(v);
   }
 
+  private void transition(
+      List<Target> targets,
+      int[] colors,
+      int[] percentages,
+      Rect crop,
+      int generation,
+      int rotation) {
+    long now = SystemClock.uptimeMillis();
+    Set<String> live = new HashSet<>();
+    for (int i = 0; i < targets.size(); i++) {
+      Target target = targets.get(i);
+      retarget(target.key, colors[i], now, live);
+      if (target.battery != null) retarget(target.key + ":percentage", percentages[i], now, live);
+    }
+    fades.keySet().retainAll(live);
+    fadeTargets = targets;
+    fadeCrop.set(crop);
+    fadeEpoch = generation;
+    fadeRotation = rotation;
+    if (fadeColors.length != targets.size()) {
+      fadeColors = new int[targets.size()];
+      fadePercentages = new int[targets.size()];
+    }
+    choreographer.removeFrameCallback(fadeFrame);
+    fadeScheduled = false;
+    renderFade();
+  }
+
+  private void retarget(String key, int color, long now, Set<String> live) {
+    live.add(key);
+    fades.computeIfAbsent(key, ignored -> new ColorFade(color)).setTarget(color, now);
+  }
+
+  private void renderFade() {
+    if (fadeTargets.isEmpty()) return;
+    Rect current = new Rect();
+    if (closed
+        || stopped
+        || epoch != fadeEpoch
+        || !config.getBoolean("enabled")
+        || !root.isShown()
+        || !root.getGlobalVisibleRect(current)
+        || !current.equals(fadeCrop)
+        || root.getDisplay() == null
+        || root.getDisplay().getRotation() != fadeRotation
+        || !context.getSystemService(PowerManager.class).isInteractive()
+        || context.getSystemService(KeyguardManager.class).isKeyguardLocked()) {
+      restore();
+      return;
+    }
+    try {
+      long now = SystemClock.uptimeMillis();
+      boolean animate = ValueAnimator.areAnimatorsEnabled(), running = false;
+      for (int i = 0; i < fadeTargets.size(); i++) {
+        Target target = fadeTargets.get(i);
+        ColorFade body = fades.get(target.key);
+        if (!animate) body.finish();
+        fadeColors[i] = body.color(now);
+        running |= body.running(now);
+        if (target.battery != null) {
+          ColorFade percentage = fades.get(target.key + ":percentage");
+          if (!animate) percentage.finish();
+          fadePercentages[i] = percentage.color(now);
+          running |= percentage.running(now);
+        }
+      }
+      apply(fadeTargets, fadeColors, fadePercentages);
+      if (running && !fadeScheduled) {
+        fadeScheduled = true;
+        choreographer.postFrameCallback(fadeFrame);
+      }
+    } catch (Throwable error) {
+      fail(error);
+    }
+  }
+
   private void apply(List<Target> targets, int[] colors, int[] percentageColors) {
     applying = true;
     try {
@@ -568,6 +657,11 @@ final class Engine {
   }
 
   private void restore() {
+    choreographer.removeFrameCallback(fadeFrame);
+    fadeScheduled = false;
+    fadeTargets = Collections.emptyList();
+    fades.clear();
+    fadeColors = fadePercentages = new int[0];
     applying = true;
     try {
       for (var e : originals.entrySet()) e.getKey().setColorFilter(e.getValue());

@@ -72,8 +72,7 @@ final class ModernTintAdapter {
     if (!canRestore(view) || java.util.Objects.equals(applied.get(view), color)) return;
     applying = true;
     try {
-      XposedHelpers.callMethod(
-          view, "setStaticDrawableColor", color, color == 0xff000000 ? 0xffffffff : 0xff000000);
+      XposedHelpers.callMethod(view, "setStaticDrawableColor", color, color ^ 0x00ffffff);
       XposedHelpers.callMethod(view, "setDecorColor", color);
       applied.put(view, color);
     } finally {
