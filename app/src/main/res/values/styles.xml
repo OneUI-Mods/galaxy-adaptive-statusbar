@@ -1,0 +1,4 @@
+<resources>
+ <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar"><item name="android:fontFamily">sans</item><item name="colorPrimary">#435D92</item></style>
+ <string-array name="xposed_scope"><item>com.android.systemui</item></string-array>
+</resources>
