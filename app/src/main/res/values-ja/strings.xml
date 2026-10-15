@@ -52,4 +52,8 @@
     <string name="license_error">ライセンス文書を読み込めませんでした。</string>
     <string name="battery">バッテリーと残量</string>
     <string name="power_note">消灯・ロック中はキャプチャを停止し、ミラーを解放します。ロック解除後に再開します。背景が変わらないときと省電力モードでは最大5 Hzに抑えます。</string>
+    <string name="fade_duration">フェード時間</string>
+    <string name="fade_duration_value">フェード時間: %1$d ms</string>
+    <string name="fade_milliseconds">%1$d ms</string>
+    <string name="fade_duration_note">0msで即時切り替え。長くすると滑らかになりますが、背景の変化への追従は遅くなります。</string>
 </resources>

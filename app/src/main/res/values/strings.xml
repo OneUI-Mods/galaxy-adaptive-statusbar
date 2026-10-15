@@ -53,4 +53,8 @@
     <string name="license_error">Could not load license text.</string>
     <string name="battery">Battery icon and percentage</string>
     <string name="power_note">Screen off or locked: capture stops and the mirror is released. Capture resumes after unlocking. Unchanged backgrounds and battery saver use at most 5 Hz.</string>
+    <string name="fade_duration">Fade duration</string>
+    <string name="fade_duration_value">Fade duration: %1$d ms</string>
+    <string name="fade_milliseconds">%1$d ms</string>
+    <string name="fade_duration_note">0 ms switches immediately. Longer fades are smoother but respond more slowly to background changes.</string>
 </resources>

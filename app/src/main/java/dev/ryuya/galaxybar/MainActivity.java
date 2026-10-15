@@ -110,6 +110,30 @@ public final class MainActivity extends AppCompatActivity {
         body,
         getString(R.string.power_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
+    MaterialTextView fadeLabel =
+        text(body, "", com.google.android.material.R.style.TextAppearance_Material3_TitleSmall);
+    fadeLabel.setId(R.id.fade_duration_value);
+    Slider fadeSlider = new Slider(this);
+    fadeSlider.setId(R.id.fade_duration_slider);
+    fadeSlider.setContentDescription(getString(R.string.fade_duration));
+    fadeSlider.setValueFrom(0);
+    fadeSlider.setValueTo(ColorFade.MAX_DURATION_MS);
+    fadeSlider.setStepSize(ColorFade.STEP_MS);
+    fadeSlider.setValue(
+        ColorFade.clampDuration(prefs.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)));
+    fadeSlider.setLabelFormatter(value -> getString(R.string.fade_milliseconds, Math.round(value)));
+    fadeLabel.setText(getString(R.string.fade_duration_value, Math.round(fadeSlider.getValue())));
+    fadeSlider.addOnChangeListener(
+        (control, value, fromUser) -> {
+          int duration = Math.round(value);
+          fadeLabel.setText(getString(R.string.fade_duration_value, duration));
+          if (fromUser) prefs.edit().putInt("fade_ms", duration).apply();
+        });
+    body.addView(fadeSlider);
+    text(
+        body,
+        getString(R.string.fade_duration_note),
+        com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     String[] keys = {"robust", "mean", "median", "vote"};
     String[] labels = {
       getString(R.string.robust),

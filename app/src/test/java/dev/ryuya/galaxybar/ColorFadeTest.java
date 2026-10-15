@@ -50,4 +50,47 @@ public class ColorFadeTest {
     assertEquals(BLACK, fade.color(1001));
     assertFalse(fade.running(1001));
   }
+
+  @Test
+  public void selectedDurationIsUsedInsteadOfDefault() {
+    ColorFade fade = new ColorFade(BLACK);
+    fade.setDuration(500, 1000);
+    fade.setTarget(WHITE, 1000);
+    assertTrue(fade.running(1080));
+    assertTrue(fade.running(1499));
+    assertEquals(WHITE, fade.color(1500));
+    assertFalse(fade.running(1500));
+  }
+
+  @Test
+  public void zeroDurationImmediatelyCompletesRunningAndFutureTransitions() {
+    ColorFade fade = new ColorFade(BLACK);
+    fade.setTarget(WHITE, 1000);
+    fade.setDuration(0, 1020);
+    assertEquals(WHITE, fade.color(1020));
+    assertFalse(fade.running(1020));
+    fade.setTarget(BLACK, 1030);
+    assertEquals(BLACK, fade.color(1030));
+    assertFalse(fade.running(1030));
+  }
+
+  @Test
+  public void changingDurationPreservesVisibleColorAndRepeatedSettingsDoNotRestart() {
+    ColorFade fade = new ColorFade(BLACK);
+    fade.setTarget(WHITE, 1000);
+    int visible = fade.color(1020);
+    fade.setDuration(300, 1020);
+    assertEquals(visible, fade.color(1020));
+    fade.setDuration(300, 1100);
+    assertEquals(WHITE, fade.color(1320));
+    assertFalse(fade.running(1320));
+  }
+
+  @Test
+  public void durationIsBoundedAndAlignedWithSliderSteps() {
+    assertEquals(0, ColorFade.clampDuration(Integer.MIN_VALUE));
+    assertEquals(500, ColorFade.clampDuration(Integer.MAX_VALUE));
+    assertEquals(80, ColorFade.clampDuration(80));
+    assertEquals(90, ColorFade.clampDuration(85));
+  }
 }

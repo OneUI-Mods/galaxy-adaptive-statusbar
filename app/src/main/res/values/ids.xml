@@ -1,0 +1,4 @@
+<resources>
+    <item type="id" name="fade_duration_slider" />
+    <item type="id" name="fade_duration_value" />
+</resources>

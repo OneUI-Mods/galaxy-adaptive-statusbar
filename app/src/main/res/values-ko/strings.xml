@@ -52,4 +52,8 @@
     <string name="license_error">라이선스 문서를 불러올 수 없습니다.</string>
     <string name="battery">배터리 아이콘 및 잔량</string>
     <string name="power_note">화면이 꺼지거나 잠기면 캡처를 중지하고 미러를 해제합니다. 잠금 해제 후 재개합니다. 배경이 그대로이거나 절전 모드이면 최대 5 Hz로 제한합니다.</string>
+    <string name="fade_duration">페이드 시간</string>
+    <string name="fade_duration_value">페이드 시간: %1$d ms</string>
+    <string name="fade_milliseconds">%1$d ms</string>
+    <string name="fade_duration_note">0ms이면 즉시 전환합니다. 길게 설정하면 부드럽지만 배경 변화에 대한 반응이 느려집니다.</string>
 </resources>

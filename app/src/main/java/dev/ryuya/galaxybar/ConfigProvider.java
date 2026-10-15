@@ -32,6 +32,8 @@ public final class ConfigProvider extends ContentProvider {
                     || key.equals("signals")
                     || key.equals("battery")));
       b.putInt("hz", p.getInt("hz", 10));
+      b.putInt(
+          "fade_ms", ColorFade.clampDuration(p.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)));
       b.putString("algorithm", p.getString("algorithm", "robust"));
       b.putDouble("hysteresis", p.getFloat("hysteresis", .15f));
       return b;

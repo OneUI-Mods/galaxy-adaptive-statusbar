@@ -52,4 +52,8 @@
     <string name="license_error">无法加载许可证文本。</string>
     <string name="battery">电池图标与电量</string>
     <string name="power_note">息屏或锁定时停止捕获并释放镜像，解锁后恢复。背景无变化或开启省电模式时，更新频率最高为 5 Hz。</string>
+    <string name="fade_duration">渐变时长</string>
+    <string name="fade_duration_value">渐变时长：%1$d ms</string>
+    <string name="fade_milliseconds">%1$d ms</string>
+    <string name="fade_duration_note">0ms 表示立即切换。时长越长，变化越平滑，但对背景变化的响应也越慢。</string>
 </resources>

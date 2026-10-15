@@ -52,4 +52,8 @@
     <string name="license_error">No se pudo cargar la licencia.</string>
     <string name="battery">Batería y porcentaje</string>
     <string name="power_note">Con la pantalla apagada o bloqueada, la captura se detiene y se libera el espejo. Se reanuda al desbloquear. Con un fondo estático o ahorro de batería se limita a 5 Hz.</string>
+    <string name="fade_duration">Duración del fundido</string>
+    <string name="fade_duration_value">Duración del fundido: %1$d ms</string>
+    <string name="fade_milliseconds">%1$d ms</string>
+    <string name="fade_duration_note">0 ms cambia al instante. Un fundido más largo es más suave, pero responde más despacio a los cambios del fondo.</string>
 </resources>

@@ -322,6 +322,9 @@ final class Engine {
                 + String.format(Locale.US, "%.1f", frames * 1000.0 / Math.max(1, now - started))
                 + " Hz\nBattery: "
                 + BatteryAdapter.health()
+                + "\nFade: "
+                + config.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)
+                + " ms"
                 + "\nLast error: "
                 + lastError;
         context.getContentResolver().call(ConfigProvider.URI, "status", text, null);
@@ -509,7 +512,9 @@ final class Engine {
 
   private void retarget(String key, int color, long now, Set<String> live) {
     live.add(key);
-    fades.computeIfAbsent(key, ignored -> new ColorFade(color)).setTarget(color, now);
+    ColorFade fade = fades.computeIfAbsent(key, ignored -> new ColorFade(color));
+    fade.setDuration(config.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS), now);
+    fade.setTarget(color, now);
   }
 
   private void renderFade() {
