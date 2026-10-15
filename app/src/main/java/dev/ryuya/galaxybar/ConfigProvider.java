@@ -26,7 +26,11 @@ public final class ConfigProvider extends ContentProvider {
         b.putBoolean(
             key,
             p.getBoolean(
-                key, key.equals("clock") || key.equals("notifications") || key.equals("signals")));
+                key,
+                key.equals("clock")
+                    || key.equals("notifications")
+                    || key.equals("signals")
+                    || key.equals("battery")));
       b.putInt("hz", p.getInt("hz", 10));
       b.putString("algorithm", p.getString("algorithm", "robust"));
       b.putDouble("hysteresis", p.getFloat("hysteresis", .15f));

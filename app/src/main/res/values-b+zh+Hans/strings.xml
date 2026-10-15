@@ -7,9 +7,9 @@
     <string name="clock">时钟字符</string>
     <string name="notifications">通知图标</string>
     <string name="signals">网络与状态图标</string>
-    <string name="battery_note">三星电池目前保留系统默认显示。</string>
+    <string name="battery_note">电量文字的配色也会考虑数字下方的电池填充颜色。</string>
     <string name="frequency">更新频率</string>
-    <string name="rate_30">30 Hz（未评估）</string>
+    <string name="rate_30">30 Hz（实验性，负载较高）</string>
     <string name="algorithm">背景分析方式</string>
     <string name="robust">优先考虑低对比度区域</string>
     <string name="mean">平均亮度</string>
@@ -50,4 +50,6 @@
     <string name="open_source">开源许可声明</string>
     <string name="back">返回</string>
     <string name="license_error">无法加载许可证文本。</string>
+    <string name="battery">电池图标与电量</string>
+    <string name="power_note">息屏或锁定时停止捕获并释放镜像，解锁后恢复。背景无变化或开启省电模式时，更新频率最高为 5 Hz。</string>
 </resources>

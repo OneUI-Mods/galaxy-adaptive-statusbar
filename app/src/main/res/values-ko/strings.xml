@@ -7,9 +7,9 @@
     <string name="clock">시계 문자</string>
     <string name="notifications">알림 아이콘</string>
     <string name="signals">네트워크 및 상태 아이콘</string>
-    <string name="battery_note">삼성 배터리는 현재 기본 표시를 유지합니다.</string>
+    <string name="battery_note">잔량 문자 색상은 배터리 내부의 채움 색상도 고려합니다.</string>
     <string name="frequency">업데이트 빈도</string>
-    <string name="rate_30">30 Hz (미평가)</string>
+    <string name="rate_30">30 Hz (실험적, 부하 증가)</string>
     <string name="algorithm">배경 분석 방법</string>
     <string name="robust">낮은 대비 영역 우선</string>
     <string name="mean">평균 휘도</string>
@@ -50,4 +50,6 @@
     <string name="open_source">오픈소스 고지</string>
     <string name="back">뒤로</string>
     <string name="license_error">라이선스 문서를 불러올 수 없습니다.</string>
+    <string name="battery">배터리 아이콘 및 잔량</string>
+    <string name="power_note">화면이 꺼지거나 잠기면 캡처를 중지하고 미러를 해제합니다. 잠금 해제 후 재개합니다. 배경이 그대로이거나 절전 모드이면 최대 5 Hz로 제한합니다.</string>
 </resources>

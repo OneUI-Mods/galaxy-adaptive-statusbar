@@ -49,7 +49,7 @@ def properties(endpoint):
 
 def remember(endpoint):
     actual = properties(endpoint)
-    if not actual['serial'] or not actual['fingerprint']:
+    if not actual.get('serial') or not actual.get('fingerprint'):
         raise RuntimeError('Endpoint is unavailable or does not expose a stable identity.')
     old = json.loads(IDENTITY.read_text()) if IDENTITY.exists() else {}
     if old and not matches(old, actual):

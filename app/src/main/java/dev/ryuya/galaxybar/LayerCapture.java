@@ -33,6 +33,9 @@ final class LayerCapture implements AutoCloseable {
                   .invoke(wm, displayId, mirror);
       if (!ok) throw new IllegalStateException("mirrorDisplay denied");
       display = displayId;
+      // The mirror can be returned before SurfaceFlinger's next snapshot contains it.
+      // This one-time wait is worker-only. Subsequent transient failures retain the mirror.
+      android.os.SystemClock.sleep(50);
     }
     Object b = builder.getConstructor(SurfaceControl.class).newInstance(mirror);
     builder.getMethod("setChildrenOnly", boolean.class).invoke(b, false);
@@ -45,9 +48,7 @@ final class LayerCapture implements AutoCloseable {
     builder.getMethod("setProtectedContentPolicy", int.class).invoke(b, 2);
     Object args = builder.getMethod("build").invoke(b);
     Object shot = cap.getMethod("captureLayers", args.getClass()).invoke(null, args);
-    if (shot == null)
-      throw new IllegalStateException(
-          "Capture unavailable (secure, protected, or surface transition)");
+    if (shot == null) throw new UnavailableException();
     HardwareBuffer buffer =
         (HardwareBuffer) shot.getClass().getMethod("getHardwareBuffer").invoke(shot);
     try {
@@ -64,6 +65,12 @@ final class LayerCapture implements AutoCloseable {
       }
     } finally {
       buffer.close();
+    }
+  }
+
+  static final class UnavailableException extends IllegalStateException {
+    UnavailableException() {
+      super("Capture unavailable (secure, protected, or surface transition)");
     }
   }
 

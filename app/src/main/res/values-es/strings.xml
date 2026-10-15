@@ -7,9 +7,9 @@
     <string name="clock">Caracteres del reloj</string>
     <string name="notifications">Iconos de notificación</string>
     <string name="signals">Iconos de red y estado</string>
-    <string name="battery_note">La batería de Samsung conserva por ahora su aspecto estándar.</string>
+    <string name="battery_note">El color del porcentaje también tiene en cuenta el relleno de la batería.</string>
     <string name="frequency">Frecuencia de actualización</string>
-    <string name="rate_30">30 Hz (sin evaluar)</string>
+    <string name="rate_30">30 Hz (experimental, mayor carga)</string>
     <string name="algorithm">Análisis del fondo</string>
     <string name="robust">Priorizar zonas de bajo contraste</string>
     <string name="mean">Luminancia media</string>
@@ -50,4 +50,6 @@
     <string name="open_source">Avisos de código abierto</string>
     <string name="back">Volver</string>
     <string name="license_error">No se pudo cargar la licencia.</string>
+    <string name="battery">Batería y porcentaje</string>
+    <string name="power_note">Con la pantalla apagada o bloqueada, la captura se detiene y se libera el espejo. Se reanuda al desbloquear. Con un fondo estático o ahorro de batería se limita a 5 Hz.</string>
 </resources>

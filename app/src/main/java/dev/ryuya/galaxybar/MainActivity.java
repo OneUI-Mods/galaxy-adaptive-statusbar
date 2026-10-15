@@ -5,7 +5,6 @@ import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.Looper;
-import android.view.ViewGroup;
 import android.widget.ArrayAdapter;
 import android.widget.LinearLayout;
 import androidx.appcompat.app.AppCompatActivity;
@@ -49,8 +48,10 @@ public final class MainActivity extends AppCompatActivity {
   public void onCreate(Bundle state) {
     super.onCreate(state);
     prefs = getSharedPreferences("config", MODE_PRIVATE);
-    if (getIntent().getBooleanExtra("disable", false))
+    if (getIntent().getBooleanExtra("disable", false)) {
       prefs.edit().putBoolean("enabled", false).apply();
+      getIntent().removeExtra("disable");
+    }
     WindowCompat.setDecorFitsSystemWindows(getWindow(), false);
     LinearLayout safe = column(0);
     setContentView(safe);
@@ -90,6 +91,7 @@ public final class MainActivity extends AppCompatActivity {
     toggle(body, getString(R.string.clock), "clock", true);
     toggle(body, getString(R.string.notifications), "notifications", true);
     toggle(body, getString(R.string.signals), "signals", true);
+    toggle(body, getString(R.string.battery), "battery", true);
     text(
         body,
         getString(R.string.battery_note),
@@ -104,6 +106,10 @@ public final class MainActivity extends AppCompatActivity {
         rateLabels,
         selected,
         index -> prefs.edit().putInt("hz", rates[index]).apply());
+    text(
+        body,
+        getString(R.string.power_note),
+        com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     String[] keys = {"robust", "mean", "median", "vote"};
     String[] labels = {
       getString(R.string.robust),
@@ -313,6 +319,18 @@ public final class MainActivity extends AppCompatActivity {
             },
             "GalaxyBarRootCheck")
         .start();
+  }
+
+  @Override
+  protected void onNewIntent(Intent intent) {
+    super.onNewIntent(intent);
+    boolean disable = intent.getBooleanExtra("disable", false);
+    intent.removeExtra("disable");
+    setIntent(intent);
+    if (disable) {
+      prefs.edit().putBoolean("enabled", false).apply();
+      recreate();
+    }
   }
 
   @Override

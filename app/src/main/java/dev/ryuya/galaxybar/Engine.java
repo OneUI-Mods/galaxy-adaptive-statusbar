@@ -1,7 +1,9 @@
 package dev.ryuya.galaxybar;
 
+import android.app.KeyguardManager;
 import android.content.*;
 import android.graphics.*;
+import android.graphics.drawable.Drawable;
 import android.os.*;
 import android.text.*;
 import android.text.style.ForegroundColorSpan;
@@ -18,6 +20,20 @@ final class Engine {
   private final View root;
   private final Context context;
   private final Handler main = new Handler(Looper.getMainLooper());
+  private final Runnable ticker = this::tick;
+  private final BroadcastReceiver screenState =
+      new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context ignored, Intent intent) {
+          if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+            epoch++;
+            restore();
+            worker.execute(() -> releaseCapture());
+          }
+          main.removeCallbacks(ticker);
+          main.post(ticker);
+        }
+      };
   private final ExecutorService worker =
       Executors.newSingleThreadExecutor(
           r -> {
@@ -26,10 +42,16 @@ final class Engine {
             return t;
           });
   private final IdentityHashMap<ImageView, ColorFilter> originals = new IdentityHashMap<>();
+  private final IdentityHashMap<ImageView, Integer> appliedColors = new IdentityHashMap<>();
+  private final Set<View> modern = Collections.newSetFromMap(new IdentityHashMap<>());
+  private final Set<Drawable> batteries = Collections.newSetFromMap(new IdentityHashMap<>());
   private final Set<TextView> texts = Collections.newSetFromMap(new IdentityHashMap<>());
   private final Map<String, Integer> previous = new ConcurrentHashMap<>();
   private volatile Bundle config = new Bundle();
   private volatile boolean busy;
+  private volatile int unchangedFrames;
+  private int[] framePixels = new int[0];
+  private int frameHash, capturedRotation = -1;
   private long lastConfig, lastStatus, lastDebug;
   private int errors, epoch;
   private boolean stopped, wasEnabled, closed, applying;
@@ -44,11 +66,28 @@ final class Engine {
     }
   }
 
-  private record Target(View view, Rect area, int start, int end, String text, String key) {}
+  private record Target(
+      View view,
+      Rect area,
+      int start,
+      int end,
+      String text,
+      String key,
+      BatteryAdapter.Geometry battery) {
+    Target(View view, Rect area, int start, int end, String text, String key) {
+      this(view, area, start, end, text, key, null);
+    }
+  }
 
   Engine(View root) {
     this.root = root;
     context = root.getContext();
+    worker.execute(() -> BatteryAdapter.validate(context));
+    IntentFilter filter = new IntentFilter();
+    filter.addAction(Intent.ACTION_SCREEN_OFF);
+    filter.addAction(Intent.ACTION_SCREEN_ON);
+    filter.addAction(Intent.ACTION_USER_PRESENT);
+    context.registerReceiver(screenState, filter, Context.RECEIVER_NOT_EXPORTED);
     XposedBridge.log(
         "GalaxyBar: engine root="
             + root.getClass().getName()
@@ -56,7 +95,7 @@ final class Engine {
             + root.getWidth()
             + "x"
             + root.getHeight());
-    main.post(this::tick);
+    main.post(ticker);
   }
 
   private void tick() {
@@ -82,14 +121,19 @@ final class Engine {
                 && !stopped
                 && visible
                 && power.isInteractive()
+                && !context.getSystemService(KeyguardManager.class).isKeyguardLocked()
                 && crop.top == 0
                 && crop.height() < root.getResources().getDisplayMetrics().heightPixels / 4;
-        // Only the verified built-in portrait display is supported by this first adapter.
+        // Other rotations retain standard colors until the capture mapping is verified.
         allowed &=
             root.getDisplay() != null
                 && root.getDisplay().getDisplayId() == 0
                 && root.getDisplay().getRotation() == Surface.ROTATION_0;
-        if (!allowed && (!originals.isEmpty() || !texts.isEmpty())) {
+        if (!allowed
+            && (!originals.isEmpty()
+                || !texts.isEmpty()
+                || !modern.isEmpty()
+                || !batteries.isEmpty())) {
           epoch++;
           restore();
         }
@@ -104,9 +148,12 @@ final class Engine {
         final int generation = epoch;
         final boolean run = allowed;
         final int display = run ? root.getDisplay().getDisplayId() : 0;
+        final int rotation = run ? root.getDisplay().getRotation() : 0;
         final Bundle settings = new Bundle(config);
         worker.execute(
-            () -> process(now, run, crop, excluded, display, targets, generation, settings));
+            () ->
+                process(
+                    now, run, crop, excluded, display, rotation, targets, generation, settings));
       }
     } catch (Throwable t) {
       busy = false;
@@ -115,8 +162,12 @@ final class Engine {
     int hz = config.getInt("hz", 10);
     if (hz != 5 && hz != 10 && hz != 15 && hz != 30) hz = 10;
     PowerManager p = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-    if (p.isPowerSaveMode()) hz = 5;
-    main.postDelayed(this::tick, Math.max(33, 1000 / hz));
+    if (p.isPowerSaveMode() || unchangedFrames >= 20) hz = 5;
+    boolean asleep =
+        !p.isInteractive() || context.getSystemService(KeyguardManager.class).isKeyguardLocked();
+    main.postDelayed(
+        ticker,
+        asleep ? 5000 : !config.getBoolean("enabled") || stopped ? 500 : Math.max(33, 1000 / hz));
   }
 
   private void process(
@@ -125,6 +176,7 @@ final class Engine {
       Rect crop,
       SurfaceControl excluded,
       int display,
+      int rotation,
       List<Target> targets,
       int generation,
       Bundle settings) {
@@ -134,12 +186,29 @@ final class Engine {
         if (fresh != null) config = fresh;
         lastConfig = now;
       }
+      run &=
+          context.getSystemService(PowerManager.class).isInteractive()
+              && !context.getSystemService(KeyguardManager.class).isKeyguardLocked();
       if (run && !targets.isEmpty()) {
+        if (capturedRotation != rotation) {
+          if (capture != null) capture.close();
+          capture = null;
+          capturedRotation = rotation;
+          unchangedFrames = 0;
+          previous.clear();
+        }
         if (capture == null) capture = new LayerCapture();
         long start = SystemClock.elapsedRealtimeNanos();
         Bitmap bmp = capture.capture(display, crop, excluded);
         try {
+          int size = bmp.getWidth() * bmp.getHeight();
+          if (framePixels.length != size) framePixels = new int[size];
+          bmp.getPixels(framePixels, 0, bmp.getWidth(), 0, 0, bmp.getWidth(), bmp.getHeight());
+          int hash = Arrays.hashCode(framePixels);
+          unchangedFrames = hash == frameHash ? unchangedFrames + 1 : 0;
+          frameHash = hash;
           int[] colors = new int[targets.size()];
+          int[] percentageColors = new int[targets.size()];
           StringBuilder details = new StringBuilder();
           Set<String> liveKeys = new HashSet<>();
           for (int i = 0; i < targets.size(); i++) {
@@ -152,10 +221,29 @@ final class Engine {
                     previous.getOrDefault(t.key, 0),
                     settings.getString("algorithm", "robust"),
                     settings.getDouble("hysteresis", .15));
-            if (settings.getBoolean("fixed") && t.start >= 0)
+            if (settings.getBoolean("fixed") && t.start >= 0 && isClock(t.view))
               color = t.start % 2 == 0 ? Color.WHITE : Color.BLACK;
             previous.put(t.key, color);
             colors[i] = color;
+            if (t.battery != null) {
+              String percentKey = t.key + ":percentage";
+              liveKeys.add(percentKey);
+              percentageColors[i] =
+                  BatteryAdapter.percentageColor(
+                      bmp,
+                      crop,
+                      t.area,
+                      t.battery,
+                      color,
+                      previous.getOrDefault(percentKey, 0),
+                      settings.getString("algorithm", "robust"),
+                      settings.getDouble("hysteresis", .15));
+              previous.put(percentKey, percentageColors[i]);
+              if (settings.getBoolean("debug"))
+                details
+                    .append(percentKey)
+                    .append(percentageColors[i] == Color.BLACK ? " black\n" : " white\n");
+            }
             if (settings.getBoolean("debug")) {
               double avg = 0;
               for (double value : values) avg += value;
@@ -186,9 +274,11 @@ final class Engine {
                     && !stopped
                     && root.getGlobalVisibleRect(current)
                     && current.equals(crop)
-                    && root.getDisplay().getRotation() == Surface.ROTATION_0)
+                    && root.getDisplay().getRotation() == rotation
+                    && context.getSystemService(PowerManager.class).isInteractive()
+                    && !context.getSystemService(KeyguardManager.class).isKeyguardLocked())
                   try {
-                    apply(targets, colors);
+                    apply(targets, colors, percentageColors);
                   } catch (Throwable e) {
                     fail(e);
                   }
@@ -206,11 +296,8 @@ final class Engine {
         }
       } else if (!settings.getBoolean("enabled")) state = "Hook active; module disabled";
       else if (stopped) state = "Stopped after consecutive errors; toggle module to retry";
-      else state = "Paused: screen off, status bar hidden, or unsupported display/rotation";
-      if (!run && capture != null) {
-        capture.close();
-        capture = null;
-      }
+      else state = "Paused: screen off/locked, status bar hidden, or unsupported display/rotation";
+      if (!run) releaseCapture();
       if (now - lastStatus > 2000) {
         String text =
             state
@@ -220,14 +307,16 @@ final class Engine {
                 + String.format(Locale.US, "%.1f", lastMs)
                 + " ms\nSession rate "
                 + String.format(Locale.US, "%.1f", frames * 1000.0 / Math.max(1, now - started))
-                + " Hz\nLast error: "
+                + " Hz\nBattery: "
+                + BatteryAdapter.health()
+                + "\nLast error: "
                 + lastError;
         context.getContentResolver().call(ConfigProvider.URI, "status", text, null);
         lastStatus = now;
       }
     } catch (Throwable t) {
       main.post(() -> fail(t));
-      if (capture != null) {
+      if (capture != null && !(t instanceof LayerCapture.UnavailableException)) {
         capture.close();
         capture = null;
       }
@@ -259,10 +348,30 @@ final class Engine {
   private void collect(View view, List<Target> out) {
     if (!view.isShown() || view.getAlpha() <= 0) return;
     String name = view.getClass().getName(), id = id(view);
+    if (name.contains("OngoingChip") || id.contains("capsule")) return;
+    if (ModernTintAdapter.supports(view)) {
+      Rect area = new Rect();
+      if (config.getBoolean("signals", true)
+          && ModernTintAdapter.canRestore(view)
+          && view.getGlobalVisibleRect(area)
+          && !area.isEmpty()) out.add(new Target(view, area, -1, -1, "", key(view) + ":modern"));
+      return;
+    }
+    if (view instanceof ImageView battery && BatteryAdapter.supports(battery)) {
+      Rect area = new Rect();
+      if (config.getBoolean("battery", true) && view.getGlobalVisibleRect(area) && !area.isEmpty())
+        out.add(
+            new Target(
+                view, area, -1, -1, "", key(view) + ":battery", BatteryAdapter.geometry(battery)));
+      return;
+    }
+    if (name.endsWith(".StatusBarIconView")
+        && ((Integer) XposedHelpers.callMethod(view, "getVisibleState")) == 2) return;
+
     if (view instanceof TextView text
         && text.getLayout() != null
         && !text.getText().toString().isBlank()) {
-      boolean clock = name.endsWith(".Clock") || name.contains("QSClock") || id.contains("clock");
+      boolean clock = isClock(view);
       boolean battery = ancestor(view, "battery");
       if (clock
           ? config.getBoolean("clock", true)
@@ -339,9 +448,15 @@ final class Engine {
     }
   }
 
+  private static boolean isClock(View view) {
+    String name = view.getClass().getName();
+    return name.endsWith(".Clock") || name.contains("QSClock") || id(view).contains("clock");
+  }
+
   private static boolean ancestor(View v, String needle) {
+    needle = needle.replace("_", "");
     for (int i = 0; v != null && i < 12; i++) {
-      if (id(v).toLowerCase(Locale.ROOT).contains(needle)) return true;
+      if (id(v).toLowerCase(Locale.ROOT).replace("_", "").contains(needle)) return true;
       v = v.getParent() instanceof View p ? p : null;
     }
     return false;
@@ -351,15 +466,27 @@ final class Engine {
     return id(v) + "@" + System.identityHashCode(v);
   }
 
-  private void apply(List<Target> targets, int[] colors) {
+  private void apply(List<Target> targets, int[] colors, int[] percentageColors) {
     applying = true;
     try {
       Map<TextView, SpannableString> spans = new IdentityHashMap<>();
       Set<ImageView> live = Collections.newSetFromMap(new IdentityHashMap<>());
+      Set<View> liveModern = Collections.newSetFromMap(new IdentityHashMap<>());
+      Set<Drawable> liveBattery = Collections.newSetFromMap(new IdentityHashMap<>());
       for (int i = 0; i < targets.size(); i++) {
         Target t = targets.get(i);
         if (!t.view.isAttachedToWindow()) continue;
-        if (t.view instanceof TextView text) {
+        if (t.battery != null) {
+          if (((ImageView) t.view).getDrawable() == t.battery.drawable()) {
+            liveBattery.add(t.battery.drawable());
+            batteries.add(t.battery.drawable());
+            BatteryAdapter.apply(t.battery, colors[i], percentageColors[i]);
+          }
+        } else if (ModernTintAdapter.supports(t.view)) {
+          liveModern.add(t.view);
+          modern.add(t.view);
+          ModernTintAdapter.apply(t.view, colors[i]);
+        } else if (t.view instanceof TextView text) {
           if (!text.getText().toString().equals(t.text)) continue;
           SpannableString s =
               spans.computeIfAbsent(
@@ -374,7 +501,24 @@ final class Engine {
         } else if (t.view instanceof ImageView image) {
           live.add(image);
           if (!originals.containsKey(image)) originals.put(image, image.getColorFilter());
-          image.setColorFilter(colors[i], PorterDuff.Mode.SRC_IN);
+          if (!Objects.equals(appliedColors.get(image), colors[i])) {
+            image.setColorFilter(colors[i], PorterDuff.Mode.SRC_IN);
+            appliedColors.put(image, colors[i]);
+          }
+        }
+      }
+      for (Iterator<View> it = modern.iterator(); it.hasNext(); ) {
+        View view = it.next();
+        if (!liveModern.contains(view)) {
+          ModernTintAdapter.restore(view);
+          it.remove();
+        }
+      }
+      for (Iterator<Drawable> it = batteries.iterator(); it.hasNext(); ) {
+        Drawable drawable = it.next();
+        if (!liveBattery.contains(drawable)) {
+          BatteryAdapter.restore(drawable);
+          it.remove();
         }
       }
       for (var e : spans.entrySet()) {
@@ -388,6 +532,7 @@ final class Engine {
         ImageView image = images.next();
         if (!live.contains(image)) {
           image.setColorFilter(originals.get(image));
+          appliedColors.remove(image);
           images.remove();
         }
       }
@@ -427,6 +572,11 @@ final class Engine {
     try {
       for (var e : originals.entrySet()) e.getKey().setColorFilter(e.getValue());
       originals.clear();
+      appliedColors.clear();
+      for (View view : modern) ModernTintAdapter.restore(view);
+      modern.clear();
+      for (Drawable drawable : batteries) BatteryAdapter.restore(drawable);
+      batteries.clear();
       for (TextView t : texts) clear(t);
       texts.clear();
       previous.clear();
@@ -436,13 +586,16 @@ final class Engine {
   }
 
   void standardFilter(ImageView view, ColorFilter filter) {
-    if (!applying && Looper.myLooper() == Looper.getMainLooper() && originals.containsKey(view))
+    if (!applying && Looper.myLooper() == Looper.getMainLooper() && originals.containsKey(view)) {
       originals.put(view, filter);
+      appliedColors.remove(view);
+    }
   }
 
   void standardDrawable(ImageView view) {
     if (!applying && Looper.myLooper() == Looper.getMainLooper() && originals.containsKey(view)) {
       ColorFilter original = originals.remove(view);
+      appliedColors.remove(view);
       applying = true;
       try {
         view.setColorFilter(original);
@@ -466,14 +619,20 @@ final class Engine {
     return root.isAttachedToWindow();
   }
 
+  private void releaseCapture() {
+    if (capture != null) capture.close();
+    capture = null;
+    framePixels = new int[0];
+    unchangedFrames = 0;
+  }
+
   void close() {
     closed = true;
+    main.removeCallbacks(ticker);
+    context.unregisterReceiver(screenState);
     epoch++;
     restore();
-    worker.execute(
-        () -> {
-          if (capture != null) capture.close();
-        });
+    worker.execute(this::releaseCapture);
     worker.shutdown();
   }
 }

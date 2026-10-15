@@ -8,9 +8,9 @@
     <string name="clock">Clock characters</string>
     <string name="notifications">Notification icons</string>
     <string name="signals">Network and status icons</string>
-    <string name="battery_note">The Samsung battery currently keeps its standard appearance.</string>
+    <string name="battery_note">Percentage colors also account for the battery fill beneath the digits.</string>
     <string name="frequency">Update frequency</string>
-    <string name="rate_30">30 Hz (not evaluated)</string>
+    <string name="rate_30">30 Hz (experimental, higher load)</string>
     <string name="algorithm">Background analysis</string>
     <string name="robust">Prioritize low-contrast areas</string>
     <string name="mean">Mean luminance</string>
@@ -51,4 +51,6 @@
     <string name="open_source">Open-source notices</string>
     <string name="back">Back</string>
     <string name="license_error">Could not load license text.</string>
+    <string name="battery">Battery icon and percentage</string>
+    <string name="power_note">Screen off or locked: capture stops and the mirror is released. Capture resumes after unlocking. Unchanged backgrounds and battery saver use at most 5 Hz.</string>
 </resources>

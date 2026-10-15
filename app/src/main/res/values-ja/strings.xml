@@ -7,9 +7,9 @@
     <string name="clock">時計の文字</string>
     <string name="notifications">通知アイコン</string>
     <string name="signals">通信・状態アイコン</string>
-    <string name="battery_note">バッテリーは現在、標準の表示を維持します。</string>
+    <string name="battery_note">残量の文字色は、バッテリー内部の塗りも考慮して判定します。</string>
     <string name="frequency">更新頻度</string>
-    <string name="rate_30">30 Hz（未評価）</string>
+    <string name="rate_30">30 Hz（実験的・負荷増）</string>
     <string name="algorithm">背景の判定方法</string>
     <string name="robust">低コントラスト領域を優先</string>
     <string name="mean">平均輝度</string>
@@ -50,4 +50,6 @@
     <string name="open_source">オープンソースライセンス</string>
     <string name="back">戻る</string>
     <string name="license_error">ライセンス文書を読み込めませんでした。</string>
+    <string name="battery">バッテリーと残量</string>
+    <string name="power_note">消灯・ロック中はキャプチャを停止し、ミラーを解放します。ロック解除後に再開します。背景が変わらないときと省電力モードでは最大5 Hzに抑えます。</string>
 </resources>

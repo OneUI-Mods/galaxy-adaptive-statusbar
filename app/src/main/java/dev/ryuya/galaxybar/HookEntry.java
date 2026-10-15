@@ -27,6 +27,16 @@ public final class HookEntry implements IXposedHookLoadPackage {
     Class<?> clock =
         XposedHelpers.findClass(
             "com.android.systemui.statusbar.policy.QSClockIndicatorView", lp.classLoader);
+    try {
+      ModernTintAdapter.install(lp.classLoader);
+    } catch (Throwable error) {
+      XposedBridge.log(error);
+    }
+    try {
+      BatteryAdapter.install(lp.classLoader);
+    } catch (Throwable error) {
+      XposedBridge.log(error);
+    }
     XposedHelpers.findAndHookMethod(
         ImageView.class,
         "setColorFilter",

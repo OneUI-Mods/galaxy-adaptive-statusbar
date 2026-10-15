@@ -4,6 +4,17 @@ import java.util.Arrays;
 
 /** Platform independent contrast decisions in linear sRGB. */
 public final class Contrast {
+  /** Source-over composition in the sRGB buffer, before converting to relative luminance. */
+  public static int over(int background, int foreground, int alpha) {
+    int inverse = 255 - alpha;
+    int red =
+        (((foreground >>> 16) & 255) * alpha + ((background >>> 16) & 255) * inverse + 127) / 255;
+    int green =
+        (((foreground >>> 8) & 255) * alpha + ((background >>> 8) & 255) * inverse + 127) / 255;
+    int blue = ((foreground & 255) * alpha + (background & 255) * inverse + 127) / 255;
+    return 0xff000000 | (red << 16) | (green << 8) | blue;
+  }
+
   private static final double[] LINEAR = new double[256];
 
   static {
