@@ -32,7 +32,6 @@ final class ModernTintAdapter {
           protected void afterHookedMethod(MethodHookParam p) {
             if (applying) return;
             View view = (View) p.thisObject;
-            applied.remove(view);
             int color =
                 (Integer)
                     XposedHelpers.callStaticMethod(
@@ -42,6 +41,10 @@ final class ModernTintAdapter {
                     XposedHelpers.callStaticMethod(
                         dispatcher, "getInverseTint", p.args[0], view, p.args[2]);
             standard.put(view, new int[] {color, inverse});
+            // The dispatcher updates the binding directly, bypassing the static-color setter.
+            // Keep its new baseline, then restore our current paint before the frame is drawn.
+            Integer adaptive = applied.get(view);
+            if (adaptive != null) paint(view, adaptive);
           }
         });
     HookRegistry.hook(
@@ -53,9 +56,13 @@ final class ModernTintAdapter {
           @Override
           protected void beforeHookedMethod(MethodHookParam p) {
             if (!applying) {
-              applied.remove((View) p.thisObject);
-              standard.put(
-                  (View) p.thisObject, new int[] {(Integer) p.args[0], (Integer) p.args[1]});
+              View view = (View) p.thisObject;
+              standard.put(view, new int[] {(Integer) p.args[0], (Integer) p.args[1]});
+              Integer adaptive = applied.get(view);
+              if (adaptive != null) {
+                p.args[0] = adaptive;
+                p.args[1] = adaptive ^ 0x00ffffff;
+              }
             }
           }
         });
@@ -87,11 +94,15 @@ final class ModernTintAdapter {
 
   static void apply(View view, int color) {
     if (!canRestore(view) || java.util.Objects.equals(applied.get(view), color)) return;
+    paint(view, color);
+    applied.put(view, color);
+  }
+
+  private static void paint(View view, int color) {
     applying = true;
     try {
       XposedHelpers.callMethod(view, "setStaticDrawableColor", color, color ^ 0x00ffffff);
       XposedHelpers.callMethod(view, "setDecorColor", color);
-      applied.put(view, color);
     } finally {
       applying = false;
     }

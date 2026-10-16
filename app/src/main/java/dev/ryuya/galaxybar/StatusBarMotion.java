@@ -13,12 +13,13 @@ import de.robv.android.xposed.XposedHelpers;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.function.Consumer;
 
 /** SystemUI owns both the real bar and a short-lived, non-interactive rendering of that bar. */
 final class StatusBarMotion {
   private final View root;
   private final Handler main;
-  private final Runnable motionChanged;
+  private final Consumer<Boolean> motionChanged;
   private final int launcherUid;
   private final AtomicReference<MotionFrame> pending = new AtomicReference<>();
   private final AtomicBoolean posted = new AtomicBoolean();
@@ -59,7 +60,7 @@ final class StatusBarMotion {
         }
       };
 
-  StatusBarMotion(View root, Handler main, Runnable motionChanged) throws Exception {
+  StatusBarMotion(View root, Handler main, Consumer<Boolean> motionChanged) throws Exception {
     this.root = root;
     this.main = main;
     this.motionChanged = motionChanged;
@@ -144,7 +145,7 @@ final class StatusBarMotion {
       timing = new MotionTiming(ValueAnimator.getDurationScale());
       active = true;
       colorSource = MotionPalette.Source.FROZEN;
-      motionChanged.run();
+      motionChanged.accept(true);
       if (leaves.isEmpty()) collectLeaves();
       if (leaves.isEmpty()) {
         cancel("no visible status bar content");
@@ -210,7 +211,7 @@ final class StatusBarMotion {
         MotionPalette.choose(timing.handedOff(), timing.openingLeg(), opacity);
     if (next != colorSource) {
       colorSource = next;
-      motionChanged.run();
+      motionChanged.accept(true);
     }
   }
 
@@ -400,7 +401,9 @@ final class StatusBarMotion {
         overlay = null;
       }
     }
-    if (changed) motionChanged.run();
+    // The final native bar shows the same app/home background. Reject old geometry work,
+    // but retain the current color interpolation and contrast history across this handoff.
+    if (changed) motionChanged.accept(false);
   }
 
   String status() {

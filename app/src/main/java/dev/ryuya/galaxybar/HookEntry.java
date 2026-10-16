@@ -136,13 +136,13 @@ public final class HookEntry implements IXposedHookLoadPackage {
           @Override
           protected void beforeHookedMethod(MethodHookParam p) {
             if (engine != null)
-              engine.standardFilter((ImageView) p.thisObject, (ColorFilter) p.args[0]);
+              p.args[0] = engine.standardFilter((ImageView) p.thisObject, (ColorFilter) p.args[0]);
           }
         });
     XC_MethodHook tintChange =
         new XC_MethodHook() {
           @Override
-          protected void beforeHookedMethod(MethodHookParam p) {
+          protected void afterHookedMethod(MethodHookParam p) {
             if (engine != null) engine.standardDrawable((ImageView) p.thisObject);
           }
         };

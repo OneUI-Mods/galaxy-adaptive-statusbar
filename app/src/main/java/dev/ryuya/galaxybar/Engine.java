@@ -93,7 +93,7 @@ final class Engine {
   private int frameHash, capturedRotation = -1;
   private long lastConfig, lastStatus, lastDebug;
   private int errors, epoch, configRevision;
-  private int analysisEpoch = -1;
+  private int paletteEpoch, analysisEpoch = -1;
   private boolean immediateCapture;
   private volatile String renderState = "Color hooks: 0; fade callbacks: 0; fade targets: 0";
   private boolean stopped, wasEnabled, closed, applying, pendingTargetReset;
@@ -128,14 +128,17 @@ final class Engine {
         new StatusBarMotion(
             root,
             main,
-            () -> {
+            newBackground -> {
               epoch++;
               // A new visible surface has its own palette. Its opacity fade handles the
               // handoff; never interpolate its first decision from the previous screen.
               choreographer.removeFrameCallback(fadeFrame);
               fadeScheduled = false;
               fadeTargets = Collections.emptyList();
-              fades.clear();
+              if (newBackground) {
+                fades.clear();
+                paletteEpoch++;
+              }
               immediateCapture = true;
               if (!closed) {
                 main.removeCallbacks(ticker);
@@ -209,7 +212,7 @@ final class Engine {
                 || !modern.isEmpty()
                 || !batteries.isEmpty())) {
           epoch++;
-          restore();
+          restore("capture ineligible");
         }
         List<Target> targets = new ArrayList<>();
         SurfaceControl[] surfaces = new SurfaceControl[0];
@@ -244,6 +247,7 @@ final class Engine {
         final SurfaceControl[] excluded = surfaces;
         final List<Target> selectedTargets = targets;
         final int generation = epoch;
+        final int paletteGeneration = paletteEpoch;
         final boolean run = allowed;
         final int display = run ? root.getDisplay().getDisplayId() : 0;
         final int rotation = run ? root.getDisplay().getRotation() : 0;
@@ -262,6 +266,7 @@ final class Engine {
                     rotation,
                     selectedTargets,
                     generation,
+                    paletteGeneration,
                     settings,
                     revision));
       }
@@ -364,6 +369,7 @@ final class Engine {
       int rotation,
       List<Target> targets,
       int generation,
+      int paletteGeneration,
       Bundle settings,
       int revision) {
     try {
@@ -379,9 +385,9 @@ final class Engine {
               && context.getSystemService(PowerManager.class).isInteractive()
               && !context.getSystemService(KeyguardManager.class).isKeyguardLocked();
       if (run && !targets.isEmpty()) {
-        if (analysisEpoch != generation) {
+        if (analysisEpoch != paletteGeneration) {
           previous.clear();
-          analysisEpoch = generation;
+          analysisEpoch = paletteGeneration;
         }
         if (capturedRotation != rotation) {
           if (capture != null) capture.close();
@@ -525,7 +531,7 @@ final class Engine {
         state = "Capture temporarily unavailable (secure, protected, or surface transition)";
         main.post(
             () -> {
-              if (!closed && epoch == generation) restore();
+              if (!closed && epoch == generation) restore("capture unavailable");
             });
       } else main.post(() -> fail(t));
       if (capture != null && !(t instanceof LayerCapture.UnavailableException)) {
@@ -741,7 +747,7 @@ final class Engine {
         || root.getDisplay().getRotation() != fadeRotation
         || !context.getSystemService(PowerManager.class).isInteractive()
         || context.getSystemService(KeyguardManager.class).isKeyguardLocked()) {
-      restore();
+      restore("fade state invalid");
       return;
     }
     try {
@@ -880,6 +886,12 @@ final class Engine {
   }
 
   private void restore() {
+    restore("configuration or lifecycle");
+  }
+
+  private void restore(String reason) {
+    if (!originals.isEmpty() || !texts.isEmpty() || !modern.isEmpty() || !batteries.isEmpty())
+      XposedBridge.log("GalaxyBar: colors restored: " + reason + "; moving=" + motion.active());
     motion.colorState(0, 0);
     choreographer.removeFrameCallback(fadeFrame);
     fadeScheduled = false;
@@ -904,20 +916,22 @@ final class Engine {
     updateRenderState();
   }
 
-  void standardFilter(ImageView view, ColorFilter filter) {
+  ColorFilter standardFilter(ImageView view, ColorFilter filter) {
     if (!applying && Looper.myLooper() == Looper.getMainLooper() && originals.containsKey(view)) {
       originals.put(view, filter);
-      appliedColors.remove(view);
+      Integer color = appliedColors.get(view);
+      if (color != null) return new PorterDuffColorFilter(color, PorterDuff.Mode.SRC_IN);
     }
+    return filter;
   }
 
   void standardDrawable(ImageView view) {
     if (!applying && Looper.myLooper() == Looper.getMainLooper() && originals.containsKey(view)) {
-      ColorFilter original = originals.remove(view);
-      appliedColors.remove(view);
+      Integer color = appliedColors.get(view);
+      if (color == null) return;
       applying = true;
       try {
-        view.setColorFilter(original);
+        view.setColorFilter(color, PorterDuff.Mode.SRC_IN);
       } finally {
         applying = false;
       }
@@ -926,7 +940,7 @@ final class Engine {
 
   private void fail(Throwable t) {
     epoch++;
-    restore();
+    restore("error: " + t.getClass().getSimpleName());
     errors++;
     lastError = t.toString();
     state = "Capture unavailable; standard colors restored";
