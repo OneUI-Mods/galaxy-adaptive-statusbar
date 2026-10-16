@@ -48,6 +48,9 @@ public class ScreenStartupTest {
                 activity.findViewById(R.id.guard_reset);
             assertFalse(master.isEnabled());
             assertFalse(master.isChecked());
+            master.setChecked(true);
+            assertFalse(master.isChecked());
+            assertFalse(prefs.getBoolean("enabled", true));
             assertTrue(reset.isEnabled());
             android.os.Bundle fake = new android.os.Bundle();
             fake.putBoolean("blocked", false);

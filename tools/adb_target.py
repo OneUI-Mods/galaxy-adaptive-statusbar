@@ -16,7 +16,9 @@ ADB = shutil.which('adb') or 'adb'
 
 def run(*args, timeout=5):
     try:
-        result = subprocess.run([ADB, *args], capture_output=True, text=True, timeout=timeout)
+        # Discovery must not consume the input intended for the user's final ADB command.
+        result = subprocess.run([ADB, *args], stdin=subprocess.DEVNULL,
+                                capture_output=True, text=True, timeout=timeout)
         return result.stdout.strip() if result.returncode == 0 else ''
     except (OSError, subprocess.TimeoutExpired):
         return ''

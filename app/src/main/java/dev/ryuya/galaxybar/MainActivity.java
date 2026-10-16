@@ -62,6 +62,7 @@ public final class MainActivity extends AppCompatActivity {
   public void onCreate(Bundle state) {
     super.onCreate(state);
     prefs = getSharedPreferences("config", MODE_PRIVATE);
+    if (protectionBlocked()) prefs.edit().putBoolean("enabled", false).apply();
     if (getIntent().getBooleanExtra("disable", false)) {
       prefs.edit().putBoolean("enabled", false).apply();
       getIntent().removeExtra("disable");
@@ -224,7 +225,7 @@ public final class MainActivity extends AppCompatActivity {
     guardSummary =
         text(
             diagnostic,
-            getString(R.string.guard_note),
+            getString(protectionBlocked() ? R.string.guard_blocked : R.string.guard_note),
             com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
     guardResetControl = button(diagnostic, getString(R.string.guard_reset), this::resetCrashGuard);
     guardResetControl.setId(R.id.guard_reset);
@@ -315,9 +316,17 @@ public final class MainActivity extends AppCompatActivity {
     MaterialSwitch control = new MaterialSwitch(this);
     control.setText(label);
     control.setMinHeight(dp(56));
-    control.setChecked(prefs.getBoolean(key, defaultValue));
+    boolean protectedMaster = key.equals("enabled") && protectionBlocked();
+    control.setChecked(!protectedMaster && prefs.getBoolean(key, defaultValue));
+    if (key.equals("enabled")) control.setEnabled(!protectedMaster);
     control.setOnCheckedChangeListener(
-        (button, checked) -> prefs.edit().putBoolean(key, checked).apply());
+        (button, checked) -> {
+          if (key.equals("enabled") && checked && protectionBlocked()) {
+            control.setChecked(false);
+            return;
+          }
+          prefs.edit().putBoolean(key, checked).apply();
+        });
     parent.addView(control, new LinearLayout.LayoutParams(-1, -2));
     return control;
   }
