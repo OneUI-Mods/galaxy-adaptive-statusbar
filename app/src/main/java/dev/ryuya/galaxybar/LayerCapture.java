@@ -52,18 +52,28 @@ final class LayerCapture implements AutoCloseable {
     builder.getMethod("setProtectedContentPolicy", int.class).invoke(b, 2);
     Object args = builder.getMethod("build").invoke(b);
     Object shot = cap.getMethod("captureLayers", args.getClass()).invoke(null, args);
+    return copyCapture(shot, crop);
+  }
+
+  static Bitmap copyCapture(Object shot, Rect crop) throws Exception {
     if (shot == null) throw new UnavailableException();
     HardwareBuffer buffer =
         (HardwareBuffer) shot.getClass().getMethod("getHardwareBuffer").invoke(shot);
+    // A capture result can exist without pixels while a task's surfaces are being replaced.
+    // Do not dereference or close a missing buffer, and do not count this as a hook failure.
+    if (buffer == null) throw new UnavailableException();
     try {
       if ((Boolean) shot.getClass().getMethod("containsSecureLayers").invoke(shot))
         throw new SecurityException("Secure layers");
       Bitmap hw = (Bitmap) shot.getClass().getMethod("asBitmap").invoke(shot);
+      if (hw == null) throw new UnavailableException();
       try {
         if (hw.getWidth() != Math.round(crop.width() * .5f)
             || hw.getHeight() != Math.round(crop.height() * .5f))
           throw new IllegalStateException("Crop was ignored");
-        return hw.copy(Bitmap.Config.ARGB_8888, false);
+        Bitmap copy = hw.copy(Bitmap.Config.ARGB_8888, false);
+        if (copy == null) throw new UnavailableException();
+        return copy;
       } finally {
         hw.recycle();
       }
