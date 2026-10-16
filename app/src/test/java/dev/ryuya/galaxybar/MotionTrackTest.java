@@ -7,11 +7,12 @@ import org.junit.Test;
 
 public class MotionTrackTest {
   private MotionFrame frame(long session, long time, int task, boolean opening, float width) {
-    return new MotionFrame(session, time, opening, task, true, 0, 0, width, 2400, 1, -1, 30, false);
+    return new MotionFrame(
+        session, time, opening, task, true, false, 0, 0, width, 2400, 1, -1, 30, false);
   }
 
   private MotionFrame end(long session, long time) {
-    return new MotionFrame(session, time, false, 0, false, 0, 0, 0, 0, 0, -1, 0, true);
+    return new MotionFrame(session, time, false, 0, false, false, 0, 0, 0, 0, 0, -1, 0, true);
   }
 
   private MotionTrack.Change send(MotionTrack track, MotionFrame f) {

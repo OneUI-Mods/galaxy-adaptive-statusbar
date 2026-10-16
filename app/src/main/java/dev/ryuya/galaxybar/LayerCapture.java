@@ -17,8 +17,14 @@ final class LayerCapture implements AutoCloseable {
   }
 
   Bitmap capture(int displayId, Rect crop, SurfaceControl exclude) throws Exception {
-    if (exclude == null || !exclude.isValid())
+    return capture(displayId, crop, new SurfaceControl[] {exclude});
+  }
+
+  Bitmap capture(int displayId, Rect crop, SurfaceControl[] excludes) throws Exception {
+    if (excludes.length == 0 || excludes[0] == null || !excludes[0].isValid())
       throw new IllegalStateException("Missing SystemUI exclusion surface");
+    for (SurfaceControl surface : excludes)
+      if (surface == null || !surface.isValid()) throw new UnavailableException();
     if (mirror == null || display != displayId) {
       close();
       mirror = SurfaceControl.class.getConstructor().newInstance();
@@ -41,9 +47,7 @@ final class LayerCapture implements AutoCloseable {
     builder.getMethod("setChildrenOnly", boolean.class).invoke(b, false);
     builder.getMethod("setSourceCrop", Rect.class).invoke(b, crop);
     builder.getMethod("setFrameScale", float.class).invoke(b, .5f);
-    builder
-        .getMethod("setExcludeLayers", SurfaceControl[].class)
-        .invoke(b, (Object) new SurfaceControl[] {exclude});
+    builder.getMethod("setExcludeLayers", SurfaceControl[].class).invoke(b, (Object) excludes);
     builder.getMethod("setSecureContentPolicy", int.class).invoke(b, 2);
     builder.getMethod("setProtectedContentPolicy", int.class).invoke(b, 2);
     Object args = builder.getMethod("build").invoke(b);

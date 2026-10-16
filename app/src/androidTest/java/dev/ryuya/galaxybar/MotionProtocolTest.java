@@ -30,7 +30,7 @@ public class MotionProtocolTest {
   @Test
   public void geometryProtocolRoundTripsAndRejectsTrailingData() {
     MotionFrame original =
-        new MotionFrame(100, 200, true, 42, true, 10, 20, 1000, 2000, .9f, 200, 50, false);
+        new MotionFrame(100, 200, true, 42, true, true, 10, 20, 1000, 2000, .9f, 200, 50, false);
     Parcel p = Parcel.obtain();
     try {
       original.write(p);

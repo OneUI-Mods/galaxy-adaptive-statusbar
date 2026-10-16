@@ -6,7 +6,8 @@ import org.junit.Test;
 
 public class MotionFrameTest {
   private MotionFrame frame(long time, float x, float width) {
-    return new MotionFrame(10, time, true, 42, false, x, 100, width, 2000, 1, 200, 40, false);
+    return new MotionFrame(
+        10, time, true, 42, false, false, x, 100, width, 2000, 1, 200, 40, false);
   }
 
   @Test
@@ -32,7 +33,7 @@ public class MotionFrameTest {
   @Test
   public void terminationDoesNotNeedWindowGeometry() {
     assertTrue(
-        new MotionFrame(10, 1000, false, 0, false, 0, 0, 0, 0, 0, -1, 0, true)
+        new MotionFrame(10, 1000, false, 0, false, false, 0, 0, 0, 0, 0, -1, 0, true)
             .valid(1440, 3120, 1010));
   }
 }

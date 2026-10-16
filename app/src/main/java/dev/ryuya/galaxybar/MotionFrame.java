@@ -9,6 +9,7 @@ record MotionFrame(
     boolean opening,
     int taskId,
     boolean interactive,
+    boolean overview,
     float x,
     float y,
     float width,
@@ -17,7 +18,7 @@ record MotionFrame(
     float remainingMs,
     float radius,
     boolean end) {
-  static final String DESCRIPTOR = "dev.ryuya.galaxybar.Motion.v2";
+  static final String DESCRIPTOR = "dev.ryuya.galaxybar.Motion.v3";
 
   boolean valid(int screenWidth, int screenHeight, long now) {
     if (session <= 0 || time > now + 50 || now - time > 180) return false;
@@ -49,6 +50,7 @@ record MotionFrame(
     p.writeBoolean(opening);
     p.writeInt(taskId);
     p.writeBoolean(interactive);
+    p.writeBoolean(overview);
     p.writeFloat(x);
     p.writeFloat(y);
     p.writeFloat(width);
@@ -67,6 +69,7 @@ record MotionFrame(
             p.readLong(),
             p.readBoolean(),
             p.readInt(),
+            p.readBoolean(),
             p.readBoolean(),
             p.readFloat(),
             p.readFloat(),

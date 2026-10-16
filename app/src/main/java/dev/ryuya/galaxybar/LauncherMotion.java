@@ -29,6 +29,7 @@ final class LauncherMotion {
   private final Map<Object, Session> sessions = new WeakHashMap<>();
   private final List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
   private Session foreground;
+  private final LauncherOverview overview;
   private volatile IBinder endpoint;
   private boolean enabled, failed;
   private int revision;
@@ -60,6 +61,49 @@ final class LauncherMotion {
     this.context = context;
     this.loader = loader;
     this.protection = protection;
+    overview =
+        new LauncherOverview(
+            context,
+            main,
+            new LauncherOverview.Sink() {
+              public void frame(
+                  Object owner,
+                  int task,
+                  boolean opening,
+                  boolean recent,
+                  RectF rect,
+                  float alpha,
+                  float radius) {
+                if (!enabled || endpoint == null) return;
+                Session s = sessions.get(owner);
+                if (s == null || s.ended || s != foreground) s = begin(owner);
+                long now = SystemClock.uptimeMillis();
+                s.lastSent = now;
+                s.last =
+                    new MotionFrame(
+                        s.id,
+                        now,
+                        opening,
+                        task,
+                        recent,
+                        recent,
+                        rect.left,
+                        rect.top,
+                        rect.width(),
+                        rect.height(),
+                        Math.max(0, Math.min(1, alpha)),
+                        -1,
+                        Math.max(0, radius),
+                        false);
+                send(s.last);
+              }
+
+              public void end(Object owner) {
+                Session s = sessions.get(owner);
+                if (s != null) LauncherMotion.this.end(s);
+              }
+            },
+            this::fail);
     if (context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode()
         != 1750305027L) {
       XposedBridge.log("GalaxyBar: unsupported One UI Home version; motion hooks not installed");
@@ -127,7 +171,9 @@ final class LauncherMotion {
           protected void beforeHookedMethod(MethodHookParam p) {
             try {
               if (!enabled) return;
+              overview.stop();
               Session s = begin(p.thisObject);
+              s.input = p.args[0];
               s.opening = XposedHelpers.getBooleanField(p.args[0], "isForward");
               s.spring = p.method.getName().equals("startSpring");
             } catch (Throwable error) {
@@ -142,7 +188,7 @@ final class LauncherMotion {
               if (s == null || !enabled) return;
               AnimatorSet animator =
                   (AnimatorSet) XposedHelpers.callMethod(p.args[0], "getAnimatorSet");
-              if (!s.spring) {
+              if (!s.spring && s.duration <= 0) {
                 Object params = XposedHelpers.getObjectField(p.thisObject, "appTransitionParams");
                 Object opening = XposedHelpers.callMethod(params, "getOpenParams");
                 s.duration =
@@ -179,7 +225,8 @@ final class LauncherMotion {
               @Override
               protected void afterHookedMethod(MethodHookParam p) {
                 try {
-                  if (!enabled || endpoint == null || p.hasThrowable()) return;
+                  if (!enabled || endpoint == null || p.hasThrowable() || overview.ownsCard())
+                    return;
                   Session s = sessions.get(p.thisObject);
                   if (s == null || s.ended || s != foreground) return;
                   if (!s.verified) {
@@ -211,6 +258,7 @@ final class LauncherMotion {
                           ((Number) XposedHelpers.callMethod(p.thisObject, "getRunningTaskId"))
                               .intValue(),
                           s.interactive,
+                          false,
                           point.x + crop.left * scale,
                           point.y + crop.top * scale,
                           width,
@@ -259,6 +307,32 @@ final class LauncherMotion {
     hooks.add(
         XposedHelpers.findAndHookMethod(
             player, "moving", RectF.class, float.class, float.class, float.class, gesture));
+    Class<?> valuePlayer =
+        XposedHelpers.findClass(
+            "com.honeyspace.transition.anim.floating.animator.ValueAnimPlayer", loader);
+    Class<?> function = XposedHelpers.findClass("kotlin.jvm.functions.Function1", loader);
+    hooks.add(
+        XposedHelpers.findAndHookMethod(
+            valuePlayer,
+            "play",
+            function,
+            new XC_MethodHook() {
+              @Override
+              protected void beforeHookedMethod(MethodHookParam p) {
+                try {
+                  if (!enabled || foreground == null) return;
+                  Object calculator = XposedHelpers.getObjectField(p.thisObject, "calculator");
+                  if (XposedHelpers.callMethod(calculator, "getInput") != foreground.input) return;
+                  foreground.duration =
+                      ((Number) XposedHelpers.callMethod(calculator, "getPositionDuration"))
+                              .floatValue()
+                          * ValueAnimator.getDurationScale();
+                } catch (Throwable error) {
+                  fail(error);
+                }
+              }
+            }));
+    overview.install(loader, hooks);
     XposedBridge.log("GalaxyBar: One UI Home window motion hooks installed");
   }
 
@@ -298,7 +372,20 @@ final class LauncherMotion {
     s.ended = true;
     send(
         new MotionFrame(
-            s.id, SystemClock.uptimeMillis(), s.opening, 0, false, 0, 0, 0, 0, 0, -1, 0, true));
+            s.id,
+            SystemClock.uptimeMillis(),
+            s.opening,
+            0,
+            false,
+            false,
+            0,
+            0,
+            0,
+            0,
+            0,
+            -1,
+            0,
+            true));
   }
 
   private Session begin(Object player) {
@@ -333,6 +420,7 @@ final class LauncherMotion {
               f.opening(),
               f.taskId(),
               true,
+              f.overview(),
               f.x(),
               f.y(),
               f.width(),
@@ -348,6 +436,7 @@ final class LauncherMotion {
 
   private void disable() {
     enabled = false;
+    overview.stop();
     main.removeCallbacks(heartbeat);
     for (Session s : sessions.values()) end(s);
     sessions.clear();
@@ -374,5 +463,6 @@ final class LauncherMotion {
     boolean opening, spring, verified, ended, interactive;
     float duration;
     MotionFrame last;
+    Object input;
   }
 }

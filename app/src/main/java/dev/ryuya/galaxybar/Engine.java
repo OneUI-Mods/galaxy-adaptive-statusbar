@@ -128,8 +128,11 @@ final class Engine {
             main,
             () -> {
               epoch++;
-              restore();
-              worker.execute(this::releaseCapture);
+              fadeEpoch = epoch;
+              if (!closed) {
+                main.removeCallbacks(ticker);
+                main.post(ticker);
+              }
             });
     context
         .getContentResolver()
@@ -158,23 +161,31 @@ final class Engine {
         boolean enabled = config.getBoolean("enabled");
         PowerManager power = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         Rect crop = new Rect();
+        boolean moving = motion.active();
         boolean visible =
             root.isAttachedToWindow() && root.isShown() && root.getGlobalVisibleRect(crop);
+        if (moving) {
+          Rect movingCrop = motion.sampleCrop();
+          visible = root.isAttachedToWindow() && movingCrop != null && !motion.waitingForSurface();
+          if (movingCrop != null) crop.set(movingCrop);
+        }
         boolean allowed =
             enabled
                 && !stopped
-                && !motion.active()
                 && visible
                 && power.isInteractive()
                 && !context.getSystemService(KeyguardManager.class).isKeyguardLocked()
-                && crop.top == 0
+                && (moving || crop.top == 0)
                 && crop.height() < root.getResources().getDisplayMetrics().heightPixels / 4;
         // Other rotations retain standard colors until the capture mapping is verified.
         allowed &=
             root.getDisplay() != null
                 && root.getDisplay().getDisplayId() == 0
                 && root.getDisplay().getRotation() == Surface.ROTATION_0;
+        if (allowed) motion.prepare(now);
+        if (closed) return;
         if (!allowed
+            && !moving
             && (!originals.isEmpty()
                 || !texts.isEmpty()
                 || !modern.isEmpty()
@@ -183,13 +194,37 @@ final class Engine {
           restore();
         }
         List<Target> targets = new ArrayList<>();
-        SurfaceControl surface = null;
+        SurfaceControl[] surfaces = new SurfaceControl[0];
         if (allowed) {
-          collect(root, targets);
+          if (moving) {
+            for (View view : motion.sourceViews()) collect(view, targets);
+            List<Target> mapped = new ArrayList<>();
+            for (Target target : targets) {
+              Rect area = motion.mappedArea(target.area);
+              if (Rect.intersects(area, crop))
+                mapped.add(
+                    new Target(
+                        target.view,
+                        area,
+                        target.start,
+                        target.end,
+                        target.text,
+                        target.key,
+                        target.battery));
+            }
+            targets = mapped;
+          } else collect(root, targets);
           Object vr = XposedHelpers.callMethod(root, "getViewRootImpl");
-          surface = (SurfaceControl) XposedHelpers.callMethod(vr, "getSurfaceControl");
+          SurfaceControl surface =
+              (SurfaceControl) XposedHelpers.callMethod(vr, "getSurfaceControl");
+          SurfaceControl movingSurface = moving ? motion.overlaySurface() : null;
+          surfaces =
+              movingSurface == null
+                  ? new SurfaceControl[] {surface}
+                  : new SurfaceControl[] {surface, movingSurface};
         }
-        final SurfaceControl excluded = surface;
+        final SurfaceControl[] excluded = surfaces;
+        final List<Target> selectedTargets = targets;
         final int generation = epoch;
         final boolean run = allowed;
         final int display = run ? root.getDisplay().getDisplayId() : 0;
@@ -201,11 +236,12 @@ final class Engine {
                 process(
                     now,
                     run,
+                    moving,
                     crop,
                     excluded,
                     display,
                     rotation,
-                    targets,
+                    selectedTargets,
                     generation,
                     settings,
                     revision));
@@ -301,8 +337,9 @@ final class Engine {
   private void process(
       long now,
       boolean run,
+      boolean moving,
       Rect crop,
-      SurfaceControl excluded,
+      SurfaceControl[] excluded,
       int display,
       int rotation,
       List<Target> targets,
@@ -315,7 +352,6 @@ final class Engine {
       }
       run &=
           config.getBoolean("enabled")
-              && !motion.active()
               && context.getSystemService(PowerManager.class).isInteractive()
               && !context.getSystemService(KeyguardManager.class).isKeyguardLocked();
       if (run && !targets.isEmpty()) {
@@ -401,10 +437,12 @@ final class Engine {
                 if (!closed
                     && epoch == generation
                     && config.getBoolean("enabled")
-                    && !motion.active()
                     && !stopped
-                    && root.getGlobalVisibleRect(current)
-                    && current.equals(crop)
+                    && ((moving && motion.active())
+                        || (!moving
+                            && !motion.active()
+                            && root.getGlobalVisibleRect(current)
+                            && current.equals(crop)))
                     && root.getDisplay().getRotation() == rotation
                     && context.getSystemService(PowerManager.class).isInteractive()
                     && !context.getSystemService(KeyguardManager.class).isKeyguardLocked())
@@ -455,7 +493,13 @@ final class Engine {
         lastStatus = now;
       }
     } catch (Throwable t) {
-      main.post(() -> fail(t));
+      if (t instanceof LayerCapture.UnavailableException) {
+        state = "Capture temporarily unavailable (secure, protected, or surface transition)";
+        main.post(
+            () -> {
+              if (!closed && epoch == generation) restore();
+            });
+      } else main.post(() -> fail(t));
       if (capture != null && !(t instanceof LayerCapture.UnavailableException)) {
         capture.close();
         capture = null;
@@ -486,20 +530,21 @@ final class Engine {
   }
 
   private void collect(View view, List<Target> out) {
-    if (!view.isShown() || view.getAlpha() <= 0) return;
+    boolean virtual = motion.active() && motion.nativeArea(view) != null;
+    if (!virtual && (!view.isShown() || view.getAlpha() <= 0)) return;
     String name = view.getClass().getName(), id = id(view);
     if (name.contains("OngoingChip") || id.contains("capsule")) return;
     if (ModernTintAdapter.supports(view)) {
       Rect area = new Rect();
       if (config.getBoolean("signals", true)
           && ModernTintAdapter.canRestore(view)
-          && view.getGlobalVisibleRect(area)
+          && area(view, area)
           && !area.isEmpty()) out.add(new Target(view, area, -1, -1, "", key(view) + ":modern"));
       return;
     }
     if (view instanceof ImageView battery && BatteryAdapter.supports(battery)) {
       Rect area = new Rect();
-      if (config.getBoolean("battery", true) && view.getGlobalVisibleRect(area) && !area.isEmpty())
+      if (config.getBoolean("battery", true) && area(view, area) && !area.isEmpty())
         out.add(
             new Target(
                 view, area, -1, -1, "", key(view) + ":battery", BatteryAdapter.geometry(battery)));
@@ -527,7 +572,7 @@ final class Engine {
                   ? config.getBoolean("notifications", true)
                   : config.getBoolean("signals", true));
       Rect r = new Rect();
-      if (selected && view.getGlobalVisibleRect(r) && r.width() > 0 && r.height() > 0)
+      if (selected && area(view, r) && r.width() > 0 && r.height() > 0)
         out.add(new Target(image, r, -1, -1, "", key(view) + ":image"));
     }
     if (view instanceof ViewGroup group)
@@ -538,9 +583,12 @@ final class Engine {
     String value = text.getText().toString();
     Layout layout = text.getLayout();
     int[] xy = new int[2];
-    text.getLocationOnScreen(xy);
     Rect visible = new Rect();
-    if (!text.getGlobalVisibleRect(visible)) return;
+    if (!area(text, visible)) return;
+    if (motion.active()) {
+      xy[0] = visible.left;
+      xy[1] = visible.top;
+    } else text.getLocationOnScreen(xy);
     BreakIterator iterator = BreakIterator.getCharacterInstance(Locale.ROOT);
     iterator.setText(value);
     for (int start = iterator.first(), end = iterator.next();
@@ -578,6 +626,16 @@ final class Engine {
                 key(text) + ":" + start + ":" + value.substring(start, end)));
       if (!characters) break;
     }
+  }
+
+  private boolean area(View view, Rect result) {
+    if (motion.active()) {
+      Rect saved = motion.nativeArea(view);
+      if (saved == null) return false;
+      result.set(saved);
+      return !result.isEmpty();
+    }
+    return view.getGlobalVisibleRect(result);
   }
 
   private static String id(View v) {
@@ -648,10 +706,9 @@ final class Engine {
         || stopped
         || epoch != fadeEpoch
         || !config.getBoolean("enabled")
-        || motion.active()
-        || !root.isShown()
-        || !root.getGlobalVisibleRect(current)
-        || !current.equals(fadeCrop)
+        || (motion.active()
+            ? motion.sampleCrop() == null
+            : (!root.isShown() || !root.getGlobalVisibleRect(current) || !current.equals(fadeCrop)))
         || root.getDisplay() == null
         || root.getDisplay().getRotation() != fadeRotation
         || !context.getSystemService(PowerManager.class).isInteractive()
@@ -687,6 +744,8 @@ final class Engine {
   }
 
   private void apply(List<Target> targets, int[] colors, int[] percentageColors) {
+    int colorSpans = 0;
+    Set<Integer> textPalette = new HashSet<>();
     applying = true;
     try {
       Map<TextView, SpannableString> spans = new IdentityHashMap<>();
@@ -708,6 +767,8 @@ final class Engine {
           ModernTintAdapter.apply(t.view, colors[i]);
         } else if (t.view instanceof TextView text) {
           if (!text.getText().toString().equals(t.text)) continue;
+          colorSpans++;
+          textPalette.add(colors[i]);
           SpannableString s =
               spans.computeIfAbsent(
                   text,
@@ -768,6 +829,8 @@ final class Engine {
       applying = false;
     }
     updateRenderState();
+    motion.colorState(colorSpans, textPalette.size());
+    motion.colorsChanged();
   }
 
   private static boolean sameSpans(CharSequence a, SpannableString b) {
@@ -789,6 +852,7 @@ final class Engine {
   }
 
   private void restore() {
+    motion.colorState(0, 0);
     choreographer.removeFrameCallback(fadeFrame);
     fadeScheduled = false;
     fadeTargets = Collections.emptyList();

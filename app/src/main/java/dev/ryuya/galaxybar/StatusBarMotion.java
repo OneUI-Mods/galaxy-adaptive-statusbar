@@ -6,8 +6,11 @@ import android.content.Context;
 import android.graphics.*;
 import android.os.*;
 import android.view.*;
+import android.widget.ImageView;
+import android.widget.TextView;
 import de.robv.android.xposed.XposedBridge;
 import de.robv.android.xposed.XposedHelpers;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -15,7 +18,7 @@ import java.util.concurrent.atomic.AtomicReference;
 final class StatusBarMotion {
   private final View root;
   private final Handler main;
-  private final Runnable pauseCapture;
+  private final Runnable motionChanged;
   private final int launcherUid;
   private final AtomicReference<MotionFrame> pending = new AtomicReference<>();
   private final AtomicBoolean posted = new AtomicBoolean();
@@ -29,12 +32,18 @@ final class StatusBarMotion {
   private final Context context;
   private final WindowManager windows;
   private Overlay overlay;
-  private RenderNode snapshot;
+
+  private record Leaf(View view, Matrix transform, Rect bounds, Rect clip) {}
+
+  private List<Leaf> leaves = List.of();
+  private final int[] origin = new int[2];
   private MotionTiming timing;
   private float originalAlpha;
   private volatile boolean active;
   private boolean enabled, closed, failed;
   private long updates, handoffs, completed;
+  private volatile long draws;
+  private volatile int colorSpans, textPalette;
   private String reason = "waiting for One UI Home";
   private final IBinder endpoint =
       new Binder() {
@@ -50,10 +59,10 @@ final class StatusBarMotion {
         }
       };
 
-  StatusBarMotion(View root, Handler main, Runnable pauseCapture) throws Exception {
+  StatusBarMotion(View root, Handler main, Runnable motionChanged) throws Exception {
     this.root = root;
     this.main = main;
-    this.pauseCapture = pauseCapture;
+    this.motionChanged = motionChanged;
     int windowType =
         XposedHelpers.getStaticIntField(
             WindowManager.LayoutParams.class, "TYPE_STATUS_BAR_SUB_PANEL");
@@ -110,7 +119,7 @@ final class StatusBarMotion {
         || !context.getSystemService(PowerManager.class).isInteractive()
         || context.getSystemService(KeyguardManager.class).isKeyguardLocked()
         || !root.isAttachedToWindow()
-        || !root.isShown()
+        || (!root.isShown() && leaves.isEmpty())
         || root.getDisplay() == null
         || root.getDisplay().getDisplayId() != 0
         || root.getDisplay().getRotation() != Surface.ROTATION_0) {
@@ -125,7 +134,12 @@ final class StatusBarMotion {
       originalAlpha = root.getAlpha();
       timing = new MotionTiming();
       active = true;
-      pauseCapture.run();
+      motionChanged.run();
+      if (leaves.isEmpty()) collectLeaves();
+      if (leaves.isEmpty()) {
+        cancel("no visible status bar content");
+        return;
+      }
       XposedBridge.log("GalaxyBar: motion begin " + (frame.opening() ? "open" : "close"));
     }
     updates++;
@@ -134,9 +148,9 @@ final class StatusBarMotion {
             frame.opening() && !frame.interactive(),
             frame.width() / width,
             frame.remainingMs(),
-            now);
+            now,
+            frame.overview());
     if (timing.handedOff() && overlay == null) {
-      captureBar();
       overlay = new Overlay();
       WindowManager.LayoutParams p =
           new WindowManager.LayoutParams(
@@ -165,21 +179,120 @@ final class StatusBarMotion {
       overlay.invalidate();
       root.setAlpha(originalAlpha * opacity.fixed());
     }
-    reason = frame.opening() ? "opening" : "closing";
+    reason = frame.overview() ? "overview" : frame.opening() ? "opening" : "closing";
     main.removeCallbacks(watchdog);
     main.postDelayed(watchdog, 220);
   }
 
-  private void captureBar() {
-    snapshot = new RenderNode("GalaxyBar snapshot");
-    snapshot.setPosition(0, 0, root.getWidth(), root.getHeight());
-    snapshot.setClipToBounds(true);
-    Canvas canvas = snapshot.beginRecording(root.getWidth(), root.getHeight());
+  void prepare(long now) {
+    if (!enabled || active || closed || failed || root.getAlpha() < .99f || !root.isShown()) return;
+    collectLeaves();
+  }
+
+  private void collectLeaves() {
+    root.getLocationOnScreen(origin);
+    List<Leaf> next = new ArrayList<>();
+    collectLeaf(root, next);
+    leaves = List.copyOf(next);
+  }
+
+  private void collectLeaf(View view, List<Leaf> result) {
+    if (!view.isShown() || view.getAlpha() <= 0 || view.getWidth() <= 0 || view.getHeight() <= 0)
+      return;
+    String name = view.getClass().getName();
+    boolean capsule = name.contains("OngoingChip");
     try {
-      root.draw(canvas);
-    } finally {
-      snapshot.endRecording();
+      capsule |= view.getResources().getResourceEntryName(view.getId()).contains("capsule");
+    } catch (Exception ignored) {
     }
+    if (capsule
+        || ModernTintAdapter.supports(view)
+        || view instanceof TextView
+        || view instanceof ImageView
+        || !(view instanceof ViewGroup)) {
+      Rect clip = new Rect();
+      if (!view.getGlobalVisibleRect(clip)) return;
+      Matrix transform = new Matrix();
+      view.transformMatrixToGlobal(transform);
+      RectF bounds = new RectF(0, 0, view.getWidth(), view.getHeight());
+      transform.mapRect(bounds);
+      Rect area = new Rect();
+      bounds.roundOut(area);
+      transform.postTranslate(-origin[0], -origin[1]);
+      clip.offset(-origin[0], -origin[1]);
+      result.add(new Leaf(view, transform, area, clip));
+    } else {
+      ViewGroup group = (ViewGroup) view;
+      for (int i = 0; i < group.getChildCount(); i++) collectLeaf(group.getChildAt(i), result);
+    }
+  }
+
+  List<View> sourceViews() {
+    List<View> result = new ArrayList<>(leaves.size());
+    for (Leaf leaf : leaves) if (leaf.view().isAttachedToWindow()) result.add(leaf.view());
+    return result;
+  }
+
+  Rect nativeArea(View view) {
+    for (Leaf leaf : leaves) if (leaf.view() == view) return new Rect(leaf.bounds());
+    return null;
+  }
+
+  Rect mappedArea(Rect area) {
+    MotionFrame f = track.current();
+    if (!active || f == null) return new Rect(area);
+    MotionGeometry.Bounds bounds =
+        MotionGeometry.map(
+            f, root.getWidth(), origin[0], origin[1], area.left, area.top, area.right, area.bottom);
+    return new Rect(
+        (int) Math.floor(bounds.left()),
+        (int) Math.floor(bounds.top()),
+        (int) Math.ceil(bounds.right()),
+        (int) Math.ceil(bounds.bottom()));
+  }
+
+  Rect sampleCrop() {
+    if (!active || track.current() == null) return null;
+    Rect crop =
+        mappedArea(
+            new Rect(
+                origin[0], origin[1], origin[0] + root.getWidth(), origin[1] + root.getHeight()));
+    MotionFrame f = track.current();
+    Rect window =
+        new Rect(
+            (int) Math.floor(f.x()),
+            (int) Math.floor(f.y()),
+            (int) Math.ceil(f.x() + f.width()),
+            (int) Math.ceil(f.y() + f.height()));
+    if (!crop.intersect(window)) return null;
+    if (!crop.intersect(
+        0,
+        0,
+        root.getResources().getDisplayMetrics().widthPixels,
+        root.getResources().getDisplayMetrics().heightPixels)) return null;
+    return crop;
+  }
+
+  SurfaceControl overlaySurface() {
+    if (overlay == null) return null;
+    Object viewRoot = XposedHelpers.callMethod(overlay, "getViewRootImpl");
+    if (viewRoot == null) return null;
+    return (SurfaceControl) XposedHelpers.callMethod(viewRoot, "getSurfaceControl");
+  }
+
+  boolean waitingForSurface() {
+    if (overlay == null) return false;
+    SurfaceControl surface = overlaySurface();
+    return surface == null || !surface.isValid();
+  }
+
+  void colorsChanged() {
+    if (overlay != null) overlay.invalidate();
+  }
+
+  void colorState(int spans, int palette) {
+    colorSpans = spans;
+    textPalette = palette;
   }
 
   void cancel(String reason) {
@@ -191,6 +304,7 @@ final class StatusBarMotion {
           root.getResources().getDisplayMetrics().heightPixels,
           SystemClock.uptimeMillis());
     finish(reason);
+    leaves = List.of();
   }
 
   private void finish(String reason) {
@@ -202,6 +316,7 @@ final class StatusBarMotion {
   }
 
   private void releaseDrawing() {
+    boolean changed = active;
     if (active) {
       root.setAlpha(originalAlpha);
       completed++;
@@ -216,8 +331,7 @@ final class StatusBarMotion {
         overlay = null;
       }
     }
-    if (snapshot != null) snapshot.discardDisplayList();
-    snapshot = null;
+    if (changed) motionChanged.run();
   }
 
   String status() {
@@ -228,7 +342,13 @@ final class StatusBarMotion {
         + "; handoffs="
         + handoffs
         + "; restored="
-        + completed;
+        + completed
+        + "; live draws="
+        + draws
+        + "; color spans="
+        + colorSpans
+        + "; text palette="
+        + textPalette;
   }
 
   void close() {
@@ -264,7 +384,8 @@ final class StatusBarMotion {
     private void drawBar(Canvas canvas) {
       if (!canvas.isHardwareAccelerated())
         throw new IllegalStateException("Hardware canvas required");
-      if (snapshot == null || track.current() == null || opacity <= 0) return;
+      if (leaves.isEmpty() || track.current() == null || opacity <= 0) return;
+      draws++;
       MotionFrame f = track.current();
       float scale = f.width() / root.getWidth();
       int save = canvas.save();
@@ -282,7 +403,16 @@ final class StatusBarMotion {
       canvas.scale(scale, scale);
       int layer =
           canvas.saveLayerAlpha(0, 0, root.getWidth(), root.getHeight(), Math.round(255 * opacity));
-      canvas.drawRenderNode(snapshot);
+      // Draw the live source content directly. Parent visibility/alpha belongs to the fixed
+      // bar; glyph spans, icon tint, battery paint, and their ongoing fades remain live.
+      for (Leaf leaf : leaves) {
+        if (!leaf.view().isAttachedToWindow()) continue;
+        int child = canvas.save();
+        canvas.clipRect(leaf.clip());
+        canvas.concat(leaf.transform());
+        leaf.view().draw(canvas);
+        canvas.restoreToCount(child);
+      }
       canvas.restoreToCount(layer);
       canvas.restoreToCount(save);
     }

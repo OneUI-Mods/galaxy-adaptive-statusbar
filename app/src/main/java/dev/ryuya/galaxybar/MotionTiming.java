@@ -6,24 +6,33 @@ final class MotionTiming {
   private long handoff = -1;
   private long lastTime = -1;
   private float moving;
+  private float dim = 1;
 
   record Opacity(float fixed, float moving) {}
 
   Opacity update(boolean opening, float widthRatio, float remainingMs, long now) {
+    return update(opening, widthRatio, remainingMs, now, false);
+  }
+
+  Opacity update(boolean opening, float widthRatio, float remainingMs, long now, boolean overview) {
     if (handoff < 0
-        && (!opening
-            || (remainingMs < 0 && widthRatio >= .8f)
+        && (overview
+            || !opening
+            || widthRatio >= .8f
             || (widthRatio >= .45f && remainingMs >= 0 && remainingMs <= LEAD_MS))) {
       handoff = now;
+      if (!opening && !overview && widthRatio >= .8f) moving = 1;
     }
     if (handoff < 0) return new Opacity(1, 0);
     // Geometry is reversible. Never keep fading toward the original target after a reversal.
     // A new native animator may continue this same timing object without restarting its fade.
-    float target = smooth((widthRatio - .32f) / .34f);
+    float target = overview ? 1 : smooth((widthRatio - .32f) / .34f);
     float step = Math.max(0, now - (lastTime < 0 ? handoff : lastTime)) / 85f;
     moving += Math.max(-step, Math.min(step, target - moving));
+    float targetDim = overview ? .35f + .65f * smooth((widthRatio - .65f) / .35f) : 1;
+    dim += Math.max(-step, Math.min(step, targetDim - dim));
     lastTime = Math.max(now, lastTime);
-    return new Opacity(1 - moving, moving);
+    return new Opacity(1 - moving, moving * dim);
   }
 
   boolean handedOff() {
