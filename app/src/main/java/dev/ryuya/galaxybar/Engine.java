@@ -88,6 +88,7 @@ final class Engine {
   private int[] fadeColors = new int[0], fadePercentages = new int[0];
   private volatile Bundle config = new Bundle();
   private volatile boolean busy;
+  private volatile boolean protectedContent;
   private volatile int unchangedFrames;
   private int[] framePixels = new int[0];
   private int frameHash, capturedRotation = -1;
@@ -277,7 +278,7 @@ final class Engine {
     int hz = config.getInt("hz", 10);
     if (hz != 5 && hz != 10 && hz != 15 && hz != 30) hz = 10;
     PowerManager p = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
-    if (p.isPowerSaveMode() || unchangedFrames >= 20) hz = 5;
+    if (p.isPowerSaveMode() || unchangedFrames >= 20 || protectedContent) hz = 5;
     boolean asleep =
         !p.isInteractive() || context.getSystemService(KeyguardManager.class).isKeyguardLocked();
     main.postDelayed(
@@ -304,7 +305,6 @@ final class Engine {
   private void acceptConfig(Bundle fresh, int revision) {
     if (closed || revision != configRevision) return;
     config = fresh;
-    motion.configure(fresh.getBoolean("enabled") && fresh.getBoolean("motion", true));
     if (pendingTargetReset) {
       epoch++;
       restore();
@@ -315,6 +315,7 @@ final class Engine {
       epoch++;
       restore();
       stopped = false;
+      protectedContent = false;
       errors = 0;
       wasEnabled = enabled;
       if (enabled) {
@@ -327,6 +328,7 @@ final class Engine {
         }
       } else HookEntry.disableColors();
     }
+    motion.configure(enabled && fresh.getBoolean("motion", true) && !stopped && !protectedContent);
     updateRenderState();
     main.removeCallbacks(ticker);
     main.post(ticker);
@@ -481,6 +483,10 @@ final class Engine {
                     && context.getSystemService(PowerManager.class).isInteractive()
                     && !context.getSystemService(KeyguardManager.class).isKeyguardLocked())
                   try {
+                    if (protectedContent) {
+                      protectedContent = false;
+                      motion.configure(config.getBoolean("motion", true));
+                    }
                     transition(targets, colors, percentageColors, crop, generation, rotation);
                   } catch (Throwable e) {
                     fail(e);
@@ -501,33 +507,21 @@ final class Engine {
       else if (stopped) state = "Stopped after consecutive errors; toggle module to retry";
       else state = "Paused: screen off/locked, status bar hidden, or unsupported display/rotation";
       if (!run && !holdCapture) releaseCapture();
-      if (now - lastStatus > 2000) {
-        String text =
-            state
-                + "\nFrame "
-                + frames
-                + "; capture+analysis "
-                + String.format(Locale.US, "%.1f", lastMs)
-                + " ms\nSession rate "
-                + String.format(Locale.US, "%.1f", frames * 1000.0 / Math.max(1, now - started))
-                + " Hz\nBattery: "
-                + BatteryAdapter.health()
-                + "\nFade: "
-                + config.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)
-                + " ms"
-                + "\n"
-                + renderState
-                + "\n"
-                + motion.status()
-                + "\nLast error: "
-                + lastError;
-        context
-            .getContentResolver()
-            .call(ConfigProvider.URI, "status", text, motion.registration());
-        lastStatus = now;
-      }
+
     } catch (Throwable t) {
-      if (t instanceof LayerCapture.UnavailableException) {
+      if (t instanceof LayerCapture.ProtectedContentException) {
+        errors = 0;
+        state = "Paused: protected content; standard status bar";
+        main.post(
+            () -> {
+              if (!closed && epoch == generation && !protectedContent) {
+                protectedContent = true;
+                epoch++;
+                motion.configure(false);
+                restore("protected content");
+              }
+            });
+      } else if (t instanceof LayerCapture.UnavailableException) {
         state = "Capture temporarily unavailable (secure, protected, or surface transition)";
         main.post(
             () -> {
@@ -539,7 +533,39 @@ final class Engine {
         capture = null;
       }
     } finally {
+      try {
+        publishStatus(now);
+      } catch (Throwable error) {
+        main.post(() -> fail(error));
+      }
       busy = false;
+    }
+  }
+
+  private void publishStatus(long now) {
+    if (closed) return;
+    if (now - lastStatus > 2000) {
+      String text =
+          state
+              + "\nFrame "
+              + frames
+              + "; capture+analysis "
+              + String.format(Locale.US, "%.1f", lastMs)
+              + " ms\nSession rate "
+              + String.format(Locale.US, "%.1f", frames * 1000.0 / Math.max(1, now - started))
+              + " Hz\nBattery: "
+              + BatteryAdapter.health()
+              + "\nFade: "
+              + config.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)
+              + " ms"
+              + "\n"
+              + renderState
+              + "\n"
+              + motion.status()
+              + "\nLast error: "
+              + lastError;
+      context.getContentResolver().call(ConfigProvider.URI, "status", text, motion.registration());
+      lastStatus = now;
     }
   }
 
@@ -944,7 +970,10 @@ final class Engine {
     errors++;
     lastError = t.toString();
     state = "Capture unavailable; standard colors restored";
-    if (errors >= 5) stopped = true;
+    if (errors >= 5) {
+      stopped = true;
+      motion.configure(false);
+    }
     XposedBridge.log("GalaxyBar: " + lastError);
   }
 

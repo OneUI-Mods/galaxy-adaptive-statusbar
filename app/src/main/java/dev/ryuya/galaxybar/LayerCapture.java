@@ -64,7 +64,7 @@ final class LayerCapture implements AutoCloseable {
     if (buffer == null) throw new UnavailableException();
     try {
       if ((Boolean) shot.getClass().getMethod("containsSecureLayers").invoke(shot))
-        throw new SecurityException("Secure layers");
+        throw new ProtectedContentException();
       Bitmap hw = (Bitmap) shot.getClass().getMethod("asBitmap").invoke(shot);
       if (hw == null) throw new UnavailableException();
       try {
@@ -86,6 +86,12 @@ final class LayerCapture implements AutoCloseable {
   static final class UnavailableException extends IllegalStateException {
     UnavailableException() {
       super("Capture unavailable (secure, protected, or surface transition)");
+    }
+  }
+
+  static final class ProtectedContentException extends SecurityException {
+    ProtectedContentException() {
+      super("Secure layers");
     }
   }
 

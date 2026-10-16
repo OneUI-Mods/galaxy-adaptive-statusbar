@@ -82,7 +82,8 @@ public class LayerCaptureTest {
     try (HardwareBuffer buffer = buffer()) {
       Shot secure = new Shot(buffer, null, true);
       assertThrows(
-          SecurityException.class, () -> LayerCapture.copyCapture(secure, new Rect(0, 0, 16, 16)));
+          LayerCapture.ProtectedContentException.class,
+          () -> LayerCapture.copyCapture(secure, new Rect(0, 0, 16, 16)));
       assertFalse(secure.bitmapRequested);
       assertTrue(buffer.isClosed());
     }
