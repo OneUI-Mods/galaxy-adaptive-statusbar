@@ -2,7 +2,7 @@
 
 Galaxy One UIの時計を文字ごとに、通知・通信表示をアイコンごとに、実際の背景とのコントラストで黒／白へ切り替えるlegacy Xposed / VectorモジュールとMaterial 3設定アプリです。
 
-**0.4.4は実験版です。** SM-S948Q / Android 16 / One UI 8.5の縦画面で、SystemUI自身を除外した背景取得、時計・通知・Wi-Fi・デュアルSIM表示の配色を実機確認しました。電池本体と残量文字、SurfaceViewアニメーションと自作動画への追従、保護画面での取得拒否も確認しました。現在のライブ壁紙のページ切替とChromeスクロールでも継続取得を確認しました。横画面、長時間負荷、One UI 9は未検証です。
+**0.5.0は実験版です。** SM-S948Q / Android 16 / One UI 8.5の縦画面を対象に、One UIホームでのアプリ開閉と履歴への追従を追加しました。追従中も時計の文字別・アイコン別・電池の自動配色を継続します。現在のHome Up設定で確認していますが、すべてのアニメーション設定や履歴カードに対応するものではありません。横画面、長時間負荷、One UI 9は未検証です。
 
 GitHub: https://github.com/ryuya0124/galaxy-adaptive-statusbar （非公開）
 
@@ -17,6 +17,7 @@ GitHub: https://github.com/ryuya0124/galaxy-adaptive-statusbar （非公開）
 |解像度 / density|1440×3120 / 468 override|
 |root / SELinux|一時root / Enforcing|
 |Vector|2.2 / code 3080 / API 102|
+|アニメーション追従|One UIホーム17.5.03.27、縦画面・単一ウィンドウ・現在のアプリ1枚|
 |StatusBar|独立Surface、縦画面1440×140px|
 
 このビルドだけを明示的に許可します。他OS・One UI 8の別ビルド・One UI 9は、内部クラス調査と実機確認が必要です。boot・システムパーティション・SystemUI.apk・SELinux設定は変更しません。
@@ -39,12 +40,14 @@ python3 -m unittest discover -s tools -p 'test_*.py'
 adb connect HOST:PORT
 python3 tools/adb_target.py --remember HOST:PORT
 bash tools/install.sh
-bash tools/adb.sh shell 'su -c "kill -TERM $(pidof com.android.systemui)"'
+bash tools/adb.sh shell 'su -c "kill -TERM $(pidof com.sec.android.app.launcher) $(pidof com.android.systemui)"'
 ```
 
-`install.sh`は生成済みの署名付きrelease APKを導入し、既存Vector CLIによる本モジュールの有効化、`com.android.systemui/0`のscope登録を行います。CLIがない環境ではVectorマネージャーで設定してください。初回読込み・APKのフック更新時にはSystemUI再起動が必要で、ロック画面に戻る場合があります。
+`install.sh`は生成済みの署名付きrelease APKを導入し、既存Vector CLIによる本モジュールの有効化、SystemUIとOne UIホームのscope登録を行います。CLIがない環境ではVectorマネージャーで両方を対象に設定してください。初回読込み・APKの更新時には両プロセスの再読み込み、または端末の再起動が必要で、ロック画面に戻る場合があります。既存版はアンインストールせず上書きすると設定を保持できます。
 
 新規インストール時は処理OFFです。解除後に設定アプリでONにすると反映します。設定変更はProviderの変更通知で反映し、SystemUI再起動は不要です。通知を取り逃した場合に備えた定期確認も残しています。既存OneUiLiveColors・OneUIX等の設定は変更しません。ほかの配色モジュールが同じ対象を制御する場合の競合試験は未完了です。
+
+「アプリの開閉に追従」をONにすると、対応するOne UIホームでバーがウィンドウへ追従します。画像に固定せず自動配色を継続します。OFFにすると通常位置のバーへ戻ります。すべての履歴カードへの表示、分割画面、横画面、DeX、3Dカード効果、Home Upの全設定は対応未確認です。iOSと完全に同じ動作を保証する機能ではありません。検証範囲と実装の記録は[アニメーション追従の開発状況](docs/motion-development.md)を参照してください。
 
 ## 実装
 
@@ -92,14 +95,14 @@ bash tools/adb.sh shell 'su -c "kill -TERM $(pidof com.android.systemui)"'
 
 依存の変更後は`./gradlew :app:writeRuntimeDependencyList && python3 tools/update_notices.py`で通知を更新します。未知のライセンスは生成を停止します。
 
-## SystemUIのクラッシュ保護
+## SystemUI・One UIホームのクラッシュ保護
 
-本モジュールのフックを登録する前に、SystemUI自身の[Android終了履歴](https://developer.android.com/reference/android/app/ActivityManager#getHistoricalProcessExitReasons(java.lang.String,int,int))と、このモジュールが監視したプロセスの記録を照合します。
+本モジュールのフックを登録する前に、各プロセス自身の[Android終了履歴](https://developer.android.com/reference/android/app/ActivityManager#getHistoricalProcessExitReasons(java.lang.String,int,int))と、このモジュールが監視したプロセスの記録を照合します。SystemUIとOne UIホームを別々に保護します。
 
 - 2分以内に3回のJava/nativeクラッシュ・ANR・初期化失敗・過剰リソースによる終了を検出すると、次回起動で配色フックを登録しません。SIGABRT/SIGSEGVも対象です。
 - 手動再読み込みのSIGTERM、SIGKILL、メモリ不足、パッケージ更新による終了は回数に含めません。終了理由が取得できないまま30秒以内に3回再起動した場合も、保守的に停止します。
 - 停止状態はSystemUIのdevice-protectedデータへ原子的に保存し、通常の再起動やAPK更新では解除しません。フック初期化・監視状態の読出しや保存に失敗した場合も配色を開始しません。
-- 保護中は自動配色をOFFにし、設定画面へ停止状態を表示します。「保護を解除してSystemUIを再読み込み」から解除できます。rootが必要で、ロック画面へ戻る場合があります。解除後の自動配色は利用者がONにします。
+- 保護中は自動配色をOFFにし、設定画面へ停止状態を表示します。アプリの保護解除から両プロセスを再読み込みできます。rootが必要で、ロック画面へ戻る場合があります。解除後の自動配色は利用者がONにします。
 - 初期化途中のエラーでは、本モジュールが登録したフックを解除します。他モジュール・Vectorの設定は変更しません。起動時だけ確認し、常時の監視ポーリングや追加キャプチャは行いません。
 
 終了理由は有限の履歴で、SystemUIの停止原因を本モジュールへ特定するものではありません。他のモジュールやOS側の原因を修復する仕組みではありません。解除しても繰り返す場合は、原因を調べるまで本モジュールを無効にしてください。
