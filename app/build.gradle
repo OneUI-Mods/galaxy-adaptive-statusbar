@@ -2,7 +2,7 @@ plugins { id 'com.android.application' }
 android {
     namespace 'dev.ryuya.galaxybar'
     compileSdk 36
-    defaultConfig { applicationId 'dev.ryuya.galaxybar'; minSdk 35; targetSdk 36; versionCode 13; versionName '0.5.0-experimental'; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner' }
+    defaultConfig { applicationId 'dev.ryuya.galaxybar'; minSdk 35; targetSdk 36; versionCode 14; versionName '0.5.0-experimental'; testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner' }
     compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
     buildFeatures { buildConfig true }
 }

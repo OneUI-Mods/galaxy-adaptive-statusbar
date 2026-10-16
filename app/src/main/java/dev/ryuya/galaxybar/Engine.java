@@ -93,6 +93,8 @@ final class Engine {
   private int frameHash, capturedRotation = -1;
   private long lastConfig, lastStatus, lastDebug;
   private int errors, epoch, configRevision;
+  private int analysisEpoch = -1;
+  private boolean immediateCapture;
   private volatile String renderState = "Color hooks: 0; fade callbacks: 0; fade targets: 0";
   private boolean stopped, wasEnabled, closed, applying, pendingTargetReset;
   private LayerCapture capture;
@@ -128,7 +130,13 @@ final class Engine {
             main,
             () -> {
               epoch++;
-              fadeEpoch = epoch;
+              // A new visible surface has its own palette. Its opacity fade handles the
+              // handoff; never interpolate its first decision from the previous screen.
+              choreographer.removeFrameCallback(fadeFrame);
+              fadeScheduled = false;
+              fadeTargets = Collections.emptyList();
+              fades.clear();
+              immediateCapture = true;
               if (!closed) {
                 main.removeCallbacks(ticker);
                 main.post(ticker);
@@ -154,14 +162,22 @@ final class Engine {
 
   private void tick() {
     if (closed) return;
+    if (busy && immediateCapture) {
+      main.removeCallbacks(ticker);
+      main.postDelayed(ticker, 16);
+      return;
+    }
     try {
       if (!busy) {
+        immediateCapture = false;
         busy = true;
         long now = SystemClock.elapsedRealtime();
         boolean enabled = config.getBoolean("enabled");
         PowerManager power = (PowerManager) context.getSystemService(Context.POWER_SERVICE);
         Rect crop = new Rect();
         boolean moving = motion.active();
+        MotionPalette.Source source = motion.colorSource();
+        boolean sampleWindow = moving && source == MotionPalette.Source.WINDOW;
         boolean visible =
             root.isAttachedToWindow() && root.isShown() && root.getGlobalVisibleRect(crop);
         if (moving) {
@@ -182,6 +198,8 @@ final class Engine {
             root.getDisplay() != null
                 && root.getDisplay().getDisplayId() == 0
                 && root.getDisplay().getRotation() == Surface.ROTATION_0;
+        boolean holdCapture = allowed && moving && source == MotionPalette.Source.FROZEN;
+        allowed &= !holdCapture;
         if (allowed) motion.prepare(now);
         if (closed) return;
         if (!allowed
@@ -200,7 +218,7 @@ final class Engine {
             for (View view : motion.sourceViews()) collect(view, targets);
             List<Target> mapped = new ArrayList<>();
             for (Target target : targets) {
-              Rect area = motion.mappedArea(target.area);
+              Rect area = sampleWindow ? motion.mappedArea(target.area) : new Rect(target.area);
               if (Rect.intersects(area, crop))
                 mapped.add(
                     new Target(
@@ -237,6 +255,7 @@ final class Engine {
                     now,
                     run,
                     moving,
+                    holdCapture,
                     crop,
                     excluded,
                     display,
@@ -338,6 +357,7 @@ final class Engine {
       long now,
       boolean run,
       boolean moving,
+      boolean holdCapture,
       Rect crop,
       SurfaceControl[] excluded,
       int display,
@@ -354,7 +374,15 @@ final class Engine {
           config.getBoolean("enabled")
               && context.getSystemService(PowerManager.class).isInteractive()
               && !context.getSystemService(KeyguardManager.class).isKeyguardLocked();
+      holdCapture &=
+          config.getBoolean("enabled")
+              && context.getSystemService(PowerManager.class).isInteractive()
+              && !context.getSystemService(KeyguardManager.class).isKeyguardLocked();
       if (run && !targets.isEmpty()) {
+        if (analysisEpoch != generation) {
+          previous.clear();
+          analysisEpoch = generation;
+        }
         if (capturedRotation != rotation) {
           if (capture != null) capture.close();
           capture = null;
@@ -466,7 +494,7 @@ final class Engine {
       } else if (!settings.getBoolean("enabled")) state = "Hook active; module disabled";
       else if (stopped) state = "Stopped after consecutive errors; toggle module to retry";
       else state = "Paused: screen off/locked, status bar hidden, or unsupported display/rotation";
-      if (!run) releaseCapture();
+      if (!run && !holdCapture) releaseCapture();
       if (now - lastStatus > 2000) {
         String text =
             state

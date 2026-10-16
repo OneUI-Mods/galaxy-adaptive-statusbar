@@ -1,46 +1,156 @@
 package dev.ryuya.galaxybar;
 
-/** Window geometry drives handoff, including springs whose completion time is not predetermined. */
+/** Independent screen/card fades; only native geometry decides when ownership changes. */
 final class MotionTiming {
   static final int LEAD_MS = 250;
-  private long handoff = -1;
-  private long lastTime = -1;
-  private float moving;
-  private float dim = 1;
+  private final float durationScale;
+  private final Fade fixed = new Fade(1), moving = new Fade(0), dim = new Fade(1);
+  private boolean handedOff;
+  private boolean openingLeg, returningFromOverview;
+  private float previousWidth = Float.NaN;
 
   record Opacity(float fixed, float moving) {}
 
+  MotionTiming() {
+    this(1);
+  }
+
+  MotionTiming(float durationScale) {
+    this.durationScale = Math.max(0, durationScale);
+  }
+
   Opacity update(boolean opening, float widthRatio, float remainingMs, long now) {
-    return update(opening, widthRatio, remainingMs, now, false);
+    return update(opening, widthRatio, remainingMs, now, false, false);
   }
 
   Opacity update(boolean opening, float widthRatio, float remainingMs, long now, boolean overview) {
-    if (handoff < 0
+    return update(opening, widthRatio, remainingMs, now, overview, false);
+  }
+
+  Opacity update(
+      boolean opening,
+      float widthRatio,
+      float remainingMs,
+      long now,
+      boolean overview,
+      boolean interactive) {
+    boolean wasHandedOff = handedOff;
+    boolean cardMode = overview || interactive;
+    if (cardMode) returningFromOverview = true;
+    if (!handedOff
         && (overview
             || !opening
+            || interactive
             || widthRatio >= .8f
             || (widthRatio >= .45f && remainingMs >= 0 && remainingMs <= LEAD_MS))) {
-      handoff = now;
-      if (!opening && !overview && widthRatio >= .8f) moving = 1;
+      handedOff = true;
+      openingLeg = opening;
+      if (!opening || overview || interactive) {
+        // A closing window begins at the existing bar's position: transfer without a dip.
+        fixed.snap(0);
+        moving.snap(1);
+        if (cardMode) dim.snap(cardDim(widthRatio));
+      } else {
+        fixed.to(0, now, ms(90), 0, true);
+        moving.to(1, now, ms(140), ms(35), false);
+      }
     }
-    if (handoff < 0) return new Opacity(1, 0);
-    // Geometry is reversible. Never keep fading toward the original target after a reversal.
-    // A new native animator may continue this same timing object without restarting its fade.
-    float target = overview ? 1 : smooth((widthRatio - .32f) / .34f);
-    float step = Math.max(0, now - (lastTime < 0 ? handoff : lastTime)) / 85f;
-    moving += Math.max(-step, Math.min(step, target - moving));
-    float targetDim = overview ? .35f + .65f * smooth((widthRatio - .65f) / .35f) : 1;
-    dim += Math.max(-step, Math.min(step, targetDim - dim));
-    lastTime = Math.max(now, lastTime);
-    return new Opacity(1 - moving, moving * dim);
+    if (handedOff) {
+      boolean direction = opening;
+      if (interactive && !Float.isNaN(previousWidth)) {
+        float delta = widthRatio - previousWidth;
+        direction = Math.abs(delta) >= .003f ? delta > 0 : openingLeg;
+      }
+      boolean changedDirection = direction != openingLeg;
+      openingLeg = direction;
+      if (cardMode) {
+        fixed.to(0, now, ms(90), 0, true);
+        moving.to(1, now, ms(120), 0, false);
+      } else if (openingLeg) {
+        fixed.to(0, now, ms(90), 0, true);
+        // Do not restart or remove the initial stagger on every native frame.
+        if (wasHandedOff && changedDirection) moving.to(1, now, ms(140), 0, false);
+      } else {
+        // The card bar disappears before it becomes tiny. The home bar arrives later;
+        // these independent envelopes deliberately avoid a pair of equally bright clocks.
+        moving.to(smooth((widthRatio - .58f) / .2f), now, ms(80), 0, false);
+        fixed.to(smooth((.60f - widthRatio) / .2f), now, ms(110), 0, false);
+      }
+      float targetDim =
+          cardMode
+              ? cardDim(widthRatio)
+              : returningFromOverview && openingLeg
+                  ? .35f + .65f * smooth((widthRatio - .85f) / .15f)
+                  : 1;
+      dim.to(targetDim, now, ms(140), 0, false);
+    }
+    previousWidth = widthRatio;
+    return opacity(now);
+  }
+
+  Opacity opacity(long now) {
+    return new Opacity(fixed.value(now), moving.value(now) * dim.value(now));
+  }
+
+  boolean running(long now) {
+    return fixed.running(now) || moving.running(now) || dim.running(now);
+  }
+
+  boolean openingLeg() {
+    return openingLeg;
   }
 
   boolean handedOff() {
-    return handoff >= 0;
+    return handedOff;
+  }
+
+  private int ms(int duration) {
+    return Math.round(duration * durationScale);
+  }
+
+  private static float cardDim(float widthRatio) {
+    return .35f + .65f * smooth((widthRatio - .65f) / .35f);
   }
 
   private static float smooth(float v) {
     float x = Math.max(0, Math.min(1, v));
     return x * x * (3 - 2 * x);
+  }
+
+  private static final class Fade {
+    private float from, target;
+    private long start;
+    private int duration;
+    private boolean easeOut;
+
+    Fade(float value) {
+      snap(value);
+    }
+
+    void snap(float value) {
+      from = target = value;
+      duration = 0;
+    }
+
+    void to(float value, long now, int duration, int delay, boolean easeOut) {
+      if (Math.abs(value - target) < .0001f) return;
+      from = value(now);
+      target = value;
+      start = now + delay;
+      this.duration = duration;
+      this.easeOut = easeOut;
+    }
+
+    boolean running(long now) {
+      return from != target && now < start + duration;
+    }
+
+    float value(long now) {
+      if (!running(now)) return target;
+      if (now <= start) return from;
+      float x = Math.min(1, (now - start) / (float) duration);
+      float eased = easeOut ? 1 - (1 - x) * (1 - x) * (1 - x) : smooth(x);
+      return from + (target - from) * eased;
+    }
   }
 }

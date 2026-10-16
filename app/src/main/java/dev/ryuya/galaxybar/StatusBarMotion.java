@@ -25,10 +25,7 @@ final class StatusBarMotion {
   private final Runnable drain = this::drain;
   private final Runnable watchdog = () -> finish("timeout");
   private final MotionTrack track = new MotionTrack();
-  private final Runnable terminal =
-      () -> {
-        if (track.endDue(SystemClock.uptimeMillis())) finish("finished");
-      };
+  private final Runnable terminal = this::complete;
   private final Context context;
   private final WindowManager windows;
   private Overlay overlay;
@@ -38,6 +35,9 @@ final class StatusBarMotion {
   private List<Leaf> leaves = List.of();
   private final int[] origin = new int[2];
   private MotionTiming timing;
+  private boolean opacityScheduled;
+  private volatile MotionPalette.Source colorSource = MotionPalette.Source.SCREEN;
+  private final Choreographer.FrameCallback opacityFrame = this::animateOpacity;
   private float originalAlpha;
   private volatile boolean active;
   private boolean enabled, closed, failed;
@@ -86,6 +86,14 @@ final class StatusBarMotion {
     this.enabled = enabled;
     failed = false;
     if (!enabled) cancel("disabled");
+    else reason = "waiting for One UI Home";
+  }
+
+  private void complete() {
+    if (!track.endDue(SystemClock.uptimeMillis())) return;
+    if (timing != null && timing.running(SystemClock.uptimeMillis())) {
+      main.postDelayed(terminal, 16);
+    } else finish("finished");
   }
 
   private void drain() {
@@ -109,6 +117,7 @@ final class StatusBarMotion {
     MotionTrack.Change change = track.accept(frame, width, height, now);
     if (change == MotionTrack.Change.IGNORE) return;
     if (change == MotionTrack.Change.END) {
+      main.removeCallbacks(watchdog);
       main.removeCallbacks(terminal);
       main.postDelayed(terminal, MotionTrack.END_GRACE_MS);
       return;
@@ -129,11 +138,12 @@ final class StatusBarMotion {
     main.removeCallbacks(terminal);
     if (!active || change == MotionTrack.Change.START) {
       // A replacement for the same task preserves the drawing and fade. A different
-      // task must get a fresh snapshot, even if its animation overlaps in time.
+      // task must get fresh view placements, even if its animation overlaps in time.
       if (active) releaseDrawing();
       originalAlpha = root.getAlpha();
-      timing = new MotionTiming();
+      timing = new MotionTiming(ValueAnimator.getDurationScale());
       active = true;
+      colorSource = MotionPalette.Source.FROZEN;
       motionChanged.run();
       if (leaves.isEmpty()) collectLeaves();
       if (leaves.isEmpty()) {
@@ -145,11 +155,12 @@ final class StatusBarMotion {
     updates++;
     MotionTiming.Opacity opacity =
         timing.update(
-            frame.opening() && !frame.interactive(),
+            frame.opening(),
             frame.width() / width,
             frame.remainingMs(),
             now,
-            frame.overview());
+            frame.overview(),
+            frame.interactive());
     if (timing.handedOff() && overlay == null) {
       overlay = new Overlay();
       WindowManager.LayoutParams p =
@@ -183,14 +194,46 @@ final class StatusBarMotion {
       XposedBridge.log(
           "GalaxyBar: motion handoff x=" + frame.x() + " y=" + frame.y() + " w=" + frame.width());
     }
-    if (overlay != null) {
-      overlay.opacity = opacity.moving() * frame.alpha();
-      overlay.invalidate();
-      root.setAlpha(originalAlpha * opacity.fixed());
-    }
+    applyOpacity(opacity, frame);
+    scheduleOpacity();
     reason = frame.overview() ? "overview" : frame.opening() ? "opening" : "closing";
     main.removeCallbacks(watchdog);
     main.postDelayed(watchdog, 220);
+  }
+
+  private void applyOpacity(MotionTiming.Opacity opacity, MotionFrame frame) {
+    if (overlay == null) return;
+    overlay.opacity = opacity.moving() * frame.alpha();
+    overlay.invalidate();
+    root.setAlpha(originalAlpha * opacity.fixed());
+    MotionPalette.Source next =
+        MotionPalette.choose(timing.handedOff(), timing.openingLeg(), opacity);
+    if (next != colorSource) {
+      colorSource = next;
+      motionChanged.run();
+    }
+  }
+
+  private void scheduleOpacity() {
+    if (!opacityScheduled
+        && active
+        && overlay != null
+        && timing.running(SystemClock.uptimeMillis())) {
+      opacityScheduled = true;
+      Choreographer.getInstance().postFrameCallback(opacityFrame);
+    }
+  }
+
+  private void animateOpacity(long frameTime) {
+    opacityScheduled = false;
+    if (!active || overlay == null || timing == null || track.current() == null) return;
+    try {
+      applyOpacity(timing.opacity(SystemClock.uptimeMillis()), track.current());
+      scheduleOpacity();
+    } catch (Throwable error) {
+      cancel("fade unavailable");
+      HookEntry.stopHooks(error);
+    }
   }
 
   void prepare(long now) {
@@ -260,8 +303,16 @@ final class StatusBarMotion {
         (int) Math.ceil(bounds.bottom()));
   }
 
+  MotionPalette.Source colorSource() {
+    return colorSource;
+  }
+
   Rect sampleCrop() {
     if (!active || track.current() == null) return null;
+    if (colorSource == MotionPalette.Source.SCREEN) {
+      return new Rect(
+          origin[0], origin[1], origin[0] + root.getWidth(), origin[1] + root.getHeight());
+    }
     Rect crop =
         mappedArea(
             new Rect(
@@ -325,12 +376,15 @@ final class StatusBarMotion {
   }
 
   private void releaseDrawing() {
+    Choreographer.getInstance().removeFrameCallback(opacityFrame);
+    opacityScheduled = false;
     boolean changed = active;
     if (active) {
       root.setAlpha(originalAlpha);
       completed++;
     }
     active = false;
+    colorSource = MotionPalette.Source.SCREEN;
     if (overlay != null) {
       try {
         windows.removeViewImmediate(overlay);
@@ -354,6 +408,10 @@ final class StatusBarMotion {
         + completed
         + "; live draws="
         + draws
+        + "; opacity callbacks="
+        + (opacityScheduled ? 1 : 0)
+        + "; palette="
+        + colorSource
         + "; color spans="
         + colorSpans
         + "; text palette="

@@ -250,15 +250,17 @@ final class LauncherMotion {
                   if (!s.spring && !s.interactive && s.duration > 0)
                     remaining = Math.max(0, s.duration - (now - s.started));
                   s.lastSent = now;
+                  int task =
+                      ((Number) XposedHelpers.callMethod(p.thisObject, "getRunningTaskId"))
+                          .intValue();
                   s.last =
                       new MotionFrame(
                           s.id,
                           now,
                           s.opening,
-                          ((Number) XposedHelpers.callMethod(p.thisObject, "getRunningTaskId"))
-                              .intValue(),
+                          task,
                           s.interactive,
-                          false,
+                          overview.followsTask(task),
                           point.x + crop.left * scale,
                           point.y + crop.top * scale,
                           width,

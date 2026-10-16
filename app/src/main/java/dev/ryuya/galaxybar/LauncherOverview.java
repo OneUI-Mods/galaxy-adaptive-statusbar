@@ -215,6 +215,10 @@ final class LauncherOverview {
             }));
   }
 
+  boolean followsTask(int task) {
+    return overview && taskId == task;
+  }
+
   boolean ownsCard() {
     return overview && card.get() != null;
   }
