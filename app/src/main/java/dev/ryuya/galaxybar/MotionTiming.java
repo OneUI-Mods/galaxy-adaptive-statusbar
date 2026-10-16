@@ -10,7 +10,7 @@ final class MotionTiming {
   Opacity update(boolean opening, float widthRatio, float remainingMs, long now) {
     if (handoff < 0
         && (!opening
-            || widthRatio >= .8f
+            || (remainingMs < 0 && widthRatio >= .8f)
             || (widthRatio >= .45f && remainingMs >= 0 && remainingMs <= LEAD_MS))) {
       handoff = now;
     }

@@ -10,6 +10,8 @@ public class MotionTimingTest {
     MotionTiming t = new MotionTiming();
     assertEquals(1, t.update(true, .6f, 300, 100).fixed(), 0);
     assertFalse(t.handedOff());
+    t.update(true, .95f, 280, 120);
+    assertFalse("A fast Home Up curve must still respect its native end time", t.handedOff());
     t.update(true, .7f, 250, 150);
     assertTrue(t.handedOff());
     assertEquals(0, t.update(true, .95f, 100, 250).fixed(), 0);
