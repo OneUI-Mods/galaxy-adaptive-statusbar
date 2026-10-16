@@ -44,7 +44,7 @@ public class LayerCaptureTest {
 
   @Test
   public void emptySurfaceResultIsTemporaryAndNextFrameCanRecover() throws Exception {
-    Rect crop = new Rect(0, 0, 16, 16);
+    Rect crop = new Rect(100, 401, 117, 418);
     assertThrows(
         LayerCapture.UnavailableException.class, () -> LayerCapture.copyCapture(null, crop));
     Shot missing = new Shot(null, null, false);

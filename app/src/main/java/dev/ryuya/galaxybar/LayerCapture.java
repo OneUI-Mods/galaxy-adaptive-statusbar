@@ -68,8 +68,9 @@ final class LayerCapture implements AutoCloseable {
       Bitmap hw = (Bitmap) shot.getClass().getMethod("asBitmap").invoke(shot);
       if (hw == null) throw new UnavailableException();
       try {
-        if (hw.getWidth() != Math.round(crop.width() * .5f)
-            || hw.getHeight() != Math.round(crop.height() * .5f))
+        // SurfaceFlinger truncates scaled output dimensions, including odd moving crops.
+        if (hw.getWidth() != (int) (crop.width() * .5f)
+            || hw.getHeight() != (int) (crop.height() * .5f))
           throw new IllegalStateException("Crop was ignored");
         Bitmap copy = hw.copy(Bitmap.Config.ARGB_8888, false);
         if (copy == null) throw new UnavailableException();

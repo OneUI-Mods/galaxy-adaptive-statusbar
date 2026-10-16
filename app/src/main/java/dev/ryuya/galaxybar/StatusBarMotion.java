@@ -169,6 +169,15 @@ final class StatusBarMotion {
       p.layoutInDisplayCutoutMode = WindowManager.LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS;
       p.setTitle("GalaxyBar transition");
       p.packageName = "com.android.systemui";
+      // This is SystemUI's own visual-only surface, like its charging ripple. Give it
+      // no input channel and the same trusted-overlay classification as native effects.
+      XposedHelpers.callMethod(p, "setTrustedOverlay");
+      XposedHelpers.setIntField(
+          p,
+          "inputFeatures",
+          XposedHelpers.getIntField(p, "inputFeatures")
+              | XposedHelpers.getStaticIntField(
+                  WindowManager.LayoutParams.class, "INPUT_FEATURE_NO_INPUT_CHANNEL"));
       windows.addView(overlay, p);
       handoffs++;
       XposedBridge.log(
