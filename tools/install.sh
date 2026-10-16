@@ -19,6 +19,7 @@ if [[ ! -f "$APK" ]]; then
 fi
 adb -s "$SERIAL" install -r "$APK"
 adb -s "$SERIAL" shell 'su -c "/data/adb/lspd/cli scope add dev.ryuya.galaxybar com.android.systemui/0"'
+adb -s "$SERIAL" shell 'su -c "/data/adb/lspd/cli scope add dev.ryuya.galaxybar com.sec.android.app.launcher/0"'
 adb -s "$SERIAL" shell 'su -c "/data/adb/lspd/cli modules enable dev.ryuya.galaxybar"'
 adb -s "$SERIAL" shell am start -n dev.ryuya.galaxybar/.MainActivity
 echo 'Installed. SystemUI must restart once for the hook to load. Color processing defaults to OFF.'

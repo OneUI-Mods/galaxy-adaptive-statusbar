@@ -64,4 +64,6 @@
     <string name="guard_reload_note">Reloading may return to the lock screen. Root access is required.</string>
     <string name="guard_reloaded">Reload started. Enable adaptive colors in settings when ready.</string>
     <string name="guard_reload_failed">Could not reload SystemUI. A saved reset request takes effect at the next manual SystemUI reload.</string>
+    <string name="motion_enabled">Follow app opening and closing</string>
+    <string name="motion_note">Move the status bar with One UI Home app animations, including Home Up tuning. Enable this module for One UI Home in Vector, then reload One UI Home and SystemUI.</string>
 </resources>

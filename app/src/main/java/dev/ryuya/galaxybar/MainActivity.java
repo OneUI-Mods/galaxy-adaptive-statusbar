@@ -101,6 +101,12 @@ public final class MainActivity extends AppCompatActivity {
     MaterialSwitch enabled = toggle(hero, getString(R.string.enabled), "enabled", false);
     enabledControl = enabled;
     enabled.setId(R.id.module_enabled);
+    MaterialSwitch motion = toggle(hero, getString(R.string.motion_enabled), "motion", true);
+    motion.setId(R.id.motion_enabled);
+    text(
+        hero,
+        getString(R.string.motion_note),
+        com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     text(
         body,
         getString(R.string.color_targets),

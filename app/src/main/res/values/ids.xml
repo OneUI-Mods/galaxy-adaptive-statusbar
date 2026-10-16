@@ -3,4 +3,5 @@
     <item type="id" name="fade_duration_value" />
     <item type="id" name="guard_reset" />
     <item type="id" name="module_enabled" />
+    <item type="id" name="motion_enabled" />
 </resources>

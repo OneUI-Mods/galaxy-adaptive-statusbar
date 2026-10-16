@@ -18,11 +18,13 @@ public final class HookEntry implements IXposedHookLoadPackage {
   private static CrashGuard protection;
   private static boolean initialized;
   private static ClassLoader systemLoader;
+  private static LauncherMotion launcherMotion;
 
   @Override
   public void handleLoadPackage(XC_LoadPackage.LoadPackageParam lp) throws Throwable {
-    if (!lp.packageName.equals("com.android.systemui")
-        || !lp.processName.equals("com.android.systemui")) return;
+    boolean launcher = lp.packageName.equals("com.sec.android.app.launcher");
+    if ((!launcher && !lp.packageName.equals("com.android.systemui"))
+        || !lp.processName.equals(lp.packageName)) return;
     // Deliberate allowlist: other firmware requires inspection before enabling hooks.
     if (Build.VERSION.SDK_INT != 36
         || !Build.DEVICE.equals("m3q")
@@ -45,7 +47,7 @@ public final class HookEntry implements IXposedHookLoadPackage {
               @Override
               protected void afterHookedMethod(MethodHookParam p) {
                 Context context = (Context) p.args[0];
-                if (!"com.android.systemui".equals(context.getPackageName())) return;
+                if (!lp.packageName.equals(context.getPackageName())) return;
                 if (bootstrap[0] != null) bootstrap[0].unhook();
                 initialize(context, lp.classLoader);
               }
@@ -55,6 +57,14 @@ public final class HookEntry implements IXposedHookLoadPackage {
   private static void initialize(Context context, ClassLoader loader) {
     if (initialized) return;
     initialized = true;
+    if (context.getPackageName().equals("com.sec.android.app.launcher")) {
+      try {
+        launcherMotion = new LauncherMotion(context, loader);
+      } catch (Throwable error) {
+        XposedBridge.log("GalaxyBar: launcher motion unavailable: " + error);
+      }
+      return;
+    }
     try {
       protection = CrashGuard.open(context);
       if (!protection.allowsHooks()) return;

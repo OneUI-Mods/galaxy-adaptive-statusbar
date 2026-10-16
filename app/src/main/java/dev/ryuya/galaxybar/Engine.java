@@ -22,6 +22,7 @@ import java.util.concurrent.*;
 final class Engine {
   private final View root;
   private final Context context;
+  private final StatusBarMotion motion;
   private final Handler main = new Handler(Looper.getMainLooper());
   private final Runnable ticker = this::tick;
   private final ContentObserver settingsObserver =
@@ -31,6 +32,7 @@ final class Engine {
           if (closed) return;
           try {
             configRevision++;
+            if (uri != null && "motion".equals(uri.getLastPathSegment())) motion.configure(false);
             // A toggle invalidates the old session before the worker can read the new setting.
             // This also handles OFF→ON faster than a capture or a provider round trip.
             String key = uri == null ? null : uri.getLastPathSegment();
@@ -50,6 +52,7 @@ final class Engine {
         @Override
         public void onReceive(Context ignored, Intent intent) {
           if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
+            motion.cancel("screen off");
             epoch++;
             restore();
             worker.execute(() -> releaseCapture());
@@ -116,9 +119,18 @@ final class Engine {
     }
   }
 
-  Engine(View root) {
+  Engine(View root) throws Exception {
     this.root = root;
     context = root.getContext();
+    motion =
+        new StatusBarMotion(
+            root,
+            main,
+            () -> {
+              epoch++;
+              restore();
+              worker.execute(this::releaseCapture);
+            });
     context
         .getContentResolver()
         .registerContentObserver(ConfigProvider.URI, true, settingsObserver);
@@ -151,6 +163,7 @@ final class Engine {
         boolean allowed =
             enabled
                 && !stopped
+                && !motion.active()
                 && visible
                 && power.isInteractive()
                 && !context.getSystemService(KeyguardManager.class).isKeyguardLocked()
@@ -231,6 +244,7 @@ final class Engine {
   private void acceptConfig(Bundle fresh, int revision) {
     if (closed || revision != configRevision) return;
     config = fresh;
+    motion.configure(fresh.getBoolean("enabled") && fresh.getBoolean("motion", true));
     if (pendingTargetReset) {
       epoch++;
       restore();
@@ -264,6 +278,7 @@ final class Engine {
     disabled.putBoolean("enabled", false);
     config = disabled;
     wasEnabled = false;
+    motion.configure(false);
     // Restore through the live adapters before unregistering their hooks and clearing baselines.
     restore();
     HookEntry.disableColors();
@@ -300,6 +315,7 @@ final class Engine {
       }
       run &=
           config.getBoolean("enabled")
+              && !motion.active()
               && context.getSystemService(PowerManager.class).isInteractive()
               && !context.getSystemService(KeyguardManager.class).isKeyguardLocked();
       if (run && !targets.isEmpty()) {
@@ -385,6 +401,7 @@ final class Engine {
                 if (!closed
                     && epoch == generation
                     && config.getBoolean("enabled")
+                    && !motion.active()
                     && !stopped
                     && root.getGlobalVisibleRect(current)
                     && current.equals(crop)
@@ -428,9 +445,13 @@ final class Engine {
                 + " ms"
                 + "\n"
                 + renderState
+                + "\n"
+                + motion.status()
                 + "\nLast error: "
                 + lastError;
-        context.getContentResolver().call(ConfigProvider.URI, "status", text, null);
+        context
+            .getContentResolver()
+            .call(ConfigProvider.URI, "status", text, motion.registration());
         lastStatus = now;
       }
     } catch (Throwable t) {
@@ -627,6 +648,7 @@ final class Engine {
         || stopped
         || epoch != fadeEpoch
         || !config.getBoolean("enabled")
+        || motion.active()
         || !root.isShown()
         || !root.getGlobalVisibleRect(current)
         || !current.equals(fadeCrop)
@@ -833,6 +855,7 @@ final class Engine {
 
   void close() {
     closed = true;
+    motion.close();
     main.removeCallbacks(ticker);
     context.unregisterReceiver(screenState);
     context.getContentResolver().unregisterContentObserver(settingsObserver);

@@ -63,4 +63,6 @@
     <string name="guard_reload_note">Puede volver a la pantalla de bloqueo. Requiere acceso root.</string>
     <string name="guard_reloaded">Recarga iniciada. Activa los colores adaptativos cuando esté listo.</string>
     <string name="guard_reload_failed">No se pudo recargar SystemUI. La solicitud guardada se aplicará en la próxima recarga manual.</string>
+    <string name="motion_enabled">Seguir la apertura y el cierre</string>
+    <string name="motion_note">Mueve la barra de estado con las animaciones de One UI Home, incluidos los ajustes de Home Up. Activa el módulo para One UI Home en Vector y reinicia One UI Home y SystemUI.</string>
 </resources>

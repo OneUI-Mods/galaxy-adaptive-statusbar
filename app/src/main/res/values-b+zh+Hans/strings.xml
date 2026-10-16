@@ -63,4 +63,6 @@
     <string name="guard_reload_note">可能返回锁屏界面，需要 root 权限。</string>
     <string name="guard_reloaded">已开始重新加载。准备好后请开启自动配色。</string>
     <string name="guard_reload_failed">无法重新加载 SystemUI。已保存的解除请求将在下次手动重新加载时生效。</string>
+    <string name="motion_enabled">跟随应用打开和关闭</string>
+    <string name="motion_note">让状态栏跟随One UI主屏幕的应用动画，包括Home Up调整。在Vector中为One UI主屏幕启用此模块，然后重新启动One UI主屏幕和SystemUI。</string>
 </resources>
