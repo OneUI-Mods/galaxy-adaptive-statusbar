@@ -22,8 +22,17 @@ import org.junit.runner.RunWith;
 public class ScreenStartupTest {
   @Test
   public void crashProtectionDisablesMasterAndRequiresExplicitRecovery() {
+    checkProtection("guard");
+  }
+
+  @Test
+  public void launcherProtectionAlsoDisablesMasterAndRequiresExplicitRecovery() {
+    checkProtection("guard_launcher");
+  }
+
+  private void checkProtection(String guardName) {
     var context = InstrumentationRegistry.getInstrumentation().getTargetContext();
-    var guard = context.getSharedPreferences("guard", 0);
+    var guard = context.getSharedPreferences(guardName, 0);
     var prefs = context.getSharedPreferences("config", 0);
     boolean had = guard.contains("blocked"), blocked = guard.getBoolean("blocked", false);
     boolean wasEnabled = prefs.getBoolean("enabled", false);

@@ -40,8 +40,7 @@ public final class MainActivity extends AppCompatActivity {
         public void run() {
           SharedPreferences latest = getSharedPreferences("status", MODE_PRIVATE);
           long age = (System.currentTimeMillis() - latest.getLong("time", 0)) / 1000;
-          boolean blocked =
-              getSharedPreferences("guard", MODE_PRIVATE).getBoolean("blocked", false);
+          boolean blocked = protectionBlocked();
           enabledControl.setEnabled(!blocked);
           enabledControl.setChecked(!blocked && prefs.getBoolean("enabled", false));
           guardSummary.setText(getString(blocked ? R.string.guard_blocked : R.string.guard_note));
@@ -229,8 +228,7 @@ public final class MainActivity extends AppCompatActivity {
             com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
     guardResetControl = button(diagnostic, getString(R.string.guard_reset), this::resetCrashGuard);
     guardResetControl.setId(R.id.guard_reset);
-    guardResetControl.setEnabled(
-        getSharedPreferences("guard", MODE_PRIVATE).getBoolean("blocked", false));
+    guardResetControl.setEnabled(protectionBlocked());
     text(
         diagnostic,
         getString(R.string.guard_reload_note),
@@ -370,7 +368,11 @@ public final class MainActivity extends AppCompatActivity {
                         .commit();
                 if (!saved) throw new IllegalStateException("Reset request could not be saved");
                 Process process =
-                    new ProcessBuilder("su", "-c", "kill -TERM $(pidof com.android.systemui)")
+                    new ProcessBuilder(
+                            "su",
+                            "-c",
+                            "kill -TERM $(pidof com.sec.android.app.launcher) $(pidof"
+                                + " com.android.systemui)")
                         .redirectErrorStream(true)
                         .start();
                 if (!process.waitFor(15, TimeUnit.SECONDS)) process.destroy();
@@ -394,6 +396,11 @@ public final class MainActivity extends AppCompatActivity {
             },
             "GalaxyBarGuardReset")
         .start();
+  }
+
+  private boolean protectionBlocked() {
+    return getSharedPreferences("guard", MODE_PRIVATE).getBoolean("blocked", false)
+        || getSharedPreferences("guard_launcher", MODE_PRIVATE).getBoolean("blocked", false);
   }
 
   private void checkRoot() {

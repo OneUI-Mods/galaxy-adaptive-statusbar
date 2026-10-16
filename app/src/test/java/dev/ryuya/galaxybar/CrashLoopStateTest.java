@@ -165,4 +165,42 @@ public class CrashLoopStateTest {
     p.setProperty("blocked", "invalid");
     assertThrows(IllegalArgumentException.class, () -> CrashLoopState.decode(p));
   }
+
+  @Test
+  public void hostProcessesKeepIndependentCrashBudgets() throws Exception {
+    var system = fresh();
+    var launcher = fresh();
+    for (var host : List.of(system, launcher)) {
+      for (int i = 0; i < 2; i++) {
+        host.arm(10 + i, 1000 + i * 1000);
+        host.observe(
+            2000 + i * 1000,
+            1,
+            "",
+            List.of(new CrashLoopState.Exit(10 + i, 1500 + i * 1000, REASON_CRASH, 0)));
+      }
+    }
+    launcher = roundTrip(launcher);
+    launcher.arm(12, 3000);
+    launcher.observe(
+        4000, 1, "", List.of(new CrashLoopState.Exit(12, 3500, REASON_CRASH_NATIVE, 0)));
+    assertTrue(launcher.blocked);
+    assertFalse(system.blocked);
+    assertEquals(2, system.crashes.size());
+  }
+
+  @Test
+  public void hookFailureLatchRequiresANewResetEvenAfterRestartAndReboot() throws Exception {
+    var host = fresh();
+    host.blocked = true;
+    host.cause = "hook_initialization";
+    host = roundTrip(host);
+    host.observe(5000, 1, "", List.of());
+    assertTrue(host.blocked);
+    host.observe(6000, 2, "", List.of());
+    assertTrue(host.blocked);
+    assertEquals("hook_initialization", host.cause);
+    host.observe(7000, 2, "explicit-reset", List.of());
+    assertFalse(host.blocked);
+  }
 }

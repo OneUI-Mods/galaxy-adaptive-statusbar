@@ -59,8 +59,12 @@ public final class HookEntry implements IXposedHookLoadPackage {
     initialized = true;
     if (context.getPackageName().equals("com.sec.android.app.launcher")) {
       try {
-        launcherMotion = new LauncherMotion(context, loader);
+        protection = CrashGuard.open(context, false);
+        if (protection.allowsHooks())
+          launcherMotion = new LauncherMotion(context, loader, protection);
       } catch (Throwable error) {
+        if (protection != null) protection.initializationFailed(error);
+        else CrashGuard.failClosed(context, error);
         XposedBridge.log("GalaxyBar: launcher motion unavailable: " + error);
       }
       return;

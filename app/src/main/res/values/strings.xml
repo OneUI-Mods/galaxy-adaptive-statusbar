@@ -57,13 +57,13 @@
     <string name="fade_duration_value">Fade duration: %1$d ms</string>
     <string name="fade_milliseconds">%1$d ms</string>
     <string name="fade_duration_note">0 ms switches immediately. Longer fades are smoother but respond more slowly to background changes.</string>
-    <string name="guard_title">SystemUI crash protection</string>
-    <string name="guard_note">Three abnormal exits within two minutes stop this module’s hooks at the next start.</string>
-    <string name="guard_blocked">Crash protection is active. Adaptive colors are stopped. Check the cause before resetting protection.</string>
-    <string name="guard_reset">Reset protection and reload SystemUI</string>
+    <string name="guard_title">Crash protection</string>
+    <string name="guard_note">Three abnormal exits of SystemUI or One UI Home within two minutes stop this module’s hooks in that process at its next start. Hook errors stop them immediately. Protection stays active until you reset it.</string>
+    <string name="guard_blocked">Crash protection is active and this module is stopped. Check the cause before resetting protection.</string>
+    <string name="guard_reset">Reset protection and reload SystemUI and Home</string>
     <string name="guard_reload_note">Reloading may return to the lock screen. Root access is required.</string>
     <string name="guard_reloaded">Reload started. Enable adaptive colors in settings when ready.</string>
-    <string name="guard_reload_failed">Could not reload SystemUI. A saved reset request takes effect at the next manual SystemUI reload.</string>
+    <string name="guard_reload_failed">Could not reload SystemUI and One UI Home. The saved reset request takes effect when each is next reloaded manually.</string>
     <string name="motion_enabled">Follow app opening and closing</string>
     <string name="motion_note">Move the status bar with One UI Home app animations, including Home Up tuning. Enable this module for One UI Home in Vector, then reload One UI Home and SystemUI.</string>
 </resources>

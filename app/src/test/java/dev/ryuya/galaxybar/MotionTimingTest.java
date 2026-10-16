@@ -56,4 +56,33 @@ public class MotionTimingTest {
     assertTrue(t.update(true, .79f, -1, 150).moving() > before);
     assertEquals(1, t.update(true, 1, -1, 200).moving(), 0);
   }
+
+  @Test
+  public void reversalKeepsOpacityAtTheSameInstantAndReturnsTheHomeBar() {
+    MotionTiming t = new MotionTiming();
+    t.update(true, .9f, 200, 100);
+    float before = t.update(true, .9f, 160, 140).moving();
+    assertEquals(before, t.update(false, .9f, -1, 140).moving(), 0);
+    t.update(false, .5f, -1, 180);
+    MotionTiming.Opacity home = t.update(false, .2f, -1, 280);
+    assertEquals(1, home.fixed(), 0);
+    assertEquals(0, home.moving(), 0);
+    assertEquals(0, t.update(true, .2f, -1, 290).moving(), 0);
+    assertEquals(1, t.update(true, 1, -1, 400).moving(), 0);
+  }
+
+  @Test
+  public void nonLinearReversalAndOvershootNeverJumpOrExtrapolateOpacity() {
+    MotionTiming t = new MotionTiming();
+    t.update(false, 1, -1, 100);
+    float previous = 0;
+    float[] widths = {.98f, .9f, .6f, .35f, .7f, .4f, .8f, 1.1f, .95f, .25f};
+    for (int i = 0; i < widths.length; i++) {
+      MotionTiming.Opacity value = t.update(i % 2 == 0, widths[i], -1, 116 + 16 * i);
+      assertTrue(Math.abs(value.moving() - previous) <= 16f / 85 + .00001f);
+      assertEquals(1, value.fixed() + value.moving(), .00001f);
+      assertTrue(value.moving() >= 0 && value.moving() <= 1);
+      previous = value.moving();
+    }
+  }
 }

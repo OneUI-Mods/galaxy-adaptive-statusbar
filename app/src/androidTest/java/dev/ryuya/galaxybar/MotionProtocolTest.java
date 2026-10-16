@@ -22,11 +22,15 @@ public class MotionProtocolTest {
     assertThrows(
         SecurityException.class,
         () -> resolver.call(ConfigProvider.URI, "status", "forged", attempt));
+    assertThrows(
+        SecurityException.class,
+        () -> resolver.call(ConfigProvider.URI, "guard_status", null, new Bundle()));
   }
 
   @Test
   public void geometryProtocolRoundTripsAndRejectsTrailingData() {
-    MotionFrame original = new MotionFrame(100, 200, true, 10, 20, 1000, 2000, .9f, 200, 50, false);
+    MotionFrame original =
+        new MotionFrame(100, 200, true, 42, true, 10, 20, 1000, 2000, .9f, 200, 50, false);
     Parcel p = Parcel.obtain();
     try {
       original.write(p);

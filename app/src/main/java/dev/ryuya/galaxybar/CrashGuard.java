@@ -27,6 +27,10 @@ final class CrashGuard {
   }
 
   static CrashGuard open(Context context) {
+    return open(context, true);
+  }
+
+  static CrashGuard open(Context context, boolean armOnOpen) {
     CrashGuard guard = new CrashGuard(context);
     try {
       if (guard.file.getBaseFile().exists()
@@ -55,14 +59,14 @@ final class CrashGuard {
           context
               .getSystemService(ActivityManager.class)
               .getHistoricalProcessExitReasons(context.getPackageName(), 0, 32)) {
-        if ("com.android.systemui".equals(exit.getProcessName()))
+        if (context.getPackageName().equals(exit.getProcessName()))
           exits.add(
               new CrashLoopState.Exit(
                   exit.getPid(), exit.getTimestamp(), exit.getReason(), exit.getStatus()));
       }
       long now = System.currentTimeMillis();
       guard.state.observe(now, boot, reset, exits);
-      if (!guard.state.blocked) guard.state.arm(android.os.Process.myPid(), now);
+      if (!guard.state.blocked && armOnOpen) guard.state.arm(android.os.Process.myPid(), now);
       guard.save(); // Arm durably before executing any color-hook initialization.
     } catch (Throwable error) {
       guard.state.blocked = true;
@@ -100,6 +104,12 @@ final class CrashGuard {
 
   boolean allowsHooks() {
     return !state.blocked;
+  }
+
+  void arm() throws IOException {
+    int pid = android.os.Process.myPid();
+    if (!state.launches.containsKey(pid)) state.arm(pid, System.currentTimeMillis());
+    save(); // The launch must be durable before the first launcher hook is installed.
   }
 
   void initializationFailed(Throwable error) {

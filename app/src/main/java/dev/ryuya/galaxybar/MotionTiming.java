@@ -4,6 +4,8 @@ package dev.ryuya.galaxybar;
 final class MotionTiming {
   static final int LEAD_MS = 250;
   private long handoff = -1;
+  private long lastTime = -1;
+  private float moving;
 
   record Opacity(float fixed, float moving) {}
 
@@ -15,10 +17,13 @@ final class MotionTiming {
       handoff = now;
     }
     if (handoff < 0) return new Opacity(1, 0);
-    float fade = smooth((now - handoff) / 85f);
-    if (opening) return new Opacity(1 - fade, fade);
-    float home = 1 - smooth((widthRatio - .32f) / .34f);
-    return new Opacity(Math.max(1 - fade, home), fade * (1 - home));
+    // Geometry is reversible. Never keep fading toward the original target after a reversal.
+    // A new native animator may continue this same timing object without restarting its fade.
+    float target = smooth((widthRatio - .32f) / .34f);
+    float step = Math.max(0, now - (lastTime < 0 ? handoff : lastTime)) / 85f;
+    moving += Math.max(-step, Math.min(step, target - moving));
+    lastTime = Math.max(now, lastTime);
+    return new Opacity(1 - moving, moving);
   }
 
   boolean handedOff() {

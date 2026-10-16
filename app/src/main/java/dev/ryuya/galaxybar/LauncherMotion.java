@@ -5,6 +5,7 @@ import android.content.Context;
 import android.database.ContentObserver;
 import android.graphics.PointF;
 import android.graphics.Rect;
+import android.graphics.RectF;
 import android.net.Uri;
 import android.os.*;
 import de.robv.android.xposed.*;
@@ -16,6 +17,7 @@ final class LauncherMotion {
   private static final String PLAYER = "com.honeyspace.transition.anim.floating.PlayerImpl";
   private final Context context;
   private final ClassLoader loader;
+  private final CrashGuard protection;
   private final Handler main = new Handler(Looper.getMainLooper());
   private final ExecutorService io =
       Executors.newSingleThreadExecutor(
@@ -26,9 +28,18 @@ final class LauncherMotion {
           });
   private final Map<Object, Session> sessions = new WeakHashMap<>();
   private final List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
+  private Session foreground;
   private volatile IBinder endpoint;
   private boolean enabled, failed;
   private int revision;
+  private final Runnable heartbeat =
+      () -> {
+        try {
+          heartbeat();
+        } catch (Throwable error) {
+          fail(error);
+        }
+      };
   private final ContentObserver observer =
       new ContentObserver(main) {
         @Override
@@ -39,15 +50,16 @@ final class LauncherMotion {
               || "enabled".equals(key)
               || "motion".equals(key)) {
             disable();
-            failed = false;
+            failed = !protection.allowsHooks();
           }
           refresh();
         }
       };
 
-  LauncherMotion(Context context, ClassLoader loader) throws Exception {
+  LauncherMotion(Context context, ClassLoader loader, CrashGuard protection) throws Exception {
     this.context = context;
     this.loader = loader;
+    this.protection = protection;
     if (context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode()
         != 1750305027L) {
       XposedBridge.log("GalaxyBar: unsupported One UI Home version; motion hooks not installed");
@@ -79,9 +91,10 @@ final class LauncherMotion {
                           && config.getBoolean("motion", true);
                   if (!wanted) {
                     disable();
-                    failed = false;
-                  } else if (!enabled && !failed) {
+                    failed = !protection.allowsHooks();
+                  } else if (!enabled && !failed && protection.allowsHooks()) {
                     try {
+                      protection.arm();
                       install();
                       enabled = true;
                     } catch (Throwable error) {
@@ -114,14 +127,9 @@ final class LauncherMotion {
           protected void beforeHookedMethod(MethodHookParam p) {
             try {
               if (!enabled) return;
-              Session previous = sessions.remove(p.thisObject);
-              if (previous != null) end(previous);
-              Session s = new Session();
-              s.id = SystemClock.elapsedRealtimeNanos();
-              s.started = SystemClock.uptimeMillis();
+              Session s = begin(p.thisObject);
               s.opening = XposedHelpers.getBooleanField(p.args[0], "isForward");
               s.spring = p.method.getName().equals("startSpring");
-              sessions.put(p.thisObject, s);
             } catch (Throwable error) {
               fail(error);
             }
@@ -173,34 +181,36 @@ final class LauncherMotion {
                 try {
                   if (!enabled || endpoint == null || p.hasThrowable()) return;
                   Session s = sessions.get(p.thisObject);
-                  if (s == null || s.ended) return;
+                  if (s == null || s.ended || s != foreground) return;
                   if (!s.verified) {
                     if (!fullscreen(p.thisObject)) return;
                     s.verified = true;
                   }
                   long now = SystemClock.uptimeMillis();
                   if (now == s.lastSent) return;
-                  s.lastSent = now;
                   Object info = p.getResult();
                   PointF point = (PointF) XposedHelpers.getObjectField(info, "point");
                   Rect crop = (Rect) XposedHelpers.getObjectField(info, "crop");
                   float scale = XposedHelpers.getFloatField(info, "scale");
                   float width = crop.width() * scale;
                   float remaining = -1;
-                  if (!s.spring && s.duration > 0)
-                    remaining = Math.max(0, s.duration - (now - s.started));
-                  else if (s.lastWidth > 0 && now > s.lastTime && width > s.lastWidth) {
-                    float full = context.getResources().getDisplayMetrics().widthPixels;
-                    remaining =
-                        Math.max(0, (full - width) / ((width - s.lastWidth) / (now - s.lastTime)));
+                  boolean opening = XposedHelpers.getBooleanField(p.thisObject, "isForward");
+                  if (opening != s.opening) {
+                    s.opening = opening;
+                    s.spring =
+                        true; // A changed native target invalidates the old end-time estimate.
                   }
-                  s.lastWidth = width;
-                  s.lastTime = now;
-                  send(
+                  if (!s.spring && !s.interactive && s.duration > 0)
+                    remaining = Math.max(0, s.duration - (now - s.started));
+                  s.lastSent = now;
+                  s.last =
                       new MotionFrame(
                           s.id,
                           now,
                           s.opening,
+                          ((Number) XposedHelpers.callMethod(p.thisObject, "getRunningTaskId"))
+                              .intValue(),
+                          s.interactive,
                           point.x + crop.left * scale,
                           point.y + crop.top * scale,
                           width,
@@ -208,7 +218,8 @@ final class LauncherMotion {
                           XposedHelpers.getFloatField(info, "alpha"),
                           remaining,
                           XposedHelpers.getFloatField(info, "cornerRadius") * scale,
-                          false));
+                          false);
+                  send(s.last);
                 } catch (Throwable error) {
                   fail(error);
                 }
@@ -217,13 +228,37 @@ final class LauncherMotion {
     XC_MethodHook finish =
         new XC_MethodHook() {
           @Override
-          protected void afterHookedMethod(MethodHookParam p) {
+          protected void beforeHookedMethod(MethodHookParam p) {
             Session s = sessions.get(p.thisObject);
             if (s != null) end(s);
           }
         };
     hooks.add(XposedHelpers.findAndHookMethod(player, "end", finish));
     hooks.add(XposedHelpers.findAndHookMethod(player, "finish", finish));
+    // Catch/moving can run with the old AnimatorSet paused, before any start/startSpring call.
+    XC_MethodHook gesture =
+        new XC_MethodHook() {
+          @Override
+          protected void beforeHookedMethod(MethodHookParam p) {
+            try {
+              if (!enabled) return;
+              Session s = sessions.get(p.thisObject);
+              if (s == null || s.ended || s != foreground) s = begin(p.thisObject);
+              foreground = s;
+              s.interactive = true;
+              s.spring = true;
+              main.removeCallbacks(heartbeat);
+              main.postDelayed(heartbeat, 75);
+            } catch (Throwable error) {
+              fail(error);
+            }
+          }
+        };
+    hooks.add(
+        XposedHelpers.findAndHookMethod(player, "catch", RectF.class, boolean.class, gesture));
+    hooks.add(
+        XposedHelpers.findAndHookMethod(
+            player, "moving", RectF.class, float.class, float.class, float.class, gesture));
     XposedBridge.log("GalaxyBar: One UI Home window motion hooks installed");
   }
 
@@ -251,7 +286,7 @@ final class LauncherMotion {
       frame.write(data);
       if (!target.transact(IBinder.FIRST_CALL_TRANSACTION, data, null, IBinder.FLAG_ONEWAY))
         endpoint = null;
-    } catch (RemoteException error) {
+    } catch (RemoteException | RuntimeException error) {
       endpoint = null;
     } finally {
       data.recycle();
@@ -261,13 +296,62 @@ final class LauncherMotion {
   private void end(Session s) {
     if (s.ended) return;
     s.ended = true;
-    send(new MotionFrame(s.id, SystemClock.uptimeMillis(), s.opening, 0, 0, 0, 0, 0, -1, 0, true));
+    send(
+        new MotionFrame(
+            s.id, SystemClock.uptimeMillis(), s.opening, 0, false, 0, 0, 0, 0, 0, -1, 0, true));
+  }
+
+  private Session begin(Object player) {
+    Session previous = sessions.remove(player);
+    if (previous != null) end(previous);
+    Session s = new Session();
+    s.id = SystemClock.elapsedRealtimeNanos();
+    s.started = SystemClock.uptimeMillis();
+    sessions.put(player, s);
+    foreground = s;
+    return s;
+  }
+
+  private void heartbeat() {
+    if (!enabled) return;
+    if (!context.getSystemService(PowerManager.class).isInteractive()
+        || context.getSystemService(android.app.KeyguardManager.class).isKeyguardLocked()) {
+      for (Session s : sessions.values()) if (s.interactive) end(s);
+      return;
+    }
+    boolean again = false;
+    long now = SystemClock.uptimeMillis();
+    for (Session s : sessions.values()) {
+      if (!s.interactive || s.ended || s != foreground) continue;
+      again = true;
+      if (s.last == null || now - s.lastSent < 60) continue;
+      MotionFrame f = s.last;
+      send(
+          new MotionFrame(
+              f.session(),
+              now,
+              f.opening(),
+              f.taskId(),
+              true,
+              f.x(),
+              f.y(),
+              f.width(),
+              f.height(),
+              f.alpha(),
+              -1,
+              f.radius(),
+              false));
+      s.lastSent = now;
+    }
+    if (again) main.postDelayed(heartbeat, 75);
   }
 
   private void disable() {
     enabled = false;
+    main.removeCallbacks(heartbeat);
     for (Session s : sessions.values()) end(s);
     sessions.clear();
+    foreground = null;
     for (var hook : hooks) {
       try {
         hook.unhook();
@@ -281,12 +365,14 @@ final class LauncherMotion {
   private void fail(Throwable error) {
     disable();
     failed = true;
+    protection.initializationFailed(error);
     XposedBridge.log("GalaxyBar: launcher motion disabled: " + error);
   }
 
   private static final class Session {
-    long id, started, lastSent, lastTime;
-    boolean opening, spring, verified, ended;
-    float duration, lastWidth;
+    long id, started, lastSent;
+    boolean opening, spring, verified, ended, interactive;
+    float duration;
+    MotionFrame last;
   }
 }

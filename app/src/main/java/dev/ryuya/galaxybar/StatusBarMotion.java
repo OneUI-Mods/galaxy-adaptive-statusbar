@@ -20,14 +20,17 @@ final class StatusBarMotion {
   private final AtomicReference<MotionFrame> pending = new AtomicReference<>();
   private final AtomicBoolean posted = new AtomicBoolean();
   private final Runnable drain = this::drain;
-  private final Runnable watchdog = () -> finish("timeout", false);
+  private final Runnable watchdog = () -> finish("timeout");
+  private final MotionTrack track = new MotionTrack();
+  private final Runnable terminal =
+      () -> {
+        if (track.endDue(SystemClock.uptimeMillis())) finish("finished");
+      };
   private final Context context;
   private final WindowManager windows;
   private Overlay overlay;
   private RenderNode snapshot;
   private MotionTiming timing;
-  private MotionFrame current;
-  private long session, endedSession;
   private float originalAlpha;
   private volatile boolean active;
   private boolean enabled, closed, failed;
@@ -41,7 +44,7 @@ final class StatusBarMotion {
           if (Binder.getCallingUid() != launcherUid)
             throw new SecurityException("One UI Home required");
           MotionFrame frame = MotionFrame.read(data);
-          pending.set(frame);
+          pending.accumulateAndGet(frame, MotionTrack::newer);
           if (posted.compareAndSet(false, true)) main.post(drain);
           return true;
         }
@@ -83,9 +86,10 @@ final class StatusBarMotion {
     try {
       update(frame);
     } catch (Throwable error) {
-      finish("unavailable", true);
+      finish("unavailable");
       failed = true;
       XposedBridge.log("GalaxyBar: motion disabled: " + error);
+      HookEntry.stopHooks(error);
     }
   }
 
@@ -93,12 +97,11 @@ final class StatusBarMotion {
     long now = SystemClock.uptimeMillis();
     int width = root.getResources().getDisplayMetrics().widthPixels;
     int height = root.getResources().getDisplayMetrics().heightPixels;
-    if (!frame.valid(width, height, now) || frame.session() <= endedSession) return;
-    if (frame.end()) {
-      if (frame.session() >= session) {
-        endedSession = frame.session();
-        finish("finished", false);
-      }
+    MotionTrack.Change change = track.accept(frame, width, height, now);
+    if (change == MotionTrack.Change.IGNORE) return;
+    if (change == MotionTrack.Change.END) {
+      main.removeCallbacks(terminal);
+      main.postDelayed(terminal, MotionTrack.END_GRACE_MS);
       return;
     }
     if (!enabled
@@ -114,10 +117,11 @@ final class StatusBarMotion {
       cancel("paused");
       return;
     }
-    if (frame.session() < session) return;
-    if (!active || session != frame.session()) {
-      finish("interrupted", false);
-      session = frame.session();
+    main.removeCallbacks(terminal);
+    if (!active || change == MotionTrack.Change.START) {
+      // A replacement for the same task preserves the drawing and fade. A different
+      // task must get a fresh snapshot, even if its animation overlaps in time.
+      if (active) releaseDrawing();
       originalAlpha = root.getAlpha();
       timing = new MotionTiming();
       active = true;
@@ -125,9 +129,12 @@ final class StatusBarMotion {
       XposedBridge.log("GalaxyBar: motion begin " + (frame.opening() ? "open" : "close"));
     }
     updates++;
-    current = frame;
     MotionTiming.Opacity opacity =
-        timing.update(frame.opening(), frame.width() / width, frame.remainingMs(), now);
+        timing.update(
+            frame.opening() && !frame.interactive(),
+            frame.width() / width,
+            frame.remainingMs(),
+            now);
     if (timing.handedOff() && overlay == null) {
       captureBar();
       overlay = new Overlay();
@@ -177,13 +184,24 @@ final class StatusBarMotion {
 
   void cancel(String reason) {
     MotionFrame waiting = pending.getAndSet(null);
-    if (waiting != null) endedSession = Math.max(endedSession, waiting.session());
-    finish(reason, true);
+    if (waiting != null)
+      track.accept(
+          waiting,
+          root.getResources().getDisplayMetrics().widthPixels,
+          root.getResources().getDisplayMetrics().heightPixels,
+          SystemClock.uptimeMillis());
+    finish(reason);
   }
 
-  private void finish(String reason, boolean suppressSession) {
+  private void finish(String reason) {
     main.removeCallbacks(watchdog);
-    if (suppressSession) endedSession = Math.max(endedSession, session);
+    main.removeCallbacks(terminal);
+    track.clear();
+    releaseDrawing();
+    this.reason = reason;
+  }
+
+  private void releaseDrawing() {
     if (active) {
       root.setAlpha(originalAlpha);
       completed++;
@@ -200,8 +218,6 @@ final class StatusBarMotion {
     }
     if (snapshot != null) snapshot.discardDisplayList();
     snapshot = null;
-    current = null;
-    this.reason = reason;
   }
 
   String status() {
@@ -236,15 +252,20 @@ final class StatusBarMotion {
         drawBar(canvas);
       } catch (Throwable error) {
         failed = true;
-        main.post(() -> cancel("drawing unavailable"));
+        main.post(
+            () -> {
+              cancel("drawing unavailable");
+              HookEntry.stopHooks(error);
+            });
         XposedBridge.log("GalaxyBar: motion draw: " + error);
       }
     }
 
     private void drawBar(Canvas canvas) {
-      if (snapshot == null || current == null || opacity <= 0 || !canvas.isHardwareAccelerated())
-        return;
-      MotionFrame f = current;
+      if (!canvas.isHardwareAccelerated())
+        throw new IllegalStateException("Hardware canvas required");
+      if (snapshot == null || track.current() == null || opacity <= 0) return;
+      MotionFrame f = track.current();
       float scale = f.width() / root.getWidth();
       int save = canvas.save();
       clip.reset();

@@ -5,7 +5,7 @@ import android.database.Cursor;
 import android.net.Uri;
 import android.os.*;
 
-/** Only non-sensitive preferences are publicly readable; diagnostic writes are SystemUI-only. */
+/** Only non-sensitive preferences are public; each hook host can report only its own guard. */
 public final class ConfigProvider extends ContentProvider {
   public static final Uri URI = Uri.parse("content://dev.ryuya.galaxybar.config");
   private volatile IBinder motionEndpoint;
@@ -60,11 +60,11 @@ public final class ConfigProvider extends ContentProvider {
       return bundle;
     }
     if (method.equals("status") || method.equals("guard_status")) {
-      boolean system = false;
-      String[] names = getContext().getPackageManager().getPackagesForUid(Binder.getCallingUid());
-      if (names != null)
-        for (String name : names) if (name.equals("com.android.systemui")) system = true;
-      if (!system) throw new SecurityException("SystemUI required");
+      boolean system = callerIs("com.android.systemui");
+      boolean launcher = method.equals("guard_status") && callerIs("com.sec.android.app.launcher");
+      if (!system && !launcher) throw new SecurityException("Hook host required");
+      if (!system && extras != null && extras.containsKey("motion_endpoint"))
+        throw new SecurityException("SystemUI required to register motion endpoint");
       if (extras != null && extras.getBinder("motion_endpoint") != null) {
         IBinder endpoint = extras.getBinder("motion_endpoint");
         if (motionEndpoint != endpoint) {
@@ -78,7 +78,7 @@ public final class ConfigProvider extends ContentProvider {
         if (extras == null) throw new IllegalArgumentException("Guard status required");
         boolean blocked = extras.getBoolean("blocked");
         getContext()
-            .getSharedPreferences("guard", 0)
+            .getSharedPreferences(system ? "guard" : "guard_launcher", 0)
             .edit()
             .putBoolean("blocked", blocked)
             .putInt("count", extras.getInt("count"))
