@@ -4,7 +4,7 @@ package dev.ryuya.galaxybar;
 final class MotionTiming {
   static final int LEAD_MS = 250;
   private final float durationScale;
-  private final Fade fixed = new Fade(1), moving = new Fade(0), dim = new Fade(1);
+  private final Fade fixed = new Fade(1), moving = new Fade(0), visibility = new Fade(1);
   private boolean handedOff;
   private boolean openingLeg, returningFromOverview;
   private float previousWidth = Float.NaN;
@@ -49,7 +49,7 @@ final class MotionTiming {
         // A closing window begins at the existing bar's position: transfer without a dip.
         fixed.snap(0);
         moving.snap(1);
-        if (cardMode) dim.snap(cardDim(widthRatio));
+        if (cardMode) visibility.snap(cardVisibility(widthRatio));
       } else {
         fixed.to(0, now, ms(90), 0, true);
         moving.to(1, now, ms(140), ms(35), false);
@@ -76,24 +76,23 @@ final class MotionTiming {
         moving.to(smooth((widthRatio - .58f) / .2f), now, ms(80), 0, false);
         fixed.to(smooth((.60f - widthRatio) / .2f), now, ms(110), 0, false);
       }
-      float targetDim =
-          cardMode
-              ? cardDim(widthRatio)
-              : returningFromOverview && openingLeg
-                  ? .35f + .65f * smooth((widthRatio - .85f) / .15f)
-                  : 1;
-      dim.to(targetDim, now, ms(140), 0, false);
+      // A reduced window must become completely clear, including while the finger
+      // is held still. Geometry selects the target; time completes the fade without
+      // requiring more movement. Expansion/reversal starts at the displayed alpha.
+      float targetVisibility =
+          cardMode || returningFromOverview || !openingLeg ? cardVisibility(widthRatio) : 1;
+      visibility.to(targetVisibility, now, ms(140), 0, false);
     }
     previousWidth = widthRatio;
     return opacity(now);
   }
 
   Opacity opacity(long now) {
-    return new Opacity(fixed.value(now), moving.value(now) * dim.value(now));
+    return new Opacity(fixed.value(now), moving.value(now) * visibility.value(now));
   }
 
   boolean running(long now) {
-    return fixed.running(now) || moving.running(now) || dim.running(now);
+    return fixed.running(now) || moving.running(now) || visibility.running(now);
   }
 
   boolean openingLeg() {
@@ -108,8 +107,8 @@ final class MotionTiming {
     return Math.round(duration * durationScale);
   }
 
-  private static float cardDim(float widthRatio) {
-    return .35f + .65f * smooth((widthRatio - .65f) / .35f);
+  private static float cardVisibility(float widthRatio) {
+    return smooth((widthRatio - .90f) / .09f);
   }
 
   private static float smooth(float v) {
@@ -133,7 +132,7 @@ final class MotionTiming {
     }
 
     void to(float value, long now, int duration, int delay, boolean easeOut) {
-      if (Math.abs(value - target) < .0001f) return;
+      if (value == target) return;
       from = value(now);
       target = value;
       start = now + delay;

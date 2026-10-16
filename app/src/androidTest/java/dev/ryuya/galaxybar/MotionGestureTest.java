@@ -19,7 +19,7 @@ import org.junit.runner.RunWith;
 @RunWith(AndroidJUnit4.class)
 public class MotionGestureTest {
   @Test
-  public void heldAndReversedWindowKeepsLiveBarAndCapture() throws Exception {
+  public void heldWindowFadesCompletelyAndReversalKeepsLiveCapture() throws Exception {
     var instrumentation = InstrumentationRegistry.getInstrumentation();
     var context = instrumentation.getTargetContext();
     var status = context.getSharedPreferences("status", 0);
@@ -65,6 +65,8 @@ public class MotionGestureTest {
       else {
         assertTrue(held, held.contains("Capture OK"));
         assertTrue(held, held.contains("palette=WINDOW"));
+        assertTrue(held, held.contains("moving opacity=0.0;"));
+        assertTrue(held, held.contains("opacity callbacks=0;"));
         assertFalse(held, held.contains("color spans=0"));
       }
       for (int i = 1; i <= 12; i++) {

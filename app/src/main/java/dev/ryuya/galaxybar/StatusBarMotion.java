@@ -419,6 +419,8 @@ final class StatusBarMotion {
         + draws
         + "; opacity callbacks="
         + (opacityScheduled ? 1 : 0)
+        + "; moving opacity="
+        + (overlay == null ? 0 : overlay.opacity)
         + "; palette="
         + colorSource
         + "; color spans="

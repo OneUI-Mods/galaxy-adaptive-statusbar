@@ -106,13 +106,13 @@ public class MotionTimingTest {
   }
 
   @Test
-  public void overviewDimsAndBrightensWithoutFlashingTheHomeBar() {
+  public void overviewDisappearsAndReturnsWithoutFlashingTheHomeBar() {
     MotionTiming t = new MotionTiming();
     t.update(false, 1, -1, 100);
     t.update(false, .55f, -1, 150, true);
     MotionTiming.Opacity card = t.opacity(350);
     assertEquals(0, card.fixed(), 0);
-    assertEquals(.35f, card.moving(), .00001f);
+    assertEquals(0, card.moving(), 0);
     assertEquals(card, t.update(true, .6f, -1, 350));
     assertEquals(card, t.opacity(550));
     t.update(true, 1, -1, 550);
@@ -179,21 +179,21 @@ public class MotionTimingTest {
   }
 
   @Test
-  public void newOverviewCardStartsDimInsteadOfFlashingBright() {
+  public void newOverviewCardStartsInvisibleInsteadOfFlashingBright() {
     MotionTiming t = new MotionTiming();
     MotionTiming.Opacity first = t.update(false, .6f, -1, 100, true);
     assertEquals(0, first.fixed(), 0);
-    assertEquals(.35f, first.moving(), .00001f);
+    assertEquals(0, first.moving(), 0);
     assertFalse(t.running(100));
   }
 
   @Test
-  public void heldGestureKeepsTheCardBarUntilTheHomeDestinationIsCommitted() {
+  public void heldGestureDisappearsCompletelyBeforeTheHomeDestinationIsCommitted() {
     MotionTiming t = new MotionTiming();
     t.update(false, 1, -1, 100, false, true);
     t.update(false, .45f, -1, 200, false, true);
     assertEquals(0, t.opacity(400).fixed(), 0);
-    assertEquals(.35f, t.opacity(400).moving(), .00001f);
+    assertEquals(0, t.opacity(400).moving(), 0);
     assertEquals(t.opacity(400), t.update(false, .45f, -1, 400));
     assertEquals(0, t.opacity(600).moving(), 0);
     assertTrue(t.opacity(600).fixed() > .8f);
@@ -207,5 +207,57 @@ public class MotionTimingTest {
     MotionTiming.Opacity before = t.opacity(190);
     assertEquals(before, t.update(false, .99f, -1, 190, false, true));
     assertTrue(t.opacity(300).moving() > before.moving());
+  }
+
+  @Test
+  public void modestShrinkHeldForSecondsCannotLeaveAGhostBar() {
+    MotionTiming t = new MotionTiming();
+    t.update(false, 1, -1, 100, false, true);
+    t.update(false, .89f, -1, 150, false, true);
+    assertTrue(t.opacity(190).moving() > 0);
+    for (long now = 166; now <= 5000; now += 16) {
+      t.update(false, .89f, -1, now, false, true);
+      if (now >= 290) {
+        assertEquals(0, t.opacity(now).moving(), 0);
+        assertEquals(0, t.opacity(now).fixed(), 0);
+        assertFalse(t.running(now));
+      }
+    }
+  }
+
+  @Test
+  public void shrinkingAndExpandingCanReverseAFadeRepeatedlyWithoutJumping() {
+    MotionTiming t = new MotionTiming();
+    t.update(false, 1, -1, 100, false, true);
+    t.update(false, .86f, -1, 150, false, true);
+    MotionTiming.Opacity before = t.opacity(200);
+    assertEquals(before, t.update(false, .99f, -1, 200, false, true));
+    assertTrue(t.opacity(240).moving() > before.moving());
+    before = t.opacity(240);
+    assertEquals(before, t.update(false, .86f, -1, 240, false, true));
+    assertEquals(0, t.opacity(400).moving(), 0);
+    assertEquals(0, t.update(false, 1, -1, 400, false, true).moving(), 0);
+    assertEquals(1, t.opacity(550).moving(), 0);
+    assertEquals(0, t.opacity(550).fixed(), 0);
+  }
+
+  @Test
+  public void ordinaryCloseAlsoDisappearsWhenItsWindowShrinks() {
+    MotionTiming t = new MotionTiming();
+    t.update(false, 1, -1, 100);
+    t.update(false, .86f, -1, 150);
+    assertEquals(0, t.opacity(300).moving(), 0);
+    assertEquals(0, t.opacity(300).fixed(), 0);
+    assertFalse(t.running(300));
+  }
+
+  @Test
+  public void anAlmostZeroTargetStillReachesExactlyZero() {
+    MotionTiming t = new MotionTiming();
+    t.update(false, 1, -1, 100, false, true);
+    t.update(false, .9001f, -1, 150, false, true);
+    t.update(false, .89f, -1, 300, false, true);
+    assertEquals(0, t.opacity(500).moving(), 0);
+    assertFalse(t.running(500));
   }
 }

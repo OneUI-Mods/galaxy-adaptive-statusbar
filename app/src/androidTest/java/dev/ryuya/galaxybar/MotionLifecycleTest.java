@@ -44,7 +44,9 @@ public class MotionLifecycleTest {
               s ->
                   s.contains("Motion: overview")
                       && s.contains("Capture OK")
-                      && s.contains("palette=WINDOW"));
+                      && s.contains("palette=WINDOW")
+                      && s.contains("moving opacity=0.0;")
+                      && s.contains("opacity callbacks=0;"));
       assertFalse(overview.contains("color spans=0"));
       assertTrue(overview.endsWith("Last error: "));
       long off = System.currentTimeMillis();
