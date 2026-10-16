@@ -16,7 +16,8 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
       - run: python3 -m unittest discover -s tools -p 'test_*.py'
       - run: chmod +x gradlew && ./gradlew :app:testDebugUnitTest :app:lintDebug :app:assembleDebug :app:assembleRelease :app:assembleDebugAndroidTest
+      - run: python3 tools/package_release.py --check-release-apk app/build/outputs/apk/release/app-release-unsigned.apk
       - uses: actions/upload-artifact@v4
         with:
-          name: galaxy-adaptive-bar-experimental
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: galaxy-adaptive-bar-release-unsigned
+          path: app/build/outputs/apk/release/app-release-unsigned.apk

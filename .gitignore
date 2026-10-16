@@ -9,4 +9,5 @@ build-*.log
 build-runtime-dependencies.txt
 *.keystore
 *.p12
+.signing/
 __pycache__/

@@ -31,7 +31,9 @@ export ANDROID_HOME="$HOME/Library/Android/sdk"  # 環境に合わせる
 python3 -m unittest discover -s tools -p 'test_*.py'
 ```
 
-APK: `app/build/outputs/apk/debug/app-debug.apk`。GitHub Actionsも単体テスト、Lint、APKと実機UIテストAPKのビルドを実行します。CIのdebug署名はローカルdebug署名と異なる場合があります。公開配布用の署名鍵は設定していません。
+配布APKは署名済みの**releaseビルド**です。GitHub Releaseから`*-release.apk`をダウンロードしてください。検証用画面を含むdebug APKは配布しません。
+
+配布物は`python3 tools/package_release.py --source-ref <リリースのタグ>`で生成します。署名・検証・ソースZIP・SHA-256の手順は[配布用ビルド](docs/releasing.md)を参照してください。GitHub Actionsは単体テスト、Lint、各ビルドを実行し、署名前のrelease APKを開発用artifactとして保存します。
 
 ```sh
 adb connect HOST:PORT
@@ -40,7 +42,7 @@ bash tools/install.sh
 bash tools/adb.sh shell 'su -c "kill -TERM $(pidof com.android.systemui)"'
 ```
 
-`install.sh`はAPK導入、既存Vector CLIによる本モジュールの有効化、`com.android.systemui/0`のscope登録を行います。CLIがない環境ではVectorマネージャーで設定してください。初回読込み・APKのフック更新時にはSystemUI再起動が必要で、ロック画面に戻る場合があります。
+`install.sh`は生成済みの署名付きrelease APKを導入し、既存Vector CLIによる本モジュールの有効化、`com.android.systemui/0`のscope登録を行います。CLIがない環境ではVectorマネージャーで設定してください。初回読込み・APKのフック更新時にはSystemUI再起動が必要で、ロック画面に戻る場合があります。
 
 新規インストール時は処理OFFです。解除後に設定アプリでONにすると反映します。設定変更はProviderの変更通知で反映し、SystemUI再起動は不要です。通知を取り逃した場合に備えた定期確認も残しています。既存OneUiLiveColors・OneUIX等の設定は変更しません。ほかの配色モジュールが同じ対象を制御する場合の競合試験は未完了です。
 
