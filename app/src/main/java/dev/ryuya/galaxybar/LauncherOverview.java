@@ -36,6 +36,9 @@ final class LauncherOverview {
   private boolean overview;
   private Object launch;
   private int launchTask = -1;
+
+  private record CardGeometry(RectF rect, float alpha, float radius) {}
+
   private final Runnable heartbeat = () -> protect(this::refreshCard);
   private final ViewTreeObserver.OnPreDrawListener preDraw =
       () -> {
@@ -100,13 +103,23 @@ final class LauncherOverview {
                           != 1) return;
                       View next = (View) p.thisObject;
                       if (card.get() != next) {
+                        // A TaskSceneView can draw before its background crop is ready.
+                        // Do not suppress the native animation until we can send a card frame.
+                        CardGeometry geometry = geometry(next);
+                        if (geometry == null || geometry.alpha() <= 0) return;
                         detach();
                         card = new WeakReference<>(next);
                         observer = next.getRootView().getViewTreeObserver();
                         observer.addOnPreDrawListener(preDraw);
-                        XposedBridge.log("GalaxyBar: overview card connected task=" + taskId);
+                        XposedBridge.log(
+                            "GalaxyBar: overview card connected task="
+                                + taskId
+                                + " alpha="
+                                + geometry.alpha());
+                        publish(next, geometry);
+                      } else {
+                        refreshCard();
                       }
-                      refreshCard();
                     });
               }
             }));
@@ -234,26 +247,37 @@ final class LauncherOverview {
       stop();
       return;
     }
+    CardGeometry geometry = geometry(view);
+    if (geometry == null) return;
+    publish(view, geometry);
+  }
+
+  private CardGeometry geometry(View view) {
     Object state = XposedHelpers.callMethod(view, "getSceneStateInfo");
     float ratio = view.getWidth() / (float) Math.max(1, view.getHeight());
     List<?> bounds = (List<?>) XposedHelpers.callMethod(state, "getDestBgCropBounds", ratio, 0f);
-    if (bounds.size() != 1) return;
+    if (bounds.size() != 1) return null;
     RectF local = new RectF((RectF) bounds.get(0));
-    if (local.isEmpty()) return;
+    if (local.isEmpty()) return null;
     Matrix matrix = new Matrix();
     view.transformMatrixToGlobal(matrix);
     RectF rect = new RectF(local);
     matrix.mapRect(rect);
     List<?> radii = (List<?>) XposedHelpers.callMethod(view, "getBackgroundCornerRadii");
-    if (radii.size() != 1) return;
+    if (radii.size() != 1) return null;
     float[] corners = (float[]) radii.get(0);
+    if (corners.length == 0) return null;
     float alpha = view.getAlpha();
     ViewParent parent = view.getParent();
     while (parent instanceof View ancestor) {
       alpha *= ancestor.getAlpha();
       parent = ancestor.getParent();
     }
-    sink.frame(view, taskId, false, true, rect, alpha, corners[0] * rect.width() / local.width());
+    return new CardGeometry(rect, alpha, corners[0] * rect.width() / local.width());
+  }
+
+  private void publish(View view, CardGeometry geometry) {
+    sink.frame(view, taskId, false, true, geometry.rect(), geometry.alpha(), geometry.radius());
     // Traversals supply moving frames; a stationary card only needs a lightweight liveness pulse.
     main.postDelayed(heartbeat, 75);
   }

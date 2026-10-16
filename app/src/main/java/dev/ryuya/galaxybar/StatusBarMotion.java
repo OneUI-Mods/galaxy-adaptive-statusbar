@@ -368,6 +368,12 @@ final class StatusBarMotion {
   }
 
   private void finish(String reason) {
+    if (active)
+      XposedBridge.log(
+          "GalaxyBar: motion restore "
+              + reason
+              + " overview="
+              + (track.current() != null && track.current().overview()));
     main.removeCallbacks(watchdog);
     main.removeCallbacks(terminal);
     track.clear();
