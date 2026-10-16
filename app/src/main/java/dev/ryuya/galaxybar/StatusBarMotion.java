@@ -51,7 +51,10 @@ final class StatusBarMotion {
     this.root = root;
     this.main = main;
     this.pauseCapture = pauseCapture;
-    context = root.getContext();
+    int windowType =
+        XposedHelpers.getStaticIntField(
+            WindowManager.LayoutParams.class, "TYPE_STATUS_BAR_SUB_PANEL");
+    context = root.getContext().createWindowContext(root.getDisplay(), windowType, null);
     launcherUid = context.getPackageManager().getPackageUid("com.sec.android.app.launcher", 0);
     windows = context.getSystemService(WindowManager.class);
   }
