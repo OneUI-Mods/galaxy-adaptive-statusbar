@@ -29,3 +29,10 @@ API 82のcompileOnly JAR、legacy manifest metadataとassets/xposed_initを除�
 引数変更、戻り値、原処理の省略、意図した拒否、例外とcleanup、反射のオーバーロード・継承・静的呼び出し、登録失敗時の部分解除を回帰テストする。配布チェックはmodern metadataと旧APIの混入を検査。ライセンス一覧のcompile-only参照も102へ更新した。
 
 API 102向けの単体テストはbefore/after adapter・反射・登録解除の15件を含む。rootなしのAndroid 16エミュレーターで起動・設定・ライセンス画面が起動し、UIテストBar8件／Capture4件成功。最初のBar実行はADBサーバー側の接続断で途中終了し、残り7件を再実行して成功。
+
+
+## API 102版の実機確認（0.6.0）
+
+署名済みrelease APKを既存アプリへ上書きし、zygoteのソフトリブート後に解除。Vectorのmodern loaderでAPI 102登録と読み込み成功を確認した。SystemUIのCapture OK、文字・アイコンへの配色、One UIホームの開閉handoffとrestoreが動作し、最後の状態に例外はなかった。設定画面を開く前から配色が復帰していた。
+
+単体テスト83件とLint成功。API 102版のrootなし画面試験は前節の8件。配布用APKの非debuggable・検証Activity除外・modern metadata・旧API参照なし・ライセンス一覧・16KiB zipalign・v3署名を検証。
