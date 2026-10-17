@@ -16,3 +16,5 @@ BOOT_COMPLETED／LOCKED_BOOT_COMPLETED／MY_PACKAGE_REPLACEDを非公開receiver
 Engineの設定取得前にUserManagerを確認し、provider準備中の例外はキャプチャエラーの連続回数へ加えない。One UIホームはUSER_UNLOCKEDでも設定を再取得する。既存の保護停止を解除しない。
 
 メイン画面のhero見出しと本文を全言語から削除。自動配色スイッチと各機能の説明は残す。独立したAndroid 16環境で、起動通知による設定維持を含む画面テスト8件成功。
+
+rootなしのAndroid 16 Play Storeエミュレーター（ro.debuggable=0）の実際の再起動で、BootReceiverが自動起動することをActivityManagerログとpidで確認。
