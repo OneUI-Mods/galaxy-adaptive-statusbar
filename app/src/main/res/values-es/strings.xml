@@ -65,4 +65,18 @@
     <string name="guard_reload_failed">No se pudieron recargar SystemUI y One UI Home. La solicitud guardada se aplicará cuando cada uno se recargue manualmente.</string>
     <string name="motion_enabled">Seguir la apertura y el cierre</string>
     <string name="motion_note">Mueve la barra de estado con las animaciones de One UI Home, incluidos los ajustes de Home Up. Activa el módulo para One UI Home en Vector y reinicia One UI Home y SystemUI.</string>
+<string name="tab_status">Estado</string>
+<string name="tab_about">Información</string>
+<string name="legal_title">Licencias</string>
+<string name="legal_catalog_hint">Elige un componente para ver detalles</string>
+<string name="legal_search">Buscar bibliotecas</string>
+<string name="legal_back">Atrás</string>
+<string name="legal_license_text">Licencia</string>
+<string name="legal_notices">Avisos</string>
+<string name="legal_no_results">No se encontraron bibliotecas</string>
+<string name="legal_load_error">No se pudo cargar la licencia.</string>
+<string name="legal_reference_only">Solo referencia API · no incluida</string>
+<string name="legal_distribution_notices">Avisos de distribución</string>
+<string name="tab_colors">Colores</string>
+<string name="tab_adjustments">Ajustes</string>
 </resources>

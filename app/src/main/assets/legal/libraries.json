@@ -1,0 +1,481 @@
+[
+  {
+    "id": "project",
+    "title": "",
+    "version": "",
+    "license": "MIT",
+    "asset": "legal/PROJECT-MIT.txt"
+  },
+  {
+    "id": "androidx.activity:activity",
+    "title": "AndroidX · activity",
+    "version": "1.8.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.activity:activity:1.8.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.annotation:annotation-experimental",
+    "title": "AndroidX · annotation-experimental",
+    "version": "1.4.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.annotation:annotation-experimental:1.4.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.annotation:annotation-jvm",
+    "title": "AndroidX · annotation-jvm",
+    "version": "1.6.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.annotation:annotation-jvm:1.6.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.appcompat:appcompat",
+    "title": "AndroidX · appcompat",
+    "version": "1.6.1",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.appcompat:appcompat:1.6.1\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.appcompat:appcompat-resources",
+    "title": "AndroidX · appcompat-resources",
+    "version": "1.6.1",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.appcompat:appcompat-resources:1.6.1\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.cardview:cardview",
+    "title": "AndroidX · cardview",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.cardview:cardview:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.collection:collection",
+    "title": "AndroidX · collection",
+    "version": "1.1.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.collection:collection:1.1.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.concurrent:concurrent-futures",
+    "title": "AndroidX · concurrent-futures",
+    "version": "1.1.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.concurrent:concurrent-futures:1.1.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.constraintlayout:constraintlayout",
+    "title": "AndroidX · constraintlayout",
+    "version": "2.0.1",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.constraintlayout:constraintlayout:2.0.1\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.constraintlayout:constraintlayout-solver",
+    "title": "AndroidX · constraintlayout-solver",
+    "version": "2.0.1",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.constraintlayout:constraintlayout-solver:2.0.1\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.coordinatorlayout:coordinatorlayout",
+    "title": "AndroidX · coordinatorlayout",
+    "version": "1.1.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.coordinatorlayout:coordinatorlayout:1.1.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.core:core",
+    "title": "AndroidX · core",
+    "version": "1.13.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.core:core:1.13.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.arch.core:core-common",
+    "title": "AndroidX · core-common",
+    "version": "2.2.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.arch.core:core-common:2.2.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.core:core-ktx",
+    "title": "AndroidX · core-ktx",
+    "version": "1.13.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.core:core-ktx:1.13.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.arch.core:core-runtime",
+    "title": "AndroidX · core-runtime",
+    "version": "2.2.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.arch.core:core-runtime:2.2.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.cursoradapter:cursoradapter",
+    "title": "AndroidX · cursoradapter",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.cursoradapter:cursoradapter:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.customview:customview",
+    "title": "AndroidX · customview",
+    "version": "1.1.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.customview:customview:1.1.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.documentfile:documentfile",
+    "title": "AndroidX · documentfile",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.documentfile:documentfile:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.drawerlayout:drawerlayout",
+    "title": "AndroidX · drawerlayout",
+    "version": "1.1.1",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.drawerlayout:drawerlayout:1.1.1\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.dynamicanimation:dynamicanimation",
+    "title": "AndroidX · dynamicanimation",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.dynamicanimation:dynamicanimation:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.emoji2:emoji2",
+    "title": "AndroidX · emoji2",
+    "version": "1.2.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.emoji2:emoji2:1.2.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.emoji2:emoji2-views-helper",
+    "title": "AndroidX · emoji2-views-helper",
+    "version": "1.2.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.emoji2:emoji2-views-helper:1.2.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.fragment:fragment",
+    "title": "AndroidX · fragment",
+    "version": "1.3.6",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.fragment:fragment:1.3.6\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.interpolator:interpolator",
+    "title": "AndroidX · interpolator",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.interpolator:interpolator:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.legacy:legacy-support-core-utils",
+    "title": "AndroidX · legacy-support-core-utils",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.legacy:legacy-support-core-utils:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.lifecycle:lifecycle-common",
+    "title": "AndroidX · lifecycle-common",
+    "version": "2.6.2",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.lifecycle:lifecycle-common:2.6.2\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.lifecycle:lifecycle-livedata",
+    "title": "AndroidX · lifecycle-livedata",
+    "version": "2.6.2",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.lifecycle:lifecycle-livedata:2.6.2\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.lifecycle:lifecycle-livedata-core",
+    "title": "AndroidX · lifecycle-livedata-core",
+    "version": "2.6.2",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.lifecycle:lifecycle-livedata-core:2.6.2\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.lifecycle:lifecycle-process",
+    "title": "AndroidX · lifecycle-process",
+    "version": "2.6.2",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.lifecycle:lifecycle-process:2.6.2\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.lifecycle:lifecycle-runtime",
+    "title": "AndroidX · lifecycle-runtime",
+    "version": "2.6.2",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.lifecycle:lifecycle-runtime:2.6.2\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.lifecycle:lifecycle-viewmodel",
+    "title": "AndroidX · lifecycle-viewmodel",
+    "version": "2.6.2",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.lifecycle:lifecycle-viewmodel:2.6.2\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.lifecycle:lifecycle-viewmodel-savedstate",
+    "title": "AndroidX · lifecycle-viewmodel-savedstate",
+    "version": "2.6.2",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.lifecycle:lifecycle-viewmodel-savedstate:2.6.2\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.loader:loader",
+    "title": "AndroidX · loader",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.loader:loader:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.localbroadcastmanager:localbroadcastmanager",
+    "title": "AndroidX · localbroadcastmanager",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.localbroadcastmanager:localbroadcastmanager:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.print:print",
+    "title": "AndroidX · print",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.print:print:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.profileinstaller:profileinstaller",
+    "title": "AndroidX · profileinstaller",
+    "version": "1.3.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.profileinstaller:profileinstaller:1.3.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.recyclerview:recyclerview",
+    "title": "AndroidX · recyclerview",
+    "version": "1.1.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.recyclerview:recyclerview:1.1.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.resourceinspection:resourceinspection-annotation",
+    "title": "AndroidX · resourceinspection-annotation",
+    "version": "1.0.1",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.resourceinspection:resourceinspection-annotation:1.0.1\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.savedstate:savedstate",
+    "title": "AndroidX · savedstate",
+    "version": "1.2.1",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.savedstate:savedstate:1.2.1\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.startup:startup-runtime",
+    "title": "AndroidX · startup-runtime",
+    "version": "1.1.1",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.startup:startup-runtime:1.1.1\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.tracing:tracing",
+    "title": "AndroidX · tracing",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.tracing:tracing:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.transition:transition",
+    "title": "AndroidX · transition",
+    "version": "1.5.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.transition:transition:1.5.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.vectordrawable:vectordrawable",
+    "title": "AndroidX · vectordrawable",
+    "version": "1.1.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.vectordrawable:vectordrawable:1.1.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.vectordrawable:vectordrawable-animated",
+    "title": "AndroidX · vectordrawable-animated",
+    "version": "1.1.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.vectordrawable:vectordrawable-animated:1.1.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.versionedparcelable:versionedparcelable",
+    "title": "AndroidX · versionedparcelable",
+    "version": "1.1.1",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.versionedparcelable:versionedparcelable:1.1.1\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.viewpager:viewpager",
+    "title": "AndroidX · viewpager",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.viewpager:viewpager:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "androidx.viewpager2:viewpager2",
+    "title": "AndroidX · viewpager2",
+    "version": "1.0.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "androidx.viewpager2:viewpager2:1.0.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "com.google.errorprone:error_prone_annotations",
+    "title": "error_prone_annotations",
+    "version": "2.15.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "com.google.errorprone:error_prone_annotations:2.15.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "com.google.guava:listenablefuture",
+    "title": "Guava · listenablefuture",
+    "version": "1.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "com.google.guava:listenablefuture:1.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "org.jetbrains:annotations",
+    "title": "JetBrains · annotations",
+    "version": "13.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "org.jetbrains:annotations:13.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "org.jetbrains.kotlinx:kotlinx-coroutines-android",
+    "title": "Kotlin Coroutines · kotlinx-coroutines-android",
+    "version": "1.6.4",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "org.jetbrains.kotlinx:kotlinx-coroutines-android:1.6.4\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm",
+    "title": "Kotlin Coroutines · kotlinx-coroutines-core-jvm",
+    "version": "1.6.4",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "org.jetbrains.kotlinx:kotlinx-coroutines-core-jvm:1.6.4\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "org.jetbrains.kotlin:kotlin-stdlib",
+    "title": "Kotlin · kotlin-stdlib",
+    "version": "1.8.22",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "org.jetbrains.kotlin:kotlin-stdlib:1.8.22\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "org.jetbrains.kotlin:kotlin-stdlib-common",
+    "title": "Kotlin · kotlin-stdlib-common",
+    "version": "1.8.22",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "org.jetbrains.kotlin:kotlin-stdlib-common:1.8.22\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "org.jetbrains.kotlin:kotlin-stdlib-jdk7",
+    "title": "Kotlin · kotlin-stdlib-jdk7",
+    "version": "1.8.22",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.8.22\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "org.jetbrains.kotlin:kotlin-stdlib-jdk8",
+    "title": "Kotlin · kotlin-stdlib-jdk8",
+    "version": "1.8.22",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "org.jetbrains.kotlin:kotlin-stdlib-jdk8:1.8.22\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "com.google.android.material:material",
+    "title": "Material Components for Android",
+    "version": "1.12.0",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "com.google.android.material:material:1.12.0\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+  },
+  {
+    "id": "xposed-api",
+    "title": "Xposed API",
+    "version": "82",
+    "license": "Apache License 2.0",
+    "asset": "legal/APACHE-2.0.txt",
+    "notice": "legal/XPOSED-NOTICE.txt",
+    "reference": true
+  },
+  {
+    "id": "notices",
+    "title": "",
+    "version": "",
+    "license": "NOTICE",
+    "asset": "legal/THIRD-PARTY-NOTICES.txt"
+  }
+]

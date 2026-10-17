@@ -9,5 +9,6 @@
     <activity android:name=".AboutActivity" android:exported="false" />
     <activity android:name=".PatternActivity" android:exported="false" />
     <provider android:name=".ConfigProvider" android:authorities="dev.ryuya.galaxybar.config" android:exported="true" />
-  </application>
+  <activity android:name=".LicensesActivity" android:exported="false" />
+</application>
 </manifest>

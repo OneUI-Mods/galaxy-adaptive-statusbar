@@ -14,7 +14,6 @@ import androidx.core.os.LocaleListCompat;
 import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
-import androidx.core.widget.NestedScrollView;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
 import com.google.android.material.card.MaterialCardView;
@@ -27,6 +26,7 @@ import com.google.android.material.textview.MaterialTextView;
 import java.util.concurrent.TimeUnit;
 
 public final class MainActivity extends AppCompatActivity {
+  private SettingsTabs pages;
   private SharedPreferences prefs;
   private MaterialTextView status;
   private MaterialTextView guardSummary;
@@ -84,11 +84,11 @@ public final class MainActivity extends AppCompatActivity {
     toolbar.setTitle(getString(R.string.screen_title));
     toolbar.setSubtitle(getString(R.string.app_name));
     safe.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(64)));
-    NestedScrollView scroll = new NestedScrollView(this);
-    scroll.setFillViewport(true);
-    safe.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
-    LinearLayout body = column(20);
-    scroll.addView(body);
+    pages = new SettingsTabs(this, safe, state);
+    LinearLayout body = pages.page(R.string.tab_colors);
+    LinearLayout adjustments = pages.page(R.string.tab_adjustments);
+    LinearLayout operation = pages.page(R.string.tab_status);
+    LinearLayout information = pages.page(R.string.tab_about);
     LinearLayout hero = card(body);
     text(
         hero,
@@ -101,10 +101,11 @@ public final class MainActivity extends AppCompatActivity {
     MaterialSwitch enabled = toggle(hero, getString(R.string.enabled), "enabled", false);
     enabledControl = enabled;
     enabled.setId(R.id.module_enabled);
-    MaterialSwitch motion = toggle(hero, getString(R.string.motion_enabled), "motion", true);
+    LinearLayout motionCard = card(adjustments);
+    MaterialSwitch motion = toggle(motionCard, getString(R.string.motion_enabled), "motion", true);
     motion.setId(R.id.motion_enabled);
     text(
-        hero,
+        motionCard,
         getString(R.string.motion_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     text(
@@ -134,7 +135,10 @@ public final class MainActivity extends AppCompatActivity {
         getString(R.string.power_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     MaterialTextView fadeLabel =
-        text(body, "", com.google.android.material.R.style.TextAppearance_Material3_TitleSmall);
+        text(
+            adjustments,
+            "",
+            com.google.android.material.R.style.TextAppearance_Material3_TitleSmall);
     fadeLabel.setId(R.id.fade_duration_value);
     Slider fadeSlider = new Slider(this);
     fadeSlider.setId(R.id.fade_duration_slider);
@@ -152,9 +156,9 @@ public final class MainActivity extends AppCompatActivity {
           fadeLabel.setText(getString(R.string.fade_duration_value, duration));
           if (fromUser) prefs.edit().putInt("fade_ms", duration).apply();
         });
-    body.addView(fadeSlider);
+    adjustments.addView(fadeSlider);
     text(
-        body,
+        adjustments,
         getString(R.string.fade_duration_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     String[] keys = {"robust", "mean", "median", "vote"};
@@ -168,14 +172,14 @@ public final class MainActivity extends AppCompatActivity {
     for (int i = 0; i < keys.length; i++)
       if (keys[i].equals(prefs.getString("algorithm", "robust"))) selected = i;
     dropdown(
-        body,
+        adjustments,
         getString(R.string.algorithm),
         labels,
         selected,
         index -> prefs.edit().putString("algorithm", keys[index]).apply());
     MaterialTextView suppression =
         text(
-            body,
+            adjustments,
             getString(R.string.hysteresis),
             com.google.android.material.R.style.TextAppearance_Material3_TitleSmall);
     Slider slider = new Slider(this);
@@ -189,19 +193,19 @@ public final class MainActivity extends AppCompatActivity {
           suppression.setText(getString(R.string.hysteresis_value, Math.round(value)));
           if (fromUser) prefs.edit().putFloat("hysteresis", value / 100f).apply();
         });
-    body.addView(slider);
+    adjustments.addView(slider);
     button(
-        body,
+        adjustments,
         getString(R.string.open_pattern),
         () -> startActivity(new Intent(this, PatternActivity.class)));
     button(
-        body,
+        adjustments,
         getString(R.string.restore),
         () -> {
           prefs.edit().putBoolean("enabled", false).apply();
           enabled.setChecked(false);
         });
-    LinearLayout diagnostic = card(body);
+    LinearLayout diagnostic = card(operation);
     text(
         diagnostic,
         getString(R.string.status),
@@ -236,7 +240,7 @@ public final class MainActivity extends AppCompatActivity {
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     button(diagnostic, getString(R.string.root_check), this::checkRoot);
     text(
-        body,
+        information,
         getString(R.string.appearance),
         com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
     String[] languageTags = {"", "ja", "en", "es", "ko", "zh-Hans"};
@@ -248,7 +252,7 @@ public final class MainActivity extends AppCompatActivity {
     for (int i = 1; i < languageTags.length; i++)
       if (currentLocale.equals(languageTags[i])) languageIndex = i;
     dropdown(
-        body,
+        information,
         getString(R.string.language),
         languageNames,
         languageIndex,
@@ -264,7 +268,7 @@ public final class MainActivity extends AppCompatActivity {
     for (int i = 0; i < themes.length; i++)
       if (themes[i] == prefs.getInt("ui_theme", -1)) themeIndex = i;
     dropdown(
-        body,
+        information,
         getString(R.string.theme),
         new String[] {
           getString(R.string.system_default), getString(R.string.light), getString(R.string.dark)
@@ -275,9 +279,18 @@ public final class MainActivity extends AppCompatActivity {
           AppCompatDelegate.setDefaultNightMode(themes[index]);
         });
     button(
-        body,
+        information,
         getString(R.string.about),
         () -> startActivity(new Intent(this, AboutActivity.class)));
+    text(
+        information,
+        getString(R.string.version, BuildConfig.VERSION_NAME),
+        com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
+    button(
+        information,
+        getString(R.string.legal_title),
+        () -> startActivity(new Intent(this, LicensesActivity.class)));
+    pages.restore();
   }
 
   private int dp(int value) {
@@ -453,6 +466,12 @@ public final class MainActivity extends AppCompatActivity {
       prefs.edit().putBoolean("enabled", false).apply();
       recreate();
     }
+  }
+
+  @Override
+  protected void onSaveInstanceState(Bundle out) {
+    if (pages != null) pages.save(out);
+    super.onSaveInstanceState(out);
   }
 
   @Override

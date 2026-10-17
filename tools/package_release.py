@@ -7,6 +7,7 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import zipfile
 
@@ -54,7 +55,8 @@ def main():
         raise RuntimeError('Commit untracked application files before packaging a release.')
     run('git', 'diff', '--exit-code', args.source_ref, '--', 'app')
     env = dict(os.environ, ANDROID_HOME=str(sdk))
-    run(ROOT / 'gradlew', ':app:assembleRelease', env=env)
+    run(ROOT / 'gradlew', ':app:assembleRelease', ':app:writeRuntimeDependencyList', env=env)
+    run(sys.executable, ROOT / 'tools/check_license_catalog.py')
     output = ROOT / 'app/build/outputs/apk/release'
     metadata = json.loads((output / 'output-metadata.json').read_text())
     if metadata['variantName'] != 'release' or len(metadata['elements']) != 1:

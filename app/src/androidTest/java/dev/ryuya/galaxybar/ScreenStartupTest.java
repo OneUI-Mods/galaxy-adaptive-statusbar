@@ -80,6 +80,9 @@ public class ScreenStartupTest {
     try (var screen = ActivityScenario.launch(MainActivity.class)) {
       screen.onActivity(
           activity -> {
+            ((com.google.android.material.tabs.TabLayout) activity.findViewById(R.id.settings_tabs))
+                .getTabAt(1)
+                .select();
             com.google.android.material.slider.Slider slider =
                 activity.findViewById(R.id.fade_duration_slider);
             assertNotNull(slider);
@@ -94,6 +97,9 @@ public class ScreenStartupTest {
       screen.recreate();
       screen.onActivity(
           activity -> {
+            ((com.google.android.material.tabs.TabLayout) activity.findViewById(R.id.settings_tabs))
+                .getTabAt(1)
+                .select();
             com.google.android.material.slider.Slider slider =
                 activity.findViewById(R.id.fade_duration_slider);
             assertEquals(90f, slider.getValue(), 0f);

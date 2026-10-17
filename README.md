@@ -128,3 +128,5 @@ bash tools/adb.sh uninstall dev.ryuya.galaxybar
 ## LAN切断時の再発見
 
 `tools/adb.sh`は、既存ADB経路とLANのmDNS接続サービスから対象を探し、serial/device/fingerprintの一致を確認してから操作します。実機のLANポート変更後にも再接続できました。識別情報はGit対象外の`evidence/device/adb-target.json`へ保存します。ネットワーク設定・無線デバッグ・認証キーは変更しません。
+
+設定画面は「配色」「調整」「状態」「情報」のタブから操作できます。ライセンスは検索可能な一覧から、ライブラリごとの本文・著作権表示を確認できます。

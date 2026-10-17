@@ -12,11 +12,8 @@ import androidx.core.view.WindowInsetsCompat;
 import androidx.core.widget.NestedScrollView;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.dialog.MaterialAlertDialogBuilder;
 import com.google.android.material.imageview.ShapeableImageView;
 import com.google.android.material.textview.MaterialTextView;
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 
 public final class AboutActivity extends AppCompatActivity {
   public static final String SOURCE_URL = "https://github.com/ryuya0124/galaxy-adaptive-statusbar";
@@ -39,6 +36,9 @@ public final class AboutActivity extends AppCompatActivity {
         });
     MaterialToolbar toolbar = new MaterialToolbar(this);
     toolbar.setTitle(R.string.about);
+    toolbar.setNavigationIcon(androidx.appcompat.R.drawable.abc_ic_ab_back_material);
+    toolbar.setNavigationContentDescription(R.string.back);
+    toolbar.setNavigationOnClickListener(v -> finish());
     root.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(64)));
     NestedScrollView scroll = new NestedScrollView(this);
     root.addView(scroll, new LinearLayout.LayoutParams(-1, 0, 1));
@@ -65,11 +65,12 @@ public final class AboutActivity extends AppCompatActivity {
     addButton(
         content,
         R.string.project_license,
-        () -> showLicense(R.string.project_license, "legal/PROJECT-MIT.txt"));
+        () ->
+            startActivity(new Intent(this, LicensesActivity.class).putExtra("library", "project")));
     addButton(
         content,
         R.string.open_source,
-        () -> showLicense(R.string.open_source, "legal/THIRD-PARTY-NOTICES.txt"));
+        () -> startActivity(new Intent(this, LicensesActivity.class)));
     addButton(content, R.string.back, this::finish);
   }
 
@@ -82,25 +83,5 @@ public final class AboutActivity extends AppCompatActivity {
     button.setText(label);
     button.setOnClickListener(view -> action.run());
     parent.addView(button, new LinearLayout.LayoutParams(-1, -2));
-  }
-
-  private void showLicense(int title, String path) {
-    String text;
-    try (var input = getAssets().open(path)) {
-      text = new String(input.readAllBytes(), StandardCharsets.UTF_8);
-    } catch (IOException error) {
-      text = getString(R.string.license_error);
-    }
-    MaterialTextView legal = new MaterialTextView(this);
-    legal.setText(text);
-    legal.setTextIsSelectable(true);
-    legal.setPadding(dp(24), dp(16), dp(24), dp(16));
-    NestedScrollView scroll = new NestedScrollView(this);
-    scroll.addView(legal);
-    new MaterialAlertDialogBuilder(this)
-        .setTitle(title)
-        .setView(scroll)
-        .setPositiveButton(R.string.close, null)
-        .show();
   }
 }

@@ -19,3 +19,5 @@ python3 tools/package_release.py --source-ref v0.4.4-experimental
 CIは署名鍵を保持せず、署名前のrelease APKを`galaxy-adaptive-bar-release-unsigned`という開発用artifactへ保存します。このAPKはそのままインストール・配布するものではありません。GitHub Releaseには上記手順で検証した署名済みAPKを添付します。
 
 リリース文は利用者向けに、改善点・対応環境・必要な更新手順・既知の制限を記載します。個人設定や内部実装、テストの途中経過は含めません。
+
+ライセンス一覧は`app/src/main/assets/legal/libraries.json`で管理します。依存関係を更新した場合は、解決済みのruntime componentsと照合して一覧とバージョン・本文・通知を更新してください。配布スクリプトは一覧との一致と参照ファイルの存在も検査します。
