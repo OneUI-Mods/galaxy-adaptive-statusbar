@@ -19,6 +19,7 @@ final class CrashGuard {
       java.util.concurrent.Executors.newSingleThreadExecutor(
           r -> new Thread(r, "GalaxyBarGuardReport"));
   private CrashLoopState state = new CrashLoopState();
+  private boolean armed;
 
   private CrashGuard(Context context) {
     this.context = context;
@@ -66,11 +67,13 @@ final class CrashGuard {
       }
       long now = System.currentTimeMillis();
       guard.state.observe(now, boot, reset, exits);
-      if (!guard.state.blocked && armOnOpen) guard.state.arm(android.os.Process.myPid(), now);
+      if (!guard.state.blocked && armOnOpen) {
+        guard.state.arm(android.os.Process.myPid(), now);
+        guard.armed = true;
+      }
       guard.save(); // Arm durably before executing any color-hook initialization.
     } catch (Throwable error) {
-      guard.state.blocked = true;
-      guard.state.cause = "guard_error";
+      guard.state.stop("guard_error", System.currentTimeMillis());
       try {
         guard.save();
       } catch (Throwable ignored) {
@@ -80,7 +83,7 @@ final class CrashGuard {
     guard.publishWhenUnlocked();
     Hooks.log(
         "GalaxyBar: crash guard "
-            + (guard.state.blocked ? "BLOCKED " + guard.state.cause : "armed")
+            + (guard.state.blocked ? "BLOCKED " + guard.state.cause : guard.armed ? "armed" : "idle")
             + "; recent crashes="
             + guard.state.crashes.size());
     return guard;
@@ -108,13 +111,27 @@ final class CrashGuard {
 
   void arm() throws IOException {
     int pid = android.os.Process.myPid();
-    if (!state.launches.containsKey(pid)) state.arm(pid, System.currentTimeMillis());
-    save(); // The launch must be durable before the first launcher hook is installed.
+    if (armed) return;
+    state.arm(pid, System.currentTimeMillis());
+    save(); // Durable before enabling color or launcher hooks.
+    armed = true;
+  }
+
+  void disarm() {
+    if (!armed) return;
+    armed = false;
+    state.disarm(android.os.Process.myPid());
+    try { save(); }
+    catch (Throwable error) {
+      state.stop("guard_error", System.currentTimeMillis());
+      try { save(); } catch (Throwable ignored) { }
+      publishWhenUnlocked();
+      Hooks.log("GalaxyBar: guard disarm failed: " + error);
+    }
   }
 
   void initializationFailed(Throwable error) {
-    state.blocked = true;
-    state.cause = "hook_initialization";
+    state.stop("hook_initialization", System.currentTimeMillis());
     try {
       save();
     } catch (Throwable ignored) {

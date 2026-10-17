@@ -455,6 +455,7 @@ final class LauncherMotion {
       }
     }
     hooks.clear();
+    protection.disarm();
   }
 
   private void fail(Throwable error) {

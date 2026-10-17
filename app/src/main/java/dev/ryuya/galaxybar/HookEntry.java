@@ -78,7 +78,7 @@ public final class HookEntry extends XposedModule {
       return;
     }
     try {
-      protection = CrashGuard.open(context);
+      protection = CrashGuard.open(context, false);
       if (!protection.allowsHooks())
         return;
       systemLoader = loader;
@@ -135,6 +135,7 @@ public final class HookEntry extends XposedModule {
   static void enableColors() throws Exception {
     if (HookRegistry.colorCount() != 0)
       return;
+    if (protection != null) protection.arm();
     ModernTintAdapter.install(systemLoader);
     BatteryAdapter.install(systemLoader);
     HookRegistry.hook(ImageView.class, "setColorFilter", ColorFilter.class, new HookCallback() {
@@ -161,6 +162,7 @@ public final class HookEntry extends XposedModule {
     HookRegistry.clearColors();
     ModernTintAdapter.reset();
     BatteryAdapter.reset();
+    if (protection != null) protection.disarm();
     if (hadHooks)
       Hooks.log("GalaxyBar: color hooks disabled count=0");
   }

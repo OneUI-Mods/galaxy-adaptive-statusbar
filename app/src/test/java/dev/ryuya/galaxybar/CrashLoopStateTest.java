@@ -135,15 +135,90 @@ public class CrashLoopStateTest {
   }
 
   @Test
-  public void missingExitReasonsStillStopThreeRapidUnresolvedRestarts() {
+  public void missingExitReasonsDoNotTurnNormalReloadsIntoCrashes() {
     var s = fresh();
     for (int i = 1; i <= 3; i++) {
       s.observe(i * 1000, 1, "", List.of());
       s.arm(i, i * 1000);
     }
     s.observe(4000, 1, "", List.of());
+    assertFalse(s.blocked);
+    assertTrue(s.crashes.isEmpty());
+  }
+
+  @Test
+  public void delayedManualExitHistoryDoesNotLatchProtection() throws Exception {
+    var s = fresh();
+    var history = new ArrayList<CrashLoopState.Exit>();
+    for (int i = 1; i <= 6; i++) {
+      s.arm(i, 1000 * i);
+      s = roundTrip(s);
+      // The previous termination may not have reached ActivityManager yet.
+      s.observe(1000 * i + 100, 1, "", List.of());
+      assertFalse(s.blocked);
+      history.add(new CrashLoopState.Exit(i, 1000 * i + 50, REASON_SIGNALED, 15));
+    }
+    s.observe(8000, 1, "", history);
+    assertFalse(s.blocked);
+    assertTrue(s.launches.isEmpty());
+  }
+
+  @Test
+  public void delayedConfirmedCrashesStillStopAtThree() throws Exception {
+    var s = fresh();
+    var history = new ArrayList<CrashLoopState.Exit>();
+    for (int i = 1; i <= 3; i++) {
+      s.arm(i, 1000 * i);
+      s = roundTrip(s);
+      s.observe(1000 * i + 100, 1, "", List.of());
+      history.add(new CrashLoopState.Exit(i, 1000 * i + 50, REASON_CRASH, 0));
+    }
+    s.observe(5000, 1, "", history);
     assertTrue(s.blocked);
-    assertEquals("unknown_rapid_restarts", s.cause);
+    assertEquals("crash_loop", s.cause);
+  }
+
+  @Test
+  public void crashesWhileFeatureIsDisabledDoNotUseItsBudget() throws Exception {
+    var s = fresh();
+    for (int i = 1; i <= 6; i++) {
+      s.arm(i, 1000 * i);
+      s.disarm(i); // All feature hooks have been removed before this host exits.
+      s = roundTrip(s);
+      s.observe(1000 * i + 100, 1, "",
+          List.of(new CrashLoopState.Exit(i, 1000 * i + 50, REASON_CRASH, 0)));
+    }
+    assertFalse(s.blocked);
+    assertTrue(s.crashes.isEmpty());
+    s.arm(99, 10000);
+    s.observe(11000, 1, "", List.of(new CrashLoopState.Exit(99, 10500, REASON_CRASH, 0)));
+    assertEquals(1, s.crashes.size());
+  }
+
+  @Test
+  public void resettingProtectionPreservesTheLastStopForDiagnosis() throws Exception {
+    var s = fresh();
+    s.stop("hook_initialization", 1500);
+    s = roundTrip(s);
+    s.observe(2000, 1, "new-user-reset", List.of());
+    assertFalse(s.blocked);
+    assertEquals("", s.cause);
+    assertEquals("hook_initialization", s.lastStopCause);
+    assertEquals(1500, s.lastStopAt);
+  }
+
+  @Test
+  public void legacyStopRemainsLatchedUntilExplicitReset() {
+    Properties old = fresh().encode();
+    old.remove("last_stop_at");
+    old.remove("last_stop_cause");
+    old.setProperty("blocked", "true");
+    old.setProperty("cause", "unknown_rapid_restarts");
+    var s = CrashLoopState.decode(old);
+    s.observe(5000, 1, "", List.of());
+    assertTrue(s.blocked);
+    s.observe(6000, 1, "explicit-reset", List.of());
+    assertFalse(s.blocked);
   }
 
   @Test

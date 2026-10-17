@@ -146,7 +146,7 @@ cropが小さくても、内部合成負荷まで小さいとは断定できま�
 
 `Application.attach`後、配色フックを登録する前に監視状態を読み込みます。SystemUI自身の`ActivityManager.getHistoricalProcessExitReasons`と、フックを登録したプロセスのPID・開始時刻を照合します。[AndroidのAPI仕様](https://developer.android.com/reference/android/app/ActivityManager#getHistoricalProcessExitReasons(java.lang.String,int,int))では終了履歴は有限のリングバッファです。[ApplicationExitInfo](https://developer.android.com/reference/android/app/ApplicationExitInfo)の終了理由・signalを使い、Java/nativeクラッシュ、ANR、初期化失敗、過剰リソース、SIGABRT/SIGSEGVを判定します。
 
-2分以内に3回で停止をラッチし、次回起動には配色フックを登録しません。終了理由が不明なまま30秒以内に3回再起動した場合も停止します。手動のSIGTERM、SIGKILL、低メモリ・更新等の通常終了は数えません。監視したプロセスに対応しない履歴や、前回の履歴の重複も数えません。
+2分以内に3回で停止をラッチし、次回起動には配色フックを登録しません。0.6.1までの実装では、終了理由が不明なまま30秒以内に3回再起動した場合も停止していました。未配布の修正では、終了理由が不明・未取得というだけでは停止しません。手動のSIGTERM、SIGKILL、低メモリ・更新等の通常終了は数えません。監視したプロセスに対応しない履歴や、前回の履歴の重複も数えません。
 
 状態ファイルはSystemUIのdevice-protectedな`files/galaxybar-crash-guard.properties`です。AtomicFileで保存してからフックを開始します。停止ラッチは再起動やAPK更新で消さず、設定アプリが生成する新しい解除nonceだけで解除します。アプリの設定値は自動でOFFにし、利用者が準備できてから再びONにする動作です。フック初期化の失敗時には登録済みの本モジュールのフックだけを解除します。
 
@@ -193,3 +193,7 @@ bash tools/adb.sh install -r app/build/outputs/apk/androidTest/debug/app-debug-a
 # 対応端末で本モジュールを読み込み、画面を解除して実行
 bash tools/adb.sh shell am instrument -w -e class dev.ryuya.galaxybar.HookToggleTest dev.ryuya.galaxybar.test/androidx.test.runner.AndroidJUnitRunner
 ```
+
+## クラッシュ保護の誤作動調査
+
+[調査記録](crash-protection-audit.md)に、取得できた終了履歴・確認できた不具合・再現試験・実機未反映の範囲を記載しています。
