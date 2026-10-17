@@ -10,9 +10,9 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.VectorDrawable;
 import android.widget.ImageView;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import dev.ryuya.galaxybar.hook.HookCallback;
+import dev.ryuya.galaxybar.hook.Hooks;
+import dev.ryuya.galaxybar.hook.Reflect;
 import java.text.NumberFormat;
 import java.util.Arrays;
 import java.util.IdentityHashMap;
@@ -72,16 +72,14 @@ final class BatteryAdapter {
 
   static synchronized void install(ClassLoader loader) throws Exception {
     Class<?> candidate =
-        XposedHelpers.findClass("com.android.systemui.battery.SamsungBatteryMeterDrawable", loader);
+        Reflect.findClass("com.android.systemui.battery.SamsungBatteryMeterDrawable", loader);
     // Boot-framework Canvas calls may have been inlined into Samsung's precompiled renderer.
-    XposedBridge.class
-        .getMethod("deoptimizeMethod", java.lang.reflect.Member.class)
-        .invoke(null, candidate.getDeclaredMethod("draw", Canvas.class));
+    Hooks.deoptimize(candidate.getDeclaredMethod("draw", Canvas.class));
     HookRegistry.hook(
         candidate,
         "draw",
         Canvas.class,
-        new XC_MethodHook() {
+        new HookCallback() {
           @Override
           protected void beforeHookedMethod(MethodHookParam p) {
             p.setObjectExtra("galaxy.previousBattery", drawing.get());
@@ -97,8 +95,8 @@ final class BatteryAdapter {
             else drawing.set(previous);
           }
         });
-    XC_MethodHook replacePaint =
-        new XC_MethodHook() {
+    HookCallback replacePaint =
+        new HookCallback() {
           @Override
           protected void beforeHookedMethod(MethodHookParam p) {
             State state = drawing.get();
@@ -136,8 +134,8 @@ final class BatteryAdapter {
         float.class,
         Paint.class,
         replacePaint);
-    XC_MethodHook specialIcon =
-        new XC_MethodHook() {
+    HookCallback specialIcon =
+        new HookCallback() {
           @Override
           protected void beforeHookedMethod(MethodHookParam p) {
             State state = drawing.get();
@@ -168,11 +166,11 @@ final class BatteryAdapter {
     Drawable drawable = null;
     Bitmap bitmap = null;
     try {
-      drawable = (Drawable) XposedHelpers.newInstance(type, context);
-      Object battery = XposedHelpers.getObjectField(drawable, "batteryState");
-      XposedHelpers.setIntField(battery, "level", 100);
-      XposedHelpers.setBooleanField(drawable, "notShowBatteryBackgroundSetting", false);
-      XposedHelpers.callMethod(drawable, "resizeDrawable");
+      drawable = (Drawable) Reflect.newInstance(type, context);
+      Object battery = Reflect.getObjectField(drawable, "batteryState");
+      Reflect.setIntField(battery, "level", 100);
+      Reflect.setBooleanField(drawable, "notShowBatteryBackgroundSetting", false);
+      Reflect.callMethod(drawable, "resizeDrawable");
       int w = drawable.getIntrinsicWidth(), h = drawable.getIntrinsicHeight();
       if (w <= 0 || h <= 0 || w > 512 || h > 512) throw new IllegalStateException("battery size");
       bitmap = Bitmap.createBitmap(w, h, Bitmap.Config.ARGB_8888);
@@ -201,7 +199,7 @@ final class BatteryAdapter {
       if (bitmap != null) bitmap.recycle();
     }
     validated = true;
-    XposedBridge.log("GalaxyBar: battery adapter " + health);
+    Hooks.log("GalaxyBar: battery adapter " + health);
   }
 
   static String health() {
@@ -221,28 +219,28 @@ final class BatteryAdapter {
   }
 
   private static Paint paint(Drawable drawable, String field) {
-    return (Paint) XposedHelpers.getObjectField(drawable, field);
+    return (Paint) Reflect.getObjectField(drawable, field);
   }
 
   /** Main-thread geometry snapshot; no pixels are captured or analyzed here. */
   static Geometry geometry(ImageView view) {
     Drawable drawable = view.getDrawable();
     int width = drawable.getIntrinsicWidth(), height = drawable.getIntrinsicHeight();
-    int level = (Integer) XposedHelpers.callMethod(drawable, "getBatteryLevel");
-    boolean off = XposedHelpers.getBooleanField(drawable, "notShowBatteryBackgroundSetting");
-    boolean adjusted = XposedHelpers.getBooleanField(drawable, "enableBaseLineAdjustment");
+    int level = (Integer) Reflect.callMethod(drawable, "getBatteryLevel");
+    boolean off = Reflect.getBooleanField(drawable, "notShowBatteryBackgroundSetting");
+    boolean adjusted = Reflect.getBooleanField(drawable, "enableBaseLineAdjustment");
     Paint textPaint = new Paint(paint(drawable, "textPaint"));
     textPaint.setTextSize(
-        XposedHelpers.getFloatField(
+        Reflect.getFloatField(
             drawable,
             off ? "fontSizeWithoutBackground" : adjusted ? "fontSizeRounded" : "fontSize"));
-    var context = (android.content.Context) XposedHelpers.getObjectField(drawable, "context");
+    var context = (android.content.Context) Reflect.getObjectField(drawable, "context");
     String value =
         NumberFormat.getInstance(context.getResources().getConfiguration().getLocales().get(0))
             .format(level);
     Rect bounds = new Rect();
     textPaint.getTextBounds(value, 0, value.length(), bounds);
-    float origin = (Float) XposedHelpers.callMethod(drawable, "getTextOriginX", bounds);
+    float origin = (Float) Reflect.callMethod(drawable, "getTextOriginX", bounds);
     float baseline =
         adjusted
             ? bounds.height() / 2f + height / 2f - 1
@@ -264,7 +262,7 @@ final class BatteryAdapter {
         fraction,
         alpha,
         off,
-        (Boolean) XposedHelpers.callMethod(drawable, "isRtl"));
+        (Boolean) Reflect.callMethod(drawable, "isRtl"));
   }
 
   /** Worker-only: percentage contrast includes the battery fill that will be drawn beneath it. */

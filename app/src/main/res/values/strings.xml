@@ -78,4 +78,5 @@
 <string name="legal_distribution_notices">Distribution notices</string>
 <string name="tab_colors">Colors</string>
 <string name="tab_adjustments">Adjustments</string>
+<string name="module_description">Adaptive status bar colors and One UI app animations.</string>
 </resources>

@@ -77,4 +77,5 @@
 <string name="legal_distribution_notices">Avisos de distribución</string>
 <string name="tab_colors">Colores</string>
 <string name="tab_adjustments">Ajustes</string>
+<string name="module_description">Ajustes de color de la barra de estado y animaciones de One UI.</string>
 </resources>

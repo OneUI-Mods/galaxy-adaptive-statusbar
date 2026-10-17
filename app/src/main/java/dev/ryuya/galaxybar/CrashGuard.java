@@ -5,7 +5,7 @@ import android.content.*;
 import android.os.*;
 import android.provider.Settings;
 import android.util.AtomicFile;
-import de.robv.android.xposed.XposedBridge;
+import dev.ryuya.galaxybar.hook.Hooks;
 import java.io.*;
 import java.util.*;
 
@@ -75,10 +75,10 @@ final class CrashGuard {
         guard.save();
       } catch (Throwable ignored) {
       }
-      XposedBridge.log("GalaxyBar: guard failed closed: " + error);
+      Hooks.log("GalaxyBar: guard failed closed: " + error);
     }
     guard.publishWhenUnlocked();
-    XposedBridge.log(
+    Hooks.log(
         "GalaxyBar: crash guard "
             + (guard.state.blocked ? "BLOCKED " + guard.state.cause : "armed")
             + "; recent crashes="
@@ -87,7 +87,7 @@ final class CrashGuard {
   }
 
   static void failClosed(Context context, Throwable error) {
-    XposedBridge.log("GalaxyBar: guard unavailable; hooks not installed: " + error);
+    Hooks.log("GalaxyBar: guard unavailable; hooks not installed: " + error);
     new Thread(
             () -> {
               try {
@@ -120,7 +120,7 @@ final class CrashGuard {
     } catch (Throwable ignored) {
     }
     publishWhenUnlocked();
-    XposedBridge.log("GalaxyBar: hook initialization stopped: " + error);
+    Hooks.log("GalaxyBar: hook initialization stopped: " + error);
   }
 
   private void save() throws IOException {
@@ -164,7 +164,7 @@ final class CrashGuard {
               context.getContentResolver().call(ConfigProvider.URI, "guard_status", null, result);
               return;
             } catch (Throwable error) {
-              if (attempt == 2) XposedBridge.log("GalaxyBar: guard status unavailable: " + error);
+              if (attempt == 2) Hooks.log("GalaxyBar: guard status unavailable: " + error);
               else SystemClock.sleep(1000);
             }
           }

@@ -26,6 +26,18 @@ def validate(apk, aapt):
     manifest = run(aapt, 'dump', 'xmltree', '--file', 'AndroidManifest.xml', apk,
                    capture=True).stdout
     with zipfile.ZipFile(apk) as archive:
+        names = set(archive.namelist())
+        if 'assets/xposed_init' in names:
+            raise RuntimeError('Legacy module entry must not be packaged.')
+        meta = 'META-INF/xposed/'
+        props = archive.read(meta + 'module.prop').decode()
+        if 'minApiVersion=102' not in props or 'targetApiVersion=102' not in props:
+            raise RuntimeError('Expected libxposed API 102 metadata.')
+        if not archive.read(meta + 'java_init.list').strip() or not archive.read(meta + 'scope.list').strip():
+            raise RuntimeError('Missing modern entry or scope.')
+        if any(b'Lde/robv/android/xposed/' in archive.read(name)
+               for name in names if name.endswith('.dex')):
+            raise RuntimeError('Legacy Xposed API reference in release DEX.')
         fixture = ('CaptureFixtureActivity' in manifest
                    or any('contrast_fixture' in name for name in archive.namelist())
                    or any(b'CaptureFixtureActivity' in archive.read(name)

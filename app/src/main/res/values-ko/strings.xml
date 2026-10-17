@@ -77,4 +77,5 @@
 <string name="legal_distribution_notices">배포 저작권 고지</string>
 <string name="tab_colors">색상</string>
 <string name="tab_adjustments">조정</string>
+<string name="module_description">상태 표시줄 색상과 One UI 앱 애니메이션 설정.</string>
 </resources>

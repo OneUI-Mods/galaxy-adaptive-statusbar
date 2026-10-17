@@ -21,3 +21,5 @@ CIは署名鍵を保持せず、署名前のrelease APKを`galaxy-adaptive-bar-r
 リリース文は利用者向けに、改善点・対応環境・必要な更新手順・既知の制限を記載します。個人設定や内部実装、テストの途中経過は含めません。
 
 ライセンス一覧は`app/src/main/assets/legal/libraries.json`で管理します。依存関係を更新した場合は、解決済みのruntime componentsと照合して一覧とバージョン・本文・通知を更新してください。配布スクリプトは一覧との一致と参照ファイルの存在も検査します。
+
+現在の配布対象はlibxposed API 102。配布スクリプトはmodern metadata、entryとscope、旧API参照とlegacy entryの混入も検査します。APIはcompileOnlyでAPKへ同梱しません。

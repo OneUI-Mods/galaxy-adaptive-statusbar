@@ -1,8 +1,8 @@
 package dev.ryuya.galaxybar;
 
 import android.view.View;
-import de.robv.android.xposed.XC_MethodHook;
-import de.robv.android.xposed.XposedHelpers;
+import dev.ryuya.galaxybar.hook.HookCallback;
+import dev.ryuya.galaxybar.hook.Reflect;
 import java.util.ArrayList;
 import java.util.Map;
 import java.util.WeakHashMap;
@@ -17,28 +17,28 @@ final class ModernTintAdapter {
 
   static void install(ClassLoader loader) {
     type =
-        XposedHelpers.findClass(
+        Reflect.findClass(
             "com.android.systemui.statusbar.pipeline.shared.ui.view.ModernStatusBarView", loader);
-    dispatcher = XposedHelpers.findClass("com.android.systemui.plugins.DarkIconDispatcher", loader);
-    dependency = XposedHelpers.findClass("com.android.systemui.Dependency", loader);
+    dispatcher = Reflect.findClass("com.android.systemui.plugins.DarkIconDispatcher", loader);
+    dependency = Reflect.findClass("com.android.systemui.Dependency", loader);
     HookRegistry.hook(
         type,
         "onDarkChangedWithContrast",
         ArrayList.class,
         int.class,
         int.class,
-        new XC_MethodHook() {
+        new HookCallback() {
           @Override
           protected void afterHookedMethod(MethodHookParam p) {
             if (applying) return;
             View view = (View) p.thisObject;
             int color =
                 (Integer)
-                    XposedHelpers.callStaticMethod(
+                    Reflect.callStaticMethod(
                         dispatcher, "getTint", p.args[0], view, p.args[1]);
             int inverse =
                 (Integer)
-                    XposedHelpers.callStaticMethod(
+                    Reflect.callStaticMethod(
                         dispatcher, "getInverseTint", p.args[0], view, p.args[2]);
             standard.put(view, new int[] {color, inverse});
             // The dispatcher updates the binding directly, bypassing the static-color setter.
@@ -52,7 +52,7 @@ final class ModernTintAdapter {
         "setStaticDrawableColor",
         int.class,
         int.class,
-        new XC_MethodHook() {
+        new HookCallback() {
           @Override
           protected void beforeHookedMethod(MethodHookParam p) {
             if (!applying) {
@@ -76,11 +76,11 @@ final class ModernTintAdapter {
     if (!standard.containsKey(view)) {
       // Hooks were absent while OFF. Ask the verified native dispatcher for today's baseline,
       // rather than reusing a tint from before the user switched apps or changed the theme.
-      Object owner = XposedHelpers.getStaticObjectField(dependency, "sDependency");
+      Object owner = Reflect.getStaticObjectField(dependency, "sDependency");
       if (owner != null) {
-        Object source = XposedHelpers.callMethod(owner, "getDependencyInner", dispatcher);
-        var receivers = (Map<?, ?>) XposedHelpers.getObjectField(source, "mReceivers");
-        if (receivers.containsKey(view)) XposedHelpers.callMethod(source, "applyDark", view);
+        Object source = Reflect.callMethod(owner, "getDependencyInner", dispatcher);
+        var receivers = (Map<?, ?>) Reflect.getObjectField(source, "mReceivers");
+        if (receivers.containsKey(view)) Reflect.callMethod(source, "applyDark", view);
       }
     }
     return standard.containsKey(view);
@@ -101,8 +101,8 @@ final class ModernTintAdapter {
   private static void paint(View view, int color) {
     applying = true;
     try {
-      XposedHelpers.callMethod(view, "setStaticDrawableColor", color, color ^ 0x00ffffff);
-      XposedHelpers.callMethod(view, "setDecorColor", color);
+      Reflect.callMethod(view, "setStaticDrawableColor", color, color ^ 0x00ffffff);
+      Reflect.callMethod(view, "setDecorColor", color);
     } finally {
       applying = false;
     }
@@ -114,8 +114,8 @@ final class ModernTintAdapter {
     if (colors == null) return;
     applying = true;
     try {
-      XposedHelpers.callMethod(view, "setStaticDrawableColor", colors[0], colors[1]);
-      XposedHelpers.callMethod(view, "setDecorColor", colors[0]);
+      Reflect.callMethod(view, "setStaticDrawableColor", colors[0], colors[1]);
+      Reflect.callMethod(view, "setDecorColor", colors[0]);
     } finally {
       applying = false;
     }

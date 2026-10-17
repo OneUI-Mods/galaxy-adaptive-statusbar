@@ -12,7 +12,7 @@ import android.text.*;
 import android.text.style.ForegroundColorSpan;
 import android.view.*;
 import android.widget.*;
-import de.robv.android.xposed.*;
+import dev.ryuya.galaxybar.hook.*;
 import java.io.*;
 import java.text.BreakIterator;
 import java.util.*;
@@ -154,7 +154,7 @@ final class Engine {
     filter.addAction(Intent.ACTION_SCREEN_ON);
     filter.addAction(Intent.ACTION_USER_PRESENT);
     context.registerReceiver(screenState, filter, Context.RECEIVER_NOT_EXPORTED);
-    XposedBridge.log(
+    Hooks.log(
         "GalaxyBar: engine root="
             + root.getClass().getName()
             + " "
@@ -236,9 +236,9 @@ final class Engine {
             }
             targets = mapped;
           } else collect(root, targets);
-          Object vr = XposedHelpers.callMethod(root, "getViewRootImpl");
+          Object vr = Reflect.callMethod(root, "getViewRootImpl");
           SurfaceControl surface =
-              (SurfaceControl) XposedHelpers.callMethod(vr, "getSurfaceControl");
+              (SurfaceControl) Reflect.callMethod(vr, "getSurfaceControl");
           SurfaceControl movingSurface = moving ? motion.overlaySurface() : null;
           surfaces =
               movingSurface == null
@@ -499,7 +499,7 @@ final class Engine {
             try (FileOutputStream out = new FileOutputStream(sample)) {
               bmp.compress(Bitmap.CompressFormat.PNG, 100, out);
             }
-            XposedBridge.log("GalaxyBar: " + state + " ms=" + lastMs + "\n" + details);
+            Hooks.log("GalaxyBar: " + state + " ms=" + lastMs + "\n" + details);
             lastDebug = now;
           }
         } finally {
@@ -613,7 +613,7 @@ final class Engine {
       return;
     }
     if (name.endsWith(".StatusBarIconView")
-        && ((Integer) XposedHelpers.callMethod(view, "getVisibleState")) == 2) return;
+        && ((Integer) Reflect.callMethod(view, "getVisibleState")) == 2) return;
 
     if (view instanceof TextView text
         && text.getLayout() != null
@@ -919,7 +919,7 @@ final class Engine {
 
   private void restore(String reason) {
     if (!originals.isEmpty() || !texts.isEmpty() || !modern.isEmpty() || !batteries.isEmpty())
-      XposedBridge.log("GalaxyBar: colors restored: " + reason + "; moving=" + motion.active());
+      Hooks.log("GalaxyBar: colors restored: " + reason + "; moving=" + motion.active());
     motion.colorState(0, 0);
     choreographer.removeFrameCallback(fadeFrame);
     fadeScheduled = false;
@@ -976,7 +976,7 @@ final class Engine {
       stopped = true;
       motion.configure(false);
     }
-    XposedBridge.log("GalaxyBar: " + lastError);
+    Hooks.log("GalaxyBar: " + lastError);
   }
 
   boolean isAttached() {

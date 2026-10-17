@@ -8,7 +8,7 @@ import android.graphics.Rect;
 import android.graphics.RectF;
 import android.net.Uri;
 import android.os.*;
-import de.robv.android.xposed.*;
+import dev.ryuya.galaxybar.hook.*;
 import java.util.*;
 import java.util.concurrent.*;
 
@@ -27,7 +27,7 @@ final class LauncherMotion {
             return t;
           });
   private final Map<Object, Session> sessions = new WeakHashMap<>();
-  private final List<XC_MethodHook.Unhook> hooks = new ArrayList<>();
+  private final List<HookCallback.Unhook> hooks = new ArrayList<>();
   private Session foreground;
   private final LauncherOverview overview;
   private volatile IBinder endpoint;
@@ -106,7 +106,7 @@ final class LauncherMotion {
             this::fail);
     if (context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode()
         != 1750305027L) {
-      XposedBridge.log("GalaxyBar: unsupported One UI Home version; motion hooks not installed");
+      Hooks.log("GalaxyBar: unsupported One UI Home version; motion hooks not installed");
       return;
     }
     context.getContentResolver().registerContentObserver(ConfigProvider.URI, true, observer);
@@ -160,17 +160,17 @@ final class LauncherMotion {
   }
 
   private void install() {
-    Class<?> player = XposedHelpers.findClass(PLAYER, loader);
+    Class<?> player = Reflect.findClass(PLAYER, loader);
     Class<?> input =
-        XposedHelpers.findClass(
+        Reflect.findClass(
             "com.honeyspace.transition.anim.floating.entity.FloatingInputData", loader);
     Class<?> desktop =
-        XposedHelpers.findClass(
+        Reflect.findClass(
             "com.honeyspace.transition.anim.floating.entity.DesktopInputData", loader);
     Class<?> transaction =
-        XposedHelpers.findClass("com.honeyspace.transition.utils.SurfaceTransaction", loader);
-    XC_MethodHook start =
-        new XC_MethodHook() {
+        Reflect.findClass("com.honeyspace.transition.utils.SurfaceTransaction", loader);
+    HookCallback start =
+        new HookCallback() {
           @Override
           protected void beforeHookedMethod(MethodHookParam p) {
             try {
@@ -178,7 +178,7 @@ final class LauncherMotion {
               overview.stop();
               Session s = begin(p.thisObject);
               s.input = p.args[0];
-              s.opening = XposedHelpers.getBooleanField(p.args[0], "isForward");
+              s.opening = Reflect.getBooleanField(p.args[0], "isForward");
               s.spring = p.method.getName().equals("startSpring");
             } catch (Throwable error) {
               fail(error);
@@ -191,12 +191,12 @@ final class LauncherMotion {
               Session s = sessions.get(p.thisObject);
               if (s == null || !enabled) return;
               AnimatorSet animator =
-                  (AnimatorSet) XposedHelpers.callMethod(p.args[0], "getAnimatorSet");
+                  (AnimatorSet) Reflect.callMethod(p.args[0], "getAnimatorSet");
               if (!s.spring && s.duration <= 0) {
-                Object params = XposedHelpers.getObjectField(p.thisObject, "appTransitionParams");
-                Object opening = XposedHelpers.callMethod(params, "getOpenParams");
+                Object params = Reflect.getObjectField(p.thisObject, "appTransitionParams");
+                Object opening = Reflect.callMethod(params, "getOpenParams");
                 s.duration =
-                    ((Number) XposedHelpers.callMethod(opening, "getWindowPositionDuration"))
+                    ((Number) Reflect.callMethod(opening, "getWindowPositionDuration"))
                             .floatValue()
                         * ValueAnimator.getDurationScale();
               }
@@ -218,14 +218,14 @@ final class LauncherMotion {
             }
           }
         };
-    hooks.add(XposedHelpers.findAndHookMethod(player, "start", input, boolean.class, start));
-    hooks.add(XposedHelpers.findAndHookMethod(player, "startSpring", input, desktop, start));
+    hooks.add(Reflect.findAndHookMethod(player, "start", input, boolean.class, start));
+    hooks.add(Reflect.findAndHookMethod(player, "startSpring", input, desktop, start));
     hooks.add(
-        XposedHelpers.findAndHookMethod(
+        Reflect.findAndHookMethod(
             player,
             "makeUpdateInfo",
             transaction,
-            new XC_MethodHook() {
+            new HookCallback() {
               @Override
               protected void afterHookedMethod(MethodHookParam p) {
                 try {
@@ -240,12 +240,12 @@ final class LauncherMotion {
                   long now = SystemClock.uptimeMillis();
                   if (now == s.lastSent) return;
                   Object info = p.getResult();
-                  PointF point = (PointF) XposedHelpers.getObjectField(info, "point");
-                  Rect crop = (Rect) XposedHelpers.getObjectField(info, "crop");
-                  float scale = XposedHelpers.getFloatField(info, "scale");
+                  PointF point = (PointF) Reflect.getObjectField(info, "point");
+                  Rect crop = (Rect) Reflect.getObjectField(info, "crop");
+                  float scale = Reflect.getFloatField(info, "scale");
                   float width = crop.width() * scale;
                   float remaining = -1;
-                  boolean opening = XposedHelpers.getBooleanField(p.thisObject, "isForward");
+                  boolean opening = Reflect.getBooleanField(p.thisObject, "isForward");
                   if (opening != s.opening) {
                     s.opening = opening;
                     s.spring =
@@ -255,7 +255,7 @@ final class LauncherMotion {
                     remaining = Math.max(0, s.duration - (now - s.started));
                   s.lastSent = now;
                   int task =
-                      ((Number) XposedHelpers.callMethod(p.thisObject, "getRunningTaskId"))
+                      ((Number) Reflect.callMethod(p.thisObject, "getRunningTaskId"))
                           .intValue();
                   s.last =
                       new MotionFrame(
@@ -269,9 +269,9 @@ final class LauncherMotion {
                           point.y + crop.top * scale,
                           width,
                           crop.height() * scale,
-                          XposedHelpers.getFloatField(info, "alpha"),
+                          Reflect.getFloatField(info, "alpha"),
                           remaining,
-                          XposedHelpers.getFloatField(info, "cornerRadius") * scale,
+                          Reflect.getFloatField(info, "cornerRadius") * scale,
                           false);
                   send(s.last);
                 } catch (Throwable error) {
@@ -279,19 +279,19 @@ final class LauncherMotion {
                 }
               }
             }));
-    XC_MethodHook finish =
-        new XC_MethodHook() {
+    HookCallback finish =
+        new HookCallback() {
           @Override
           protected void beforeHookedMethod(MethodHookParam p) {
             Session s = sessions.get(p.thisObject);
             if (s != null) end(s);
           }
         };
-    hooks.add(XposedHelpers.findAndHookMethod(player, "end", finish));
-    hooks.add(XposedHelpers.findAndHookMethod(player, "finish", finish));
+    hooks.add(Reflect.findAndHookMethod(player, "end", finish));
+    hooks.add(Reflect.findAndHookMethod(player, "finish", finish));
     // Catch/moving can run with the old AnimatorSet paused, before any start/startSpring call.
-    XC_MethodHook gesture =
-        new XC_MethodHook() {
+    HookCallback gesture =
+        new HookCallback() {
           @Override
           protected void beforeHookedMethod(MethodHookParam p) {
             try {
@@ -309,28 +309,28 @@ final class LauncherMotion {
           }
         };
     hooks.add(
-        XposedHelpers.findAndHookMethod(player, "catch", RectF.class, boolean.class, gesture));
+        Reflect.findAndHookMethod(player, "catch", RectF.class, boolean.class, gesture));
     hooks.add(
-        XposedHelpers.findAndHookMethod(
+        Reflect.findAndHookMethod(
             player, "moving", RectF.class, float.class, float.class, float.class, gesture));
     Class<?> valuePlayer =
-        XposedHelpers.findClass(
+        Reflect.findClass(
             "com.honeyspace.transition.anim.floating.animator.ValueAnimPlayer", loader);
-    Class<?> function = XposedHelpers.findClass("kotlin.jvm.functions.Function1", loader);
+    Class<?> function = Reflect.findClass("kotlin.jvm.functions.Function1", loader);
     hooks.add(
-        XposedHelpers.findAndHookMethod(
+        Reflect.findAndHookMethod(
             valuePlayer,
             "play",
             function,
-            new XC_MethodHook() {
+            new HookCallback() {
               @Override
               protected void beforeHookedMethod(MethodHookParam p) {
                 try {
                   if (!enabled || foreground == null) return;
-                  Object calculator = XposedHelpers.getObjectField(p.thisObject, "calculator");
-                  if (XposedHelpers.callMethod(calculator, "getInput") != foreground.input) return;
+                  Object calculator = Reflect.getObjectField(p.thisObject, "calculator");
+                  if (Reflect.callMethod(calculator, "getInput") != foreground.input) return;
                   foreground.duration =
-                      ((Number) XposedHelpers.callMethod(calculator, "getPositionDuration"))
+                      ((Number) Reflect.callMethod(calculator, "getPositionDuration"))
                               .floatValue()
                           * ValueAnimator.getDurationScale();
                 } catch (Throwable error) {
@@ -339,21 +339,21 @@ final class LauncherMotion {
               }
             }));
     overview.install(loader, hooks);
-    XposedBridge.log("GalaxyBar: One UI Home window motion hooks installed");
+    Hooks.log("GalaxyBar: One UI Home window motion hooks installed");
   }
 
   private boolean fullscreen(Object player) {
-    if (XposedHelpers.getBooleanField(player, "isMultiTargets")) return false;
-    Object targets = XposedHelpers.getObjectField(player, "finalRemoteTargets");
+    if (Reflect.getBooleanField(player, "isMultiTargets")) return false;
+    Object targets = Reflect.getObjectField(player, "finalRemoteTargets");
     if (targets == null) return false;
-    Object[] apps = (Object[]) XposedHelpers.callMethod(targets, "getApps");
+    Object[] apps = (Object[]) Reflect.callMethod(targets, "getApps");
     if (apps == null) return false;
     for (Object target : apps) {
-      Object info = XposedHelpers.getObjectField(target, "taskInfo");
-      if (info == null || XposedHelpers.getIntField(info, "displayId") != 0) continue;
-      Object configuration = XposedHelpers.getObjectField(target, "windowConfiguration");
-      if ((Integer) XposedHelpers.callMethod(configuration, "getWindowingMode") == 1
-          && (Integer) XposedHelpers.callMethod(configuration, "getActivityType") == 1) return true;
+      Object info = Reflect.getObjectField(target, "taskInfo");
+      if (info == null || Reflect.getIntField(info, "displayId") != 0) continue;
+      Object configuration = Reflect.getObjectField(target, "windowConfiguration");
+      if ((Integer) Reflect.callMethod(configuration, "getWindowingMode") == 1
+          && (Integer) Reflect.callMethod(configuration, "getActivityType") == 1) return true;
     }
     return false;
   }
@@ -451,7 +451,7 @@ final class LauncherMotion {
       try {
         hook.unhook();
       } catch (Throwable error) {
-        XposedBridge.log(error);
+        Hooks.log(error);
       }
     }
     hooks.clear();
@@ -461,7 +461,7 @@ final class LauncherMotion {
     disable();
     failed = true;
     protection.initializationFailed(error);
-    XposedBridge.log("GalaxyBar: launcher motion disabled: " + error);
+    Hooks.log("GalaxyBar: launcher motion disabled: " + error);
   }
 
   private static final class Session {

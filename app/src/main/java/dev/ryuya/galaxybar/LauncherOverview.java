@@ -6,7 +6,7 @@ import android.content.Context;
 import android.graphics.*;
 import android.os.*;
 import android.view.*;
-import de.robv.android.xposed.*;
+import dev.ryuya.galaxybar.hook.*;
 import java.lang.ref.WeakReference;
 import java.util.List;
 import java.util.function.Consumer;
@@ -53,53 +53,53 @@ final class LauncherOverview {
     this.failure = failure;
   }
 
-  void install(ClassLoader loader, List<XC_MethodHook.Unhook> hooks) {
+  void install(ClassLoader loader, List<HookCallback.Unhook> hooks) {
     Class<?> manager =
-        XposedHelpers.findClass(
+        Reflect.findClass(
             "com.honeyspace.gesture.recentsanimation.RecentsAnimationManager", loader);
     hooks.add(
-        XposedHelpers.findAndHookMethod(
+        Reflect.findAndHookMethod(
             manager,
             "startRecentEntering",
-            new XC_MethodHook() {
+            new HookCallback() {
               @Override
               protected void beforeHookedMethod(MethodHookParam p) {
                 protect(
                     () -> {
                       stop();
                       taskId =
-                          ((Number) XposedHelpers.callMethod(p.thisObject, "getTaskId")).intValue();
+                          ((Number) Reflect.callMethod(p.thisObject, "getTaskId")).intValue();
                       overview = true;
-                      XposedBridge.log("GalaxyBar: overview entering task=" + taskId);
+                      Hooks.log("GalaxyBar: overview entering task=" + taskId);
                     });
               }
             }));
     hooks.add(
-        XposedHelpers.findAndHookMethod(
+        Reflect.findAndHookMethod(
             manager,
             "startHomeEntering",
-            new XC_MethodHook() {
+            new HookCallback() {
               @Override
               protected void beforeHookedMethod(MethodHookParam p) {
                 protect(LauncherOverview.this::stop);
               }
             }));
     Class<?> scene =
-        XposedHelpers.findClass("com.honeyspace.ui.common.taskScene.TaskSceneView", loader);
+        Reflect.findClass("com.honeyspace.ui.common.taskScene.TaskSceneView", loader);
     hooks.add(
-        XposedHelpers.findAndHookMethod(
+        Reflect.findAndHookMethod(
             scene,
             "onDraw",
             Canvas.class,
-            new XC_MethodHook() {
+            new HookCallback() {
               @Override
               protected void afterHookedMethod(MethodHookParam p) {
                 protect(
                     () -> {
                       if (!overview || taskId < 0 || !((View) p.thisObject).isShown()) return;
-                      if (!(Boolean) XposedHelpers.callMethod(p.thisObject, "hasTaskId", taskId))
+                      if (!(Boolean) Reflect.callMethod(p.thisObject, "hasTaskId", taskId))
                         return;
-                      if (((List<?>) XposedHelpers.callMethod(p.thisObject, "getTasks")).size()
+                      if (((List<?>) Reflect.callMethod(p.thisObject, "getTasks")).size()
                           != 1) return;
                       View next = (View) p.thisObject;
                       if (card.get() != next) {
@@ -111,7 +111,7 @@ final class LauncherOverview {
                         card = new WeakReference<>(next);
                         observer = next.getRootView().getViewTreeObserver();
                         observer.addOnPreDrawListener(preDraw);
-                        XposedBridge.log(
+                        Hooks.log(
                             "GalaxyBar: overview card connected task="
                                 + taskId
                                 + " alpha="
@@ -124,12 +124,12 @@ final class LauncherOverview {
               }
             }));
     Class<?> transition =
-        XposedHelpers.findClass("com.honeyspace.transition.utils.TaskLaunchTransition", loader);
+        Reflect.findClass("com.honeyspace.transition.utils.TaskLaunchTransition", loader);
     hooks.addAll(
-        XposedBridge.hookAllMethods(
+        Hooks.hookAllMethods(
             transition,
             "createTaskLeashAnimator",
-            new XC_MethodHook() {
+            new HookCallback() {
               @Override
               protected void beforeHookedMethod(MethodHookParam p) {
                 protect(
@@ -137,16 +137,16 @@ final class LauncherOverview {
                       stop();
                       if ((Integer) p.args[9] != 0) return;
                       Object targets = p.args[3];
-                      Object target = XposedHelpers.callMethod(targets, "getFirstAppTarget");
+                      Object target = Reflect.callMethod(targets, "getFirstAppTarget");
                       if (target == null) return;
-                      Object config = XposedHelpers.getObjectField(target, "windowConfiguration");
-                      if ((Integer) XposedHelpers.callMethod(config, "getWindowingMode") != 1
-                          || (Integer) XposedHelpers.callMethod(config, "getActivityType") != 1)
+                      Object config = Reflect.getObjectField(target, "windowConfiguration");
+                      if ((Integer) Reflect.callMethod(config, "getWindowingMode") != 1
+                          || (Integer) Reflect.callMethod(config, "getActivityType") != 1)
                         return;
-                      Object info = XposedHelpers.getObjectField(target, "taskInfo");
-                      if (info == null || XposedHelpers.getIntField(info, "displayId") != 0) return;
-                      launchTask = XposedHelpers.getIntField(target, "taskId");
-                      XposedBridge.log("GalaxyBar: overview app launch task=" + launchTask);
+                      Object info = Reflect.getObjectField(target, "taskInfo");
+                      if (info == null || Reflect.getIntField(info, "displayId") != 0) return;
+                      launchTask = Reflect.getIntField(target, "taskId");
+                      Hooks.log("GalaxyBar: overview app launch task=" + launchTask);
                       launch = new Object();
                       p.setObjectExtra("galaxybar.launch", launch);
                       sink.frame(
@@ -192,24 +192,24 @@ final class LauncherOverview {
               }
             }));
     hooks.addAll(
-        XposedBridge.hookAllMethods(
+        Hooks.hookAllMethods(
             transition,
             "createSurfaceParams",
-            new XC_MethodHook() {
+            new HookCallback() {
               @Override
               protected void afterHookedMethod(MethodHookParam p) {
                 protect(
                     () -> {
                       if (launch == null || launchTask < 0 || p.hasThrowable()) return;
-                      Rect crop = (Rect) XposedHelpers.getStaticObjectField(transition, "cropRect");
+                      Rect crop = (Rect) Reflect.getStaticObjectField(transition, "cropRect");
                       Matrix matrix =
-                          (Matrix) XposedHelpers.getStaticObjectField(transition, "matrix");
+                          (Matrix) Reflect.getStaticObjectField(transition, "matrix");
                       RectF rect = new RectF(crop);
                       matrix.mapRect(rect);
                       float start =
-                          XposedHelpers.getStaticFloatField(transition, "initialWindowRadius");
+                          Reflect.getStaticFloatField(transition, "initialWindowRadius");
                       float end =
-                          XposedHelpers.getStaticFloatField(transition, "finalWindowRadius");
+                          Reflect.getStaticFloatField(transition, "finalWindowRadius");
                       float fraction = (Float) p.args[1];
                       float radius =
                           (start + (end - start) * fraction)
@@ -221,7 +221,7 @@ final class LauncherOverview {
                           true,
                           false,
                           rect,
-                          XposedHelpers.getStaticFloatField(transition, "leashAlpha"),
+                          Reflect.getStaticFloatField(transition, "leashAlpha"),
                           radius);
                     });
               }
@@ -253,9 +253,9 @@ final class LauncherOverview {
   }
 
   private CardGeometry geometry(View view) {
-    Object state = XposedHelpers.callMethod(view, "getSceneStateInfo");
+    Object state = Reflect.callMethod(view, "getSceneStateInfo");
     float ratio = view.getWidth() / (float) Math.max(1, view.getHeight());
-    List<?> bounds = (List<?>) XposedHelpers.callMethod(state, "getDestBgCropBounds", ratio, 0f);
+    List<?> bounds = (List<?>) Reflect.callMethod(state, "getDestBgCropBounds", ratio, 0f);
     if (bounds.size() != 1) return null;
     RectF local = new RectF((RectF) bounds.get(0));
     if (local.isEmpty()) return null;
@@ -263,7 +263,7 @@ final class LauncherOverview {
     view.transformMatrixToGlobal(matrix);
     RectF rect = new RectF(local);
     matrix.mapRect(rect);
-    List<?> radii = (List<?>) XposedHelpers.callMethod(view, "getBackgroundCornerRadii");
+    List<?> radii = (List<?>) Reflect.callMethod(view, "getBackgroundCornerRadii");
     if (radii.size() != 1) return null;
     float[] corners = (float[]) radii.get(0);
     if (corners.length == 0) return null;

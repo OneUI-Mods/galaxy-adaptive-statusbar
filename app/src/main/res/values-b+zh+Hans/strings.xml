@@ -77,4 +77,5 @@
 <string name="legal_distribution_notices">发行版权声明</string>
 <string name="tab_colors">配色</string>
 <string name="tab_adjustments">调整</string>
+<string name="module_description">状态栏配色与 One UI 应用动画设置。</string>
 </resources>

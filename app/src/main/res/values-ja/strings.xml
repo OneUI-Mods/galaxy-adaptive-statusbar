@@ -77,4 +77,5 @@
 <string name="legal_distribution_notices">配布物の著作権表示</string>
 <string name="tab_colors">配色</string>
 <string name="tab_adjustments">調整</string>
+<string name="module_description">ステータスバーの配色とOne UIのアプリアニメーションを設定します。</string>
 </resources>

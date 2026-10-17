@@ -8,8 +8,8 @@ import android.os.*;
 import android.view.*;
 import android.widget.ImageView;
 import android.widget.TextView;
-import de.robv.android.xposed.XposedBridge;
-import de.robv.android.xposed.XposedHelpers;
+import dev.ryuya.galaxybar.hook.Hooks;
+import dev.ryuya.galaxybar.hook.Reflect;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
@@ -65,7 +65,7 @@ final class StatusBarMotion {
     this.main = main;
     this.motionChanged = motionChanged;
     int windowType =
-        XposedHelpers.getStaticIntField(
+        Reflect.getStaticIntField(
             WindowManager.LayoutParams.class, "TYPE_STATUS_BAR_SUB_PANEL");
     context = root.getContext().createWindowContext(root.getDisplay(), windowType, null);
     launcherUid = context.getPackageManager().getPackageUid("com.sec.android.app.launcher", 0);
@@ -106,7 +106,7 @@ final class StatusBarMotion {
     } catch (Throwable error) {
       finish("unavailable");
       failed = true;
-      XposedBridge.log("GalaxyBar: motion disabled: " + error);
+      Hooks.log("GalaxyBar: motion disabled: " + error);
       HookEntry.stopHooks(error);
     }
   }
@@ -151,7 +151,7 @@ final class StatusBarMotion {
         cancel("no visible status bar content");
         return;
       }
-      XposedBridge.log("GalaxyBar: motion begin " + (frame.opening() ? "open" : "close"));
+      Hooks.log("GalaxyBar: motion begin " + (frame.opening() ? "open" : "close"));
     }
     updates++;
     MotionTiming.Opacity opacity =
@@ -168,7 +168,7 @@ final class StatusBarMotion {
           new WindowManager.LayoutParams(
               WindowManager.LayoutParams.MATCH_PARENT,
               WindowManager.LayoutParams.MATCH_PARENT,
-              XposedHelpers.getStaticIntField(
+              Reflect.getStaticIntField(
                   WindowManager.LayoutParams.class, "TYPE_STATUS_BAR_SUB_PANEL"),
               WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE
                   | WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
@@ -183,16 +183,16 @@ final class StatusBarMotion {
       p.packageName = "com.android.systemui";
       // This is SystemUI's own visual-only surface, like its charging ripple. Give it
       // no input channel and the same trusted-overlay classification as native effects.
-      XposedHelpers.callMethod(p, "setTrustedOverlay");
-      XposedHelpers.setIntField(
+      Reflect.callMethod(p, "setTrustedOverlay");
+      Reflect.setIntField(
           p,
           "inputFeatures",
-          XposedHelpers.getIntField(p, "inputFeatures")
-              | XposedHelpers.getStaticIntField(
+          Reflect.getIntField(p, "inputFeatures")
+              | Reflect.getStaticIntField(
                   WindowManager.LayoutParams.class, "INPUT_FEATURE_NO_INPUT_CHANNEL"));
       windows.addView(overlay, p);
       handoffs++;
-      XposedBridge.log(
+      Hooks.log(
           "GalaxyBar: motion handoff x=" + frame.x() + " y=" + frame.y() + " w=" + frame.width());
     }
     applyOpacity(opacity, frame);
@@ -336,9 +336,9 @@ final class StatusBarMotion {
 
   SurfaceControl overlaySurface() {
     if (overlay == null) return null;
-    Object viewRoot = XposedHelpers.callMethod(overlay, "getViewRootImpl");
+    Object viewRoot = Reflect.callMethod(overlay, "getViewRootImpl");
     if (viewRoot == null) return null;
-    return (SurfaceControl) XposedHelpers.callMethod(viewRoot, "getSurfaceControl");
+    return (SurfaceControl) Reflect.callMethod(viewRoot, "getSurfaceControl");
   }
 
   boolean waitingForSurface() {
@@ -370,7 +370,7 @@ final class StatusBarMotion {
 
   private void finish(String reason) {
     if (active)
-      XposedBridge.log(
+      Hooks.log(
           "GalaxyBar: motion restore "
               + reason
               + " overview="
@@ -396,7 +396,7 @@ final class StatusBarMotion {
       try {
         windows.removeViewImmediate(overlay);
       } catch (Throwable error) {
-        XposedBridge.log("GalaxyBar: motion cleanup: " + error);
+        Hooks.log("GalaxyBar: motion cleanup: " + error);
       } finally {
         overlay = null;
       }
@@ -455,7 +455,7 @@ final class StatusBarMotion {
               cancel("drawing unavailable");
               HookEntry.stopHooks(error);
             });
-        XposedBridge.log("GalaxyBar: motion draw: " + error);
+        Hooks.log("GalaxyBar: motion draw: " + error);
       }
     }
 
