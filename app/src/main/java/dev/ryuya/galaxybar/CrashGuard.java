@@ -142,9 +142,15 @@ final class CrashGuard {
     }
     BroadcastReceiver receiver =
         new BroadcastReceiver() {
+          private boolean handled;
           @Override
           public void onReceive(Context c, Intent i) {
-            context.unregisterReceiver(this);
+            if (handled) return;
+            handled = true;
+            // SystemUI/launcher can dispatch the unlock through a different Context wrapper.
+            // A duplicate/delayed delivery must never crash the host during restoration.
+            try { context.unregisterReceiver(this); }
+            catch (IllegalArgumentException alreadyRemoved) { /* Receiver is already detached. */ }
             publish();
           }
         };
