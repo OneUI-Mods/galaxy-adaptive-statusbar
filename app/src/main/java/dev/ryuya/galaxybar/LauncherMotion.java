@@ -1,7 +1,7 @@
 package dev.ryuya.galaxybar;
 
 import android.animation.*;
-import android.content.Context;
+import android.content.*;
 import android.database.ContentObserver;
 import android.graphics.PointF;
 import android.graphics.Rect;
@@ -110,10 +110,14 @@ final class LauncherMotion {
       return;
     }
     context.getContentResolver().registerContentObserver(ConfigProvider.URI, true, observer);
+    context.registerReceiver(new BroadcastReceiver() {
+      @Override public void onReceive(Context c, Intent intent) { refresh(); }
+    }, new IntentFilter(Intent.ACTION_USER_UNLOCKED), Context.RECEIVER_NOT_EXPORTED);
     refresh();
   }
 
   private void refresh() {
+    if (!context.getSystemService(UserManager.class).isUserUnlocked()) return;
     int request = ++revision;
     io.execute(
         () -> {

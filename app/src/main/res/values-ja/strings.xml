@@ -1,7 +1,5 @@
 <resources>
     <string name="screen_title">自動ステータスバー</string>
-    <string name="hero_title">背景に合わせて、見やすく。</string>
-    <string name="hero_body">時計の文字とアイコンの色を、それぞれの背景に合わせて調整します。</string>
     <string name="enabled">自動配色を使う</string>
     <string name="color_targets">配色する項目</string>
     <string name="clock">時計の文字</string>

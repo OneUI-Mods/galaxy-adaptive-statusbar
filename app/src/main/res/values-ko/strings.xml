@@ -1,7 +1,5 @@
 <resources>
     <string name="screen_title">자동 상태 표시줄</string>
-    <string name="hero_title">어떤 배경에서도 선명하게.</string>
-    <string name="hero_body">시계의 각 문자와 아이콘을 바로 뒤의 배경에 맞게 조정합니다.</string>
     <string name="enabled">자동 색상 사용</string>
     <string name="color_targets">색상을 조정할 항목</string>
     <string name="clock">시계 문자</string>

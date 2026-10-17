@@ -1,7 +1,5 @@
 <resources>
     <string name="screen_title">Barra de estado adaptable</string>
-    <string name="hero_title">Más claridad en cada fondo.</string>
-    <string name="hero_body">Ajusta cada carácter del reloj e icono según el fondo que tiene debajo.</string>
     <string name="enabled">Usar colores adaptables</string>
     <string name="color_targets">Elementos que se ajustan</string>
     <string name="clock">Caracteres del reloj</string>

@@ -90,14 +90,6 @@ public final class MainActivity extends AppCompatActivity {
     LinearLayout operation = pages.page(R.string.tab_status);
     LinearLayout information = pages.page(R.string.tab_about);
     LinearLayout hero = card(body);
-    text(
-        hero,
-        getString(R.string.hero_title),
-        com.google.android.material.R.style.TextAppearance_Material3_TitleLarge);
-    text(
-        hero,
-        getString(R.string.hero_body),
-        com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
     MaterialSwitch enabled = toggle(hero, getString(R.string.enabled), "enabled", false);
     enabledControl = enabled;
     enabled.setId(R.id.module_enabled);

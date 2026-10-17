@@ -287,6 +287,7 @@ final class Engine {
   }
 
   private void refreshConfig(int revision) {
+    if (!context.getSystemService(UserManager.class).isUserUnlocked()) return;
     try {
       Bundle fresh = context.getContentResolver().call(ConfigProvider.URI, "config", null, null);
       lastConfig = SystemClock.elapsedRealtime();
@@ -296,7 +297,8 @@ final class Engine {
           () -> {
             if (!closed && revision == configRevision) {
               suspendColors();
-              fail(error);
+              // Provider startup/unlock is not a capture or hook failure. The ticker retries.
+              state = "Waiting for settings";
             }
           });
     }

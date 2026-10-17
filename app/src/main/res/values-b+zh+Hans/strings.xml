@@ -1,7 +1,5 @@
 <resources>
     <string name="screen_title">自动状态栏</string>
-    <string name="hero_title">随背景变化，始终清晰。</string>
-    <string name="hero_body">根据每个时钟字符和图标下方的背景调整颜色。</string>
     <string name="enabled">启用自动配色</string>
     <string name="color_targets">配色项目</string>
     <string name="clock">时钟字符</string>
