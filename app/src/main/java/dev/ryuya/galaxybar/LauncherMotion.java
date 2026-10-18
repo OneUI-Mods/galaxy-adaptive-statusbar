@@ -110,9 +110,15 @@ final class LauncherMotion {
       return;
     }
     context.getContentResolver().registerContentObserver(ConfigProvider.URI, true, observer);
-    context.registerReceiver(new BroadcastReceiver() {
-      @Override public void onReceive(Context c, Intent intent) { refresh(); }
-    }, new IntentFilter(Intent.ACTION_USER_UNLOCKED), Context.RECEIVER_NOT_EXPORTED);
+    context.registerReceiver(
+        new BroadcastReceiver() {
+          @Override
+          public void onReceive(Context c, Intent intent) {
+            refresh();
+          }
+        },
+        new IntentFilter(Intent.ACTION_USER_UNLOCKED),
+        Context.RECEIVER_NOT_EXPORTED);
     refresh();
   }
 
@@ -190,14 +196,12 @@ final class LauncherMotion {
             try {
               Session s = sessions.get(p.thisObject);
               if (s == null || !enabled) return;
-              AnimatorSet animator =
-                  (AnimatorSet) Reflect.callMethod(p.args[0], "getAnimatorSet");
+              AnimatorSet animator = (AnimatorSet) Reflect.callMethod(p.args[0], "getAnimatorSet");
               if (!s.spring && s.duration <= 0) {
                 Object params = Reflect.getObjectField(p.thisObject, "appTransitionParams");
                 Object opening = Reflect.callMethod(params, "getOpenParams");
                 s.duration =
-                    ((Number) Reflect.callMethod(opening, "getWindowPositionDuration"))
-                            .floatValue()
+                    ((Number) Reflect.callMethod(opening, "getWindowPositionDuration")).floatValue()
                         * ValueAnimator.getDurationScale();
               }
               animator.addListener(
@@ -255,8 +259,7 @@ final class LauncherMotion {
                     remaining = Math.max(0, s.duration - (now - s.started));
                   s.lastSent = now;
                   int task =
-                      ((Number) Reflect.callMethod(p.thisObject, "getRunningTaskId"))
-                          .intValue();
+                      ((Number) Reflect.callMethod(p.thisObject, "getRunningTaskId")).intValue();
                   s.last =
                       new MotionFrame(
                           s.id,
@@ -308,8 +311,7 @@ final class LauncherMotion {
             }
           }
         };
-    hooks.add(
-        Reflect.findAndHookMethod(player, "catch", RectF.class, boolean.class, gesture));
+    hooks.add(Reflect.findAndHookMethod(player, "catch", RectF.class, boolean.class, gesture));
     hooks.add(
         Reflect.findAndHookMethod(
             player, "moving", RectF.class, float.class, float.class, float.class, gesture));
@@ -330,8 +332,7 @@ final class LauncherMotion {
                   Object calculator = Reflect.getObjectField(p.thisObject, "calculator");
                   if (Reflect.callMethod(calculator, "getInput") != foreground.input) return;
                   foreground.duration =
-                      ((Number) Reflect.callMethod(calculator, "getPositionDuration"))
-                              .floatValue()
+                      ((Number) Reflect.callMethod(calculator, "getPositionDuration")).floatValue()
                           * ValueAnimator.getDurationScale();
                 } catch (Throwable error) {
                   fail(error);

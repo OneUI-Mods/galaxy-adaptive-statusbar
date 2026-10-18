@@ -1,4 +1,6 @@
 <resources>
- <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar"><item name="android:fontFamily">sans</item><item name="colorPrimary">#435D92</item></style>
-
+  <style name="AppTheme" parent="Theme.Material3.DayNight.NoActionBar">
+    <item name="android:fontFamily">sans</item>
+    <item name="colorPrimary">#435D92</item>
+  </style>
 </resources>

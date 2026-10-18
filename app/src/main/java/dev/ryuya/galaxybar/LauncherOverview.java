@@ -67,8 +67,7 @@ final class LauncherOverview {
                 protect(
                     () -> {
                       stop();
-                      taskId =
-                          ((Number) Reflect.callMethod(p.thisObject, "getTaskId")).intValue();
+                      taskId = ((Number) Reflect.callMethod(p.thisObject, "getTaskId")).intValue();
                       overview = true;
                       Hooks.log("GalaxyBar: overview entering task=" + taskId);
                     });
@@ -84,8 +83,7 @@ final class LauncherOverview {
                 protect(LauncherOverview.this::stop);
               }
             }));
-    Class<?> scene =
-        Reflect.findClass("com.honeyspace.ui.common.taskScene.TaskSceneView", loader);
+    Class<?> scene = Reflect.findClass("com.honeyspace.ui.common.taskScene.TaskSceneView", loader);
     hooks.add(
         Reflect.findAndHookMethod(
             scene,
@@ -97,10 +95,9 @@ final class LauncherOverview {
                 protect(
                     () -> {
                       if (!overview || taskId < 0 || !((View) p.thisObject).isShown()) return;
-                      if (!(Boolean) Reflect.callMethod(p.thisObject, "hasTaskId", taskId))
+                      if (!(Boolean) Reflect.callMethod(p.thisObject, "hasTaskId", taskId)) return;
+                      if (((List<?>) Reflect.callMethod(p.thisObject, "getTasks")).size() != 1)
                         return;
-                      if (((List<?>) Reflect.callMethod(p.thisObject, "getTasks")).size()
-                          != 1) return;
                       View next = (View) p.thisObject;
                       if (card.get() != next) {
                         // A TaskSceneView can draw before its background crop is ready.
@@ -141,8 +138,7 @@ final class LauncherOverview {
                       if (target == null) return;
                       Object config = Reflect.getObjectField(target, "windowConfiguration");
                       if ((Integer) Reflect.callMethod(config, "getWindowingMode") != 1
-                          || (Integer) Reflect.callMethod(config, "getActivityType") != 1)
-                        return;
+                          || (Integer) Reflect.callMethod(config, "getActivityType") != 1) return;
                       Object info = Reflect.getObjectField(target, "taskInfo");
                       if (info == null || Reflect.getIntField(info, "displayId") != 0) return;
                       launchTask = Reflect.getIntField(target, "taskId");
@@ -202,14 +198,11 @@ final class LauncherOverview {
                     () -> {
                       if (launch == null || launchTask < 0 || p.hasThrowable()) return;
                       Rect crop = (Rect) Reflect.getStaticObjectField(transition, "cropRect");
-                      Matrix matrix =
-                          (Matrix) Reflect.getStaticObjectField(transition, "matrix");
+                      Matrix matrix = (Matrix) Reflect.getStaticObjectField(transition, "matrix");
                       RectF rect = new RectF(crop);
                       matrix.mapRect(rect);
-                      float start =
-                          Reflect.getStaticFloatField(transition, "initialWindowRadius");
-                      float end =
-                          Reflect.getStaticFloatField(transition, "finalWindowRadius");
+                      float start = Reflect.getStaticFloatField(transition, "initialWindowRadius");
+                      float end = Reflect.getStaticFloatField(transition, "finalWindowRadius");
                       float fraction = (Float) p.args[1];
                       float radius =
                           (start + (end - start) * fraction)

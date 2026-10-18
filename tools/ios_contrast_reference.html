@@ -1,13 +1,51 @@
 <!doctype html>
-<meta name="viewport" content="width=device-width,viewport-fit=cover">
+<meta name="viewport" content="width=device-width,viewport-fit=cover" />
 <title>Contrast observation</title>
 <style>
-  @keyframes shift { to { background-position:96px 0 } }
-  @keyframes sweep { to { background-position:280px 0 } }
-  body { margin:0; height:300vh; background:linear-gradient(90deg,white 50%,black 50%) }
-  button { margin:100px; padding:12px }
+  @keyframes shift {
+    to {
+      background-position: 96px 0;
+    }
+  }
+  @keyframes sweep {
+    to {
+      background-position: 280px 0;
+    }
+  }
+  body {
+    margin: 0;
+    height: 300vh;
+    background: linear-gradient(90deg, white 50%, black 50%);
+  }
+  button {
+    margin: 100px;
+    padding: 12px;
+  }
 </style>
-<script>let i=0;</script>
-<body onclick="i=(i+1)%6;this.style.background=['linear-gradient(90deg,white 50%,black 50%)','linear-gradient(270deg,white 50%,black 50%)','repeating-linear-gradient(90deg,white 0 24px,black 24px 48px)','repeating-linear-gradient(90deg,white 0 24px,black 24px 48px)','repeating-linear-gradient(90deg,white 0 140px,black 140px 280px)','repeating-linear-gradient(90deg,white 0 140px,black 140px 280px)'][i];this.style.animation=i==3?'shift 1s linear infinite':i==5?'sweep 6s linear infinite':''">
-<button>next pattern</button>
+<script>
+  const backgroundPatterns = [
+    "linear-gradient(90deg,white 50%,black 50%)",
+    "linear-gradient(270deg,white 50%,black 50%)",
+    "repeating-linear-gradient(90deg,white 0 24px,black 24px 48px)",
+    "repeating-linear-gradient(90deg,white 0 24px,black 24px 48px)",
+    "repeating-linear-gradient(90deg,white 0 140px,black 140px 280px)",
+    "repeating-linear-gradient(90deg,white 0 140px,black 140px 280px)",
+  ];
+  let patternIndex = 0;
+
+  function nextPattern() {
+    patternIndex = (patternIndex + 1) % backgroundPatterns.length;
+    document.body.style.background = backgroundPatterns[patternIndex];
+
+    if (patternIndex === 3) {
+      document.body.style.animation = "shift 1s linear infinite";
+    } else if (patternIndex === 5) {
+      document.body.style.animation = "sweep 6s linear infinite";
+    } else {
+      document.body.style.animation = "";
+    }
+  }
+</script>
+<body onclick="nextPattern()">
+  <button>next pattern</button>
 </body>

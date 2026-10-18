@@ -7,7 +7,8 @@ import androidx.test.platform.app.InstrumentationRegistry;
 import org.junit.Test;
 
 public class StartupTest {
-  @Test public void startupPreservesDisabledSettingsAndCrashProtectionWithoutRoot() throws Exception {
+  @Test
+  public void startupPreservesDisabledSettingsAndCrashProtectionWithoutRoot() throws Exception {
     Context c = InstrumentationRegistry.getInstrumentation().getTargetContext();
     var config = c.getSharedPreferences("config", 0);
     var before = new java.util.HashMap<>(config.getAll());
@@ -18,10 +19,12 @@ public class StartupTest {
     new BootReceiver().onReceive(c, new Intent("unknown"));
     assertEquals(before, config.getAll());
     assertEquals(protection, status.getAll());
-    var receiver = c.getPackageManager().getReceiverInfo(new ComponentName(c, BootReceiver.class), 0);
+    var receiver =
+        c.getPackageManager().getReceiverInfo(new ComponentName(c, BootReceiver.class), 0);
     assertTrue(receiver.directBootAware);
     assertFalse(receiver.exported);
-    assertEquals(PackageManager.PERMISSION_GRANTED,
+    assertEquals(
+        PackageManager.PERMISSION_GRANTED,
         c.checkSelfPermission("android.permission.RECEIVE_BOOT_COMPLETED"));
   }
 }

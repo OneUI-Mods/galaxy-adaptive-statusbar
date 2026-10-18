@@ -15,7 +15,8 @@ public final class GalaxyBarApplication extends Application {
   static void applyTheme(android.content.Context context) {
     if (!context.getSystemService(android.os.UserManager.class).isUserUnlocked()) return;
     AppCompatDelegate.setDefaultNightMode(
-        context.getSharedPreferences("config", MODE_PRIVATE)
+        context
+            .getSharedPreferences("config", MODE_PRIVATE)
             .getInt("ui_theme", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM));
   }
 }

@@ -83,7 +83,9 @@ final class CrashGuard {
     guard.publishWhenUnlocked();
     Hooks.log(
         "GalaxyBar: crash guard "
-            + (guard.state.blocked ? "BLOCKED " + guard.state.cause : guard.armed ? "armed" : "idle")
+            + (guard.state.blocked
+                ? "BLOCKED " + guard.state.cause
+                : guard.armed ? "armed" : "idle")
             + "; recent crashes="
             + guard.state.crashes.size());
     return guard;
@@ -121,10 +123,14 @@ final class CrashGuard {
     if (!armed) return;
     armed = false;
     state.disarm(android.os.Process.myPid());
-    try { save(); }
-    catch (Throwable error) {
+    try {
+      save();
+    } catch (Throwable error) {
       state.stop("guard_error", System.currentTimeMillis());
-      try { save(); } catch (Throwable ignored) { }
+      try {
+        save();
+      } catch (Throwable ignored) {
+      }
       publishWhenUnlocked();
       Hooks.log("GalaxyBar: guard disarm failed: " + error);
     }
@@ -160,14 +166,18 @@ final class CrashGuard {
     BroadcastReceiver receiver =
         new BroadcastReceiver() {
           private boolean handled;
+
           @Override
           public void onReceive(Context c, Intent i) {
             if (handled) return;
             handled = true;
             // SystemUI/launcher can dispatch the unlock through a different Context wrapper.
             // A duplicate/delayed delivery must never crash the host during restoration.
-            try { context.unregisterReceiver(this); }
-            catch (IllegalArgumentException alreadyRemoved) { /* Receiver is already detached. */ }
+            try {
+              context.unregisterReceiver(this);
+            } catch (IllegalArgumentException alreadyRemoved) {
+              /* Receiver is already detached. */
+            }
             publish();
           }
         };

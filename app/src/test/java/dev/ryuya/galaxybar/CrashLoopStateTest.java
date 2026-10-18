@@ -185,7 +185,10 @@ public class CrashLoopStateTest {
       s.arm(i, 1000 * i);
       s.disarm(i); // All feature hooks have been removed before this host exits.
       s = roundTrip(s);
-      s.observe(1000 * i + 100, 1, "",
+      s.observe(
+          1000 * i + 100,
+          1,
+          "",
           List.of(new CrashLoopState.Exit(i, 1000 * i + 50, REASON_CRASH, 0)));
     }
     assertFalse(s.blocked);

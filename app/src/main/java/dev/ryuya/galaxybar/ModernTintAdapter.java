@@ -34,8 +34,7 @@ final class ModernTintAdapter {
             View view = (View) p.thisObject;
             int color =
                 (Integer)
-                    Reflect.callStaticMethod(
-                        dispatcher, "getTint", p.args[0], view, p.args[1]);
+                    Reflect.callStaticMethod(dispatcher, "getTint", p.args[0], view, p.args[1]);
             int inverse =
                 (Integer)
                     Reflect.callStaticMethod(

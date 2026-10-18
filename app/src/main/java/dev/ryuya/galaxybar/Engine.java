@@ -237,8 +237,7 @@ final class Engine {
             targets = mapped;
           } else collect(root, targets);
           Object vr = Reflect.callMethod(root, "getViewRootImpl");
-          SurfaceControl surface =
-              (SurfaceControl) Reflect.callMethod(vr, "getSurfaceControl");
+          SurfaceControl surface = (SurfaceControl) Reflect.callMethod(vr, "getSurfaceControl");
           SurfaceControl movingSurface = moving ? motion.overlaySurface() : null;
           surfaces =
               movingSurface == null

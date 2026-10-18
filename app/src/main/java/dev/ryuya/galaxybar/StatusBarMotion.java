@@ -65,8 +65,7 @@ final class StatusBarMotion {
     this.main = main;
     this.motionChanged = motionChanged;
     int windowType =
-        Reflect.getStaticIntField(
-            WindowManager.LayoutParams.class, "TYPE_STATUS_BAR_SUB_PANEL");
+        Reflect.getStaticIntField(WindowManager.LayoutParams.class, "TYPE_STATUS_BAR_SUB_PANEL");
     context = root.getContext().createWindowContext(root.getDisplay(), windowType, null);
     launcherUid = context.getPackageManager().getPackageUid("com.sec.android.app.launcher", 0);
     windows = context.getSystemService(WindowManager.class);

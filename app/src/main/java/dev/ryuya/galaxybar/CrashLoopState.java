@@ -62,7 +62,9 @@ final class CrashLoopState {
     lastStopAt = now;
   }
 
-  void disarm(int pid) { launches.remove(pid); }
+  void disarm(int pid) {
+    launches.remove(pid);
+  }
 
   void arm(int pid, long now) {
     if (blocked) throw new IllegalStateException("Crash protection is latched");

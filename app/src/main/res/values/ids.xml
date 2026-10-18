@@ -1,11 +1,11 @@
 <resources>
-    <item type="id" name="fade_duration_slider" />
-    <item type="id" name="fade_duration_value" />
-    <item type="id" name="guard_reset" />
-    <item type="id" name="module_enabled" />
-    <item type="id" name="motion_enabled" />
-<item type="id" name="settings_tabs" />
-<item type="id" name="license_search" />
-<item type="id" name="license_list" />
-<item type="id" name="license_text" />
+  <item type="id" name="fade_duration_slider" />
+  <item type="id" name="fade_duration_value" />
+  <item type="id" name="guard_reset" />
+  <item type="id" name="module_enabled" />
+  <item type="id" name="motion_enabled" />
+  <item type="id" name="settings_tabs" />
+  <item type="id" name="license_search" />
+  <item type="id" name="license_list" />
+  <item type="id" name="license_text" />
 </resources>

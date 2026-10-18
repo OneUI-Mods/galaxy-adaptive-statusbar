@@ -5,13 +5,14 @@ cd "$TASK_TOOL_DIR/.."
 SERIAL="$(python3 "$TASK_TOOL_DIR/adb_target.py" --serial)"
 APK="${1:-}"
 if [[ -z "$APK" ]]; then
-  APK="$(python3 - <<'PY'
+  APK="$(
+    python3 - << 'PY'
 import json
 from pathlib import Path
 metadata = json.loads(Path('app/build/outputs/apk/release/output-metadata.json').read_text())
 print('dist/GalaxyAdaptiveBar-' + metadata['elements'][0]['versionName'] + '-release.apk')
 PY
-)"
+  )"
 fi
 if [[ ! -f "$APK" ]]; then
   echo 'Build a signed release APK with python3 tools/package_release.py first.' >&2

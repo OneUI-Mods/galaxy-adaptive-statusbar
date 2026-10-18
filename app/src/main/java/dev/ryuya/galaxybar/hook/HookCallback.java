@@ -7,6 +7,7 @@ import java.util.HashMap;
 /** Local before/after adapter; actual hook registration uses libxposed API 102 chains. */
 public abstract class HookCallback {
   protected void beforeHookedMethod(MethodHookParam param) throws Throwable {}
+
   protected void afterHookedMethod(MethodHookParam param) throws Throwable {}
 
   public static final class MethodHookParam {
@@ -17,31 +18,37 @@ public abstract class HookCallback {
     private Throwable throwable;
     private boolean skip;
     private HashMap<String, Object> extras;
+
     public Object getResult() {
       return result;
     }
+
     public Throwable getThrowable() {
       return throwable;
     }
+
     public boolean hasThrowable() {
       return throwable != null;
     }
+
     public void setResult(Object value) {
       result = value;
       throwable = null;
       skip = true;
     }
+
     public void setThrowable(Throwable value) {
       throwable = value;
       result = null;
       skip = true;
     }
+
     public Object getObjectExtra(String key) {
       return extras == null ? null : extras.get(key);
     }
+
     public void setObjectExtra(String key, Object value) {
-      if (extras == null)
-        extras = new HashMap<>();
+      if (extras == null) extras = new HashMap<>();
       extras.put(key, value);
     }
   }
@@ -75,16 +82,17 @@ public abstract class HookCallback {
       p.result = result;
       p.throwable = throwable;
     }
-    if (p.throwable != null)
-      throw p.throwable;
+    if (p.throwable != null) throw p.throwable;
     return p.result;
   }
 
   public static final class Unhook {
     private final XposedInterface.HookHandle handle;
+
     Unhook(XposedInterface.HookHandle handle) {
       this.handle = handle;
     }
+
     public void unhook() {
       handle.unhook();
     }
