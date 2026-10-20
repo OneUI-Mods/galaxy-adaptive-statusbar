@@ -37,9 +37,7 @@ public final class HookEntry extends XposedModule {
     if ((!launcher && !packageName.equals("com.android.systemui"))
         || !processName.equals(packageName)) return;
     // Deliberate allowlist: other firmware requires inspection before enabling hooks.
-    if (Build.VERSION.SDK_INT != 36
-        || !Build.DEVICE.equals("m3q")
-        || !Build.DISPLAY.equals("BP4A.251205.006.S948QOPS1AZHL")) {
+    if (!HookCompatibility.isCurrentSupported()) {
       Hooks.log("GalaxyBar: unsupported firmware " + Build.DISPLAY);
       return;
     }
