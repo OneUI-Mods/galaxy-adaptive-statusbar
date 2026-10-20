@@ -44,6 +44,17 @@ final class ReloadSession {
       owner.getDeclaredMethod("onKeyguardExitFinished", String.class);
       owner.getDeclaredMethod("showKeyguard$1", Bundle.class);
       owner.getDeclaredField("mKeyguardViewControllerLazy");
+      owner.getDeclaredField("mSystemReady");
+      owner.getDeclaredField("mKeyguardInteractor");
+      Class<?> interactor =
+          Reflect.findClass(
+              "com.android.systemui.keyguard.domain.interactor.KeyguardInteractor", loader);
+      interactor.getDeclaredMethod("dismissKeyguard");
+      interactor.getDeclaredField("keyguardTransitionInteractor");
+      Reflect.findClass(
+              "com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor",
+              loader)
+          .getDeclaredField("currentKeyguardState");
       Reflect.findClass("com.android.keyguard.KeyguardViewController", loader)
           .getDeclaredMethod("hide", long.class, long.class);
       for (String field :
@@ -80,27 +91,7 @@ final class ReloadSession {
                     return;
                   }
                   if (!active) return;
-                  main.post(
-                      () -> {
-                        try {
-                          if (!eligible()) {
-                            finish(true);
-                            return;
-                          }
-                          // Use the completed-exit path also used for an occluded keyguard.
-                          // The generic hide path requires a fresh authentication event on One UI.
-                          Object controller =
-                              Reflect.callMethod(
-                                  Reflect.getObjectField(mediator, "mKeyguardViewControllerLazy"),
-                                  "get");
-                          Reflect.callMethod(controller, "hide", SystemClock.uptimeMillis(), 0L);
-                          Reflect.callMethod(
-                              mediator, "onKeyguardExitFinished", "Galaxy Reload resume");
-                          main.postDelayed(ReloadSession::observeCompletion, 100);
-                        } catch (Throwable error) {
-                          stop(error);
-                        }
-                      });
+                  main.post(ReloadSession::resumeWhenReady);
                 }
               }));
       hooks.add(
@@ -233,7 +224,7 @@ final class ReloadSession {
         finish(true);
         return;
       }
-      if (!Reflect.getBooleanField(mediator, "mShowing")) {
+      if (!Reflect.getBooleanField(mediator, "mShowing") && "GONE".equals(keyguardState())) {
         Properties result = ticket.properties();
         result.setProperty("phase", "resumed");
         result.setProperty("pid", Integer.toString(android.os.Process.myPid()));
@@ -244,6 +235,38 @@ final class ReloadSession {
     } catch (Throwable error) {
       stop(error);
     }
+  }
+
+  private static void resumeWhenReady() {
+    if (!active) return;
+    try {
+      if (!eligible()) {
+        finish(true);
+        return;
+      }
+      // onSystemReady only queues work. Wait for the native startup transition before dismissing;
+      // an earlier exit can be overwritten by LOCKSCREEN and leave the status bar hidden.
+      if (!Reflect.getBooleanField(mediator, "mSystemReady")
+          || !"LOCKSCREEN".equals(keyguardState())) {
+        main.postDelayed(ReloadSession::resumeWhenReady, 50);
+        return;
+      }
+      Object controller =
+          Reflect.callMethod(
+              Reflect.getObjectField(mediator, "mKeyguardViewControllerLazy"), "get");
+      Reflect.callMethod(controller, "hide", SystemClock.uptimeMillis(), 0L);
+      Reflect.callMethod(mediator, "onKeyguardExitFinished", "Galaxy Reload resume");
+      main.postDelayed(ReloadSession::observeCompletion, 100);
+    } catch (Throwable error) {
+      stop(error);
+    }
+  }
+
+  private static String keyguardState() throws Exception {
+    Object interactor = Reflect.getObjectField(mediator, "mKeyguardInteractor");
+    Object transition = Reflect.getObjectField(interactor, "keyguardTransitionInteractor");
+    Object flow = Reflect.getObjectField(transition, "currentKeyguardState");
+    return ((Enum<?>) Reflect.callMethod(flow, "getValue")).name();
   }
 
   private static Properties read(Path path) throws Exception {
