@@ -76,6 +76,7 @@ public final class HookEntry extends XposedModule {
     try {
       protection = CrashGuard.open(context, false);
       if (!protection.allowsHooks()) return;
+      ReloadSession.install(context, loader);
       systemLoader = loader;
       installHooks(loader);
     } catch (Throwable error) {
@@ -85,6 +86,7 @@ public final class HookEntry extends XposedModule {
   }
 
   static void stopHooks(Throwable error) {
+    ReloadSession.reset();
     if (engine != null) {
       try {
         engine.close();

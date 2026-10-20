@@ -12,6 +12,7 @@ import android.os.SystemClock;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.ViewTreeObserver;
+import android.view.WindowInsets;
 import android.view.animation.PathInterpolator;
 import dev.ryuya.galaxybar.hook.HookCallback;
 import dev.ryuya.galaxybar.hook.Hooks;
@@ -34,6 +35,7 @@ final class PrivacySlide {
   private static boolean crowdedFallback = true;
   // Before the first native emission, the pending event must originate from a fully visible group.
   private static volatile boolean otherSamsungHide, homeAllowed = true, infoAllowed = true;
+  private static volatile boolean statusBarRequested;
   private static Object nativeVisibility;
   private static View nativeTarget;
   private static Session session;
@@ -50,7 +52,13 @@ final class PrivacySlide {
   }
 
   static String status() {
-    return state + "; completed=" + completed + "; dot=" + PrivacyDots.status();
+    return state
+        + "; completed="
+        + completed
+        + "; requested="
+        + statusBarRequested
+        + "; dot="
+        + PrivacyDots.status();
   }
 
   static void configure(boolean value) {
@@ -80,6 +88,28 @@ final class PrivacySlide {
       Class<?> controller =
           Reflect.findClass(BASE + "events.SystemEventChipAnimationControllerImpl", loader);
       Class<?> function = Reflect.findClass("kotlin.jvm.functions.Function1", loader);
+      Class<?> attributes =
+          Reflect.findClass(
+              "com.android.systemui.statusbar.data.repository.StatusBarModePerDisplayRepositoryImpl$commandQueueCallback$1",
+              loader);
+      Class<?> regions =
+          java.lang.reflect.Array.newInstance(
+                  Reflect.findClass("com.android.internal.view.AppearanceRegion", loader), 0)
+              .getClass();
+      Class<?> letterboxes =
+          java.lang.reflect.Array.newInstance(
+                  Reflect.findClass("com.android.internal.statusbar.LetterboxDetails", loader), 0)
+              .getClass();
+      attributes.getDeclaredMethod(
+          "onSystemBarAttributesChanged",
+          int.class,
+          int.class,
+          regions,
+          boolean.class,
+          int.class,
+          int.class,
+          String.class,
+          letterboxes);
       Reflect.findClass("com.android.systemui.privacy.ui.view.ComposeOngoingPrivacyChip", loader)
           .getDeclaredField("launchableView");
       Class<?> visibilityType =
@@ -121,6 +151,26 @@ final class PrivacySlide {
       samsung.getDeclaredMethod("invoke", Object.class, Object.class, Object.class);
       visibility = visibilityType.getDeclaredConstructor(int.class, boolean.class);
       applyVisibility = binder.getDeclaredMethod("adjustVisibility", View.class, visibilityType);
+
+      HookRegistry.hook(
+          attributes,
+          "onSystemBarAttributesChanged",
+          int.class,
+          int.class,
+          regions,
+          boolean.class,
+          int.class,
+          int.class,
+          String.class,
+          letterboxes,
+          new HookCallback() {
+            @Override
+            protected void beforeHookedMethod(MethodHookParam p) {
+              if ((int) p.args[0] != 0) return;
+              statusBarRequested = ((int) p.args[5] & WindowInsets.Type.statusBars()) != 0;
+              if (!statusBarRequested && enabled) cancel();
+            }
+          });
 
       HookRegistry.hook(
           samsung,
@@ -173,7 +223,8 @@ final class PrivacySlide {
           new HookCallback() {
             @Override
             protected void beforeHookedMethod(MethodHookParam p) {
-              if (!enabled || !privacyEvent(p.args[0]) || session != null) return;
+              if (!enabled || !statusBarRequested || !privacyEvent(p.args[0]) || session != null)
+                return;
               View group = rightGroup();
               if (!scene(group) || !group.isShown() || group.getAlpha() < .99f) return;
               pending = true;
@@ -294,6 +345,7 @@ final class PrivacySlide {
 
   private static boolean canReserve() {
     return enabled
+        && statusBarRequested
         && (pending || session != null)
         && !otherSamsungHide
         && homeAllowed
@@ -302,7 +354,14 @@ final class PrivacySlide {
   }
 
   static boolean allowDot() {
-    return enabled && !otherSamsungHide && homeAllowed && infoAllowed && scene(rightGroup());
+    return enabled
+        && statusBarRequested
+        && !pending
+        && (session == null || session.exiting)
+        && !otherSamsungHide
+        && homeAllowed
+        && infoAllowed
+        && scene(rightGroup());
   }
 
   static boolean reserveDot(float dotLeft, float alpha) {
