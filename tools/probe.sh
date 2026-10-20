@@ -5,8 +5,8 @@ cd "$TASK_TOOL_DIR/.."
 SDK="${ANDROID_HOME:-$HOME/Library/Android/sdk}"
 SERIAL="$(python3 "$TASK_TOOL_DIR/adb_target.py" --serial)"
 mkdir -p build/probe/classes build/probe/dex
-javac -source 17 -target 17 -cp "$SDK/platforms/android-36/android.jar" -d build/probe/classes tools/CaptureProbe.java
-"$SDK/build-tools/36.0.0/d8" --lib "$SDK/platforms/android-36/android.jar" --output build/probe/dex build/probe/classes/*.class
+javac -source 17 -target 17 -cp "$SDK/platforms/android-37.0/android.jar" -d build/probe/classes tools/CaptureProbe.java
+"$SDK/build-tools/37.0.0/d8" --lib "$SDK/platforms/android-37.0/android.jar" --output build/probe/dex build/probe/classes/*.class
 (cd build/probe/dex && zip -q ../probe.jar classes.dex)
 adb -s "$SERIAL" push build/probe/probe.jar /data/local/tmp/galaxy-capture-probe.jar
 CAPTURE_KIND="${1:-display}"

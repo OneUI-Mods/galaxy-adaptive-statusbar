@@ -11,9 +11,9 @@ public class NetworkSpeedSpacingTest {
   }
 
   @Test
-  public void adjustmentUsesDisplayDensityAndCanBeReversed() {
+  public void adjustmentUsesDensityAndRejectsOverlapProneNegativeValues() {
     assertEquals(5.85f, NetworkSpeedSpacing.extra(-5.85f, 2.925f, 4), .001f);
-    assertEquals(-11.7f, NetworkSpeedSpacing.extra(-5.85f, 2.925f, -2), .001f);
+    assertEquals(-5.85f, NetworkSpeedSpacing.extra(-5.85f, 2.925f, -2), .001f);
   }
 
   @Test

@@ -9,3 +9,7 @@ compileSdkとtargetSdkを37へ更新しました。ビルド環境はJDK 21、AG
 検証済み：JVM試験102件、release Lint（error/fatalなし）、releaseビルド。
 
 AGP 9の組み込みKotlinによるstdlib 2.2.10の解決と、独立したstdlib-commonの除去を反映し、APKのライセンス一覧・通知を実依存へ合わせました。JetBrainsのv2.2.10タグでライセンスを照合し、JVM stdlibの派生コードを含むApache・BSD・Boostの通知と本文を収録しました。
+
+## 実機更新（2026-10-21）
+
+署名済みrelease 0.6.14-experimentalを既存データを維持して上書きし、端末のPackageManagerでtargetSdk=37を確認しました。4本の設定画面が開きました。TailADBは更新後のアプリUIから専用backendを停止・開始し、Tailscale経由のshellと所有ファイルの転送・削除が通過しました。ローカルADBを制御経路として保持しています。SystemUIだけを読み込み直し、端末本体・system_server・One UIホームは再起動していません。フック処理を変更していないCapture/Homeの各ホストを、SDK更新だけのためには再起動していません。
