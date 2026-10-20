@@ -251,7 +251,7 @@ final class Engine {
             targets = mapped;
           } else collect(root, targets);
           if (config.getBoolean("battery", true)) {
-            ComposeBatteryAdapter.Geometry battery = ComposeBatteryAdapter.geometry();
+            ComposeBatteryAdapter.Geometry battery = ComposeBatteryAdapter.geometry(root);
             if (battery != null) {
               Rect area = sampleWindow ? motion.mappedArea(battery.area()) : battery.area();
               if (Rect.intersects(area, crop))

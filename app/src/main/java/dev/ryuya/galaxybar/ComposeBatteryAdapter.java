@@ -2,7 +2,10 @@ package dev.ryuya.galaxybar;
 
 import android.graphics.*;
 import android.os.Build;
+import android.view.View;
+import android.view.ViewGroup;
 import dev.ryuya.galaxybar.hook.*;
+import java.lang.ref.WeakReference;
 import java.lang.reflect.*;
 import java.text.NumberFormat;
 import java.util.*;
@@ -39,7 +42,9 @@ final class ComposeBatteryAdapter {
     "shouldShowBackground"
   };
   private static final Map<Object, Entry> entries = new WeakHashMap<>();
-  private static final ThreadLocal<Entry> composing = new ThreadLocal<>();
+  private static Class<?> composeOwnerType;
+  private static Object batteryTag;
+  private static WeakReference<View> ownerView = new WeakReference<>(null);
   private static Class<?> stateFactory, composeView;
   private static Constructor<?> layoutConstructor;
   private static Field[] fields;
@@ -97,11 +102,20 @@ final class ComposeBatteryAdapter {
         composer,
         int.class);
     Class<?> battery = Reflect.findClass(BASE + "SamsungBatteryKt", loader);
-    Class<?> areaDark =
-        Reflect.findClass(
-            "com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModelImpl$areaDark$2",
-            loader);
-    areaDark.getDeclaredMethod("isDarkTheme", Rect.class);
+    composeOwnerType = Reflect.findClass("androidx.compose.ui.platform.AndroidComposeView", loader);
+    composeOwnerType.getDeclaredField("semanticsOwner");
+    Class<?> semanticsOwner =
+        Reflect.findClass("androidx.compose.ui.semantics.SemanticsOwner", loader);
+    semanticsOwner.getDeclaredMethod("getUnmergedRootSemanticsNode");
+    Class<?> semanticsNode =
+        Reflect.findClass("androidx.compose.ui.semantics.SemanticsNode", loader);
+    semanticsNode.getDeclaredMethod("getConfig");
+    semanticsNode.getDeclaredMethod("getChildren$ui", boolean.class, boolean.class);
+    semanticsNode.getDeclaredMethod("getBoundsInWindow");
+    batteryTag =
+        Reflect.getStaticObjectField(
+            Reflect.findClass("androidx.compose.ui.semantics.SemanticsProperties", loader),
+            "TestTag");
     Hooks.deoptimize(
         battery.getDeclaredMethod(
             "SamsungBattery",
@@ -121,40 +135,17 @@ final class ComposeBatteryAdapter {
         new HookCallback() {
           @Override
           protected void beforeHookedMethod(MethodHookParam p) {
-            p.setObjectExtra("previousBattery", composing.get());
             if (!ComposeBatteryColors.isMainBar(p.args[4], (Integer) p.args[7])) {
-              composing.remove();
               return;
             }
             Entry entry = entries.computeIfAbsent(p.args[0], ignored -> new Entry());
             mainBattery = entry;
-            composing.set(entry);
             // Read inside the parent composition so palette updates invalidate this battery only.
             Object value = Reflect.callMethod(entry.colors, "getValue");
             if (!Objects.equals(value, entry.lastRead)) {
               p.args[6] = (Integer) p.args[6] | 1;
               entry.lastRead = value;
             }
-          }
-
-          @Override
-          protected void afterHookedMethod(MethodHookParam p) {
-            Entry previous = (Entry) p.getObjectExtra("previousBattery");
-            if (previous == null) composing.remove();
-            else composing.set(previous);
-          }
-        });
-    HookRegistry.lifecycle(
-        areaDark,
-        "isDarkTheme",
-        new HookCallback() {
-          @Override
-          protected void beforeHookedMethod(MethodHookParam p) {
-            Entry entry = composing.get();
-            if (entry != null
-                && p.args.length == 1
-                && p.args[0] instanceof Rect area
-                && !area.isEmpty()) entry.area = new Rect(area);
           }
         });
   }
@@ -190,9 +181,17 @@ final class ComposeBatteryAdapter {
       Reflect.callMethod(entry.colors, "setValue", new Palette(0, 0, false, ++revision));
   }
 
-  static Geometry geometry() {
+  static Geometry geometry(View root) {
     Entry entry = mainBattery;
-    if (entry == null || entry.layout == null || entry.area.isEmpty()) return null;
+    if (entry == null || entry.layout == null) return null;
+    View owner = ownerView.get();
+    Rect bounds =
+        owner != null && owner.isAttachedToWindow() && owner.getRootView() == root
+            ? semanticBounds(owner)
+            : null;
+    if (bounds == null) bounds = findOwner(root, new int[] {256});
+    entry.area = bounds == null ? new Rect() : bounds;
+    if (entry.area.isEmpty()) return null;
     Object[] v = entry.layout;
     int width = (Integer) v[12], height = (Integer) v[13];
     if (width <= 0 || height <= 0) return null;
@@ -220,6 +219,52 @@ final class ComposeBatteryAdapter {
         (Integer) v[8] >>> 24,
         off,
         (Boolean) v[21]);
+  }
+
+  private static Rect findOwner(View view, int[] remaining) {
+    if (--remaining[0] < 0 || !view.isShown()) return null;
+    if (composeOwnerType.isInstance(view)) {
+      Rect bounds = semanticBounds(view);
+      if (bounds != null) {
+        ownerView = new WeakReference<>(view);
+        return bounds;
+      }
+    }
+    if (view instanceof ViewGroup group)
+      for (int i = 0; i < group.getChildCount(); i++) {
+        Rect bounds = findOwner(group.getChildAt(i), remaining);
+        if (bounds != null) return bounds;
+      }
+    return null;
+  }
+
+  private static Rect semanticBounds(View view) {
+    Object owner = Reflect.getObjectField(view, "semanticsOwner");
+    Object root = Reflect.callMethod(owner, "getUnmergedRootSemanticsNode");
+    ArrayDeque<Object> nodes = new ArrayDeque<>();
+    nodes.add(root);
+    int remaining = 256;
+    while (!nodes.isEmpty() && --remaining >= 0) {
+      Object node = nodes.removeFirst();
+      Object config = Reflect.callMethod(node, "getConfig");
+      for (Object item : (Iterable<?>) config) {
+        Map.Entry<?, ?> property = (Map.Entry<?, ?>) item;
+        if (property.getKey() == batteryTag && "battery".equals(property.getValue())) {
+          Object rect = Reflect.callMethod(node, "getBoundsInWindow");
+          RectF bounds =
+              new RectF(
+                  Reflect.getFloatField(rect, "left"),
+                  Reflect.getFloatField(rect, "top"),
+                  Reflect.getFloatField(rect, "right"),
+                  Reflect.getFloatField(rect, "bottom"));
+          Rect pixels = new Rect();
+          bounds.roundOut(pixels);
+          if (!pixels.isEmpty()) return pixels;
+        }
+      }
+      nodes.addAll((List<?>) Reflect.callMethod(node, "getChildren$ui", false, false));
+    }
+    return null;
   }
 
   static int percentageColor(
@@ -286,7 +331,7 @@ final class ComposeBatteryAdapter {
     return composeView == null
         ? ""
         : mainBattery != null && mainBattery.layout != null
-            ? "; Compose ready"
+            ? "; Compose ready; area=" + mainBattery.area
             : "; waiting for Compose battery";
   }
 }
