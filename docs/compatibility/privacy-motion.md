@@ -6,7 +6,7 @@ BZI9の稼働APKと実機階層を調べ、`status_bar_end_side_content` が `Al
 
 移動幅は実測した使用表示のbounds、通信・バッテリー領域、間隔から計算する。開始時は400msで場所を空け、純正のlaunchable View全体を右から滑り込ませる。図柄を横から切り出すclipは使わず、同じ進行度から算出したalphaでフェードする。終了時は純正のboundsとalphaに追従する。描画とタップは元のビューを使う。移動する親のクリップ設定、translationX、使用表示の子ViewのtranslationX・alphaと親のクリップを保存し、終了・OFF・消灯・detach時に復元する。steady状態で独自のフレームループは回さない。契約不一致、領域不足、タイムアウトでは純正へ戻す。
 
-本機能の初期設定はOFF。Android 16の定義は変更していない。JVMでは予約領域の間隔、単調な開始、終了、非有限値、領域不足、他の非表示理由、未定義入力の拒否を試験する。実機反映後の結果を追記する。
+本機能の初期設定はOFF。Android 16の定義は変更していない。JVMでは予約領域の間隔、単調な開始、終了、非有限値、領域不足、他の非表示理由、未定義入力の拒否を試験する。実機結果を下記に記録する。
 
 
 0.6.16では永続ドットの純正Viewも観察する。display 0のPrivacyDotViewControllerImplのinitialize/showDotViewから参照を取得し、現在のViewStateは読み取りだけに使う。位置情報だけの点や、非対応の画面には適用しない。点のImageViewを中心から+2 dp、最大1.5倍に拡大し、純正の色・可視性・alpha・contentDescription・操作を維持する。点が見えている間は4 dp以上の余白を作り、時計・通知と重なる場合は純正へ戻す。
@@ -18,3 +18,10 @@ BZI9の稼働APKと実機階層を調べ、`status_bar_end_side_content` が `Al
 
 
 0.6.18ではSamsungカメラの実起動を観察した。アプリが全画面を要求しStatusBar windowが非表示になったあと、privacy chipによる一時的なwindow表示中に予約処理が右側をVISIBLEへ戻していた。StatusBarModePerDisplayRepositoryImplのcommandQueueCallbackのonSystemBarAttributesChangedに渡されるdisplay IDとrequestedVisibleTypesを読み、statusBarsの要求がない間は予約を解除する。引数・StateFlowは書き換えない。最初の属性通知前は予約を許可しない。pending/大きな表示の登場中はdotの予約も始めず、使用表示の前に小さな余白だけが往復する動きを避ける。
+
+
+## 最終版BZI9実機確認（2026-10-21）
+
+保存しない実カメラストリームとマイクで確認。大きな使用表示の間、右側のalphaは1、visibilityはVISIBLEのままで、横移動約-122 pxを維持した。大きな表示の前の小さな予約往復は発生しない。chip→dotは約-121→-30→-11.7 pxへ連続して移り、点は12 pxの純正径からscale約1.4875（約17.85 px）へ拡大。利用終了時はtranslation 0とscale 1へ復元した。pendingは登場中の点予約を止めるが、exit中の同時予約は許可する。終了直前のrefreshと同じフレームで点が受け取れるようにした。
+
+Samsungカメラは、全画面要求後のprivacy用一時StatusBar windowでも右側のalpha=0 / INVISIBLE / translation=0を保ち、モジュールによる表示し直しは起きなかった。通常アプリの予約と、全画面カメラの純正表示を区別している。空き不足スイッチはfalse→trueをproviderで照合。使用表示の移動をOFFにするとtranslation=0、点scale=1、純正の右側フェードへ戻ることを確認した。試験用APKと録画用の端末一時ファイルは検証後に削除する。
