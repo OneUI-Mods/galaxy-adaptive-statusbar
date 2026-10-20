@@ -21,7 +21,7 @@
   <string name="status">Status</string>
   <string name="waiting_hook">Waiting for SystemUI. Check that the module is enabled for SystemUI in Vector.</string>
   <string name="updated_seconds">Updated %1$d seconds ago</string>
-  <string name="experimental_note">Experimental · SM-S948Q / One UI 8.5\nPortrait testing. Protected screens use standard colors.</string>
+  <string name="experimental_note">Experimental · SM-S948Q / One UI 8・9\nPortrait testing. Protected screens use standard colors.</string>
   <string name="fixed_test">Test alternating clock colors</string>
   <string name="debug">Save diagnostic logs and background image</string>
   <string name="root_check">Check root access</string>

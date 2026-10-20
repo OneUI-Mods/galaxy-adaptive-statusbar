@@ -20,7 +20,7 @@
   <string name="status">동작 상태</string>
   <string name="waiting_hook">SystemUI 응답을 기다리는 중입니다. Vector에서 SystemUI에 모듈이 활성화되어 있는지 확인하세요.</string>
   <string name="updated_seconds">%1$d초 전에 업데이트됨</string>
-  <string name="experimental_note">실험 버전 · SM-S948Q / One UI 8.5\n세로 화면 테스트 중. 보호 화면에는 기본 색상이 적용됩니다.</string>
+  <string name="experimental_note">실험 버전 · SM-S948Q / One UI 8・9\n세로 화면 테스트 중. 보호 화면에는 기본 색상이 적용됩니다.</string>
   <string name="fixed_test">시계 색상을 번갈아 표시하여 테스트</string>
   <string name="debug">진단 로그 및 배경 이미지 저장</string>
   <string name="root_check">root 상태 확인</string>

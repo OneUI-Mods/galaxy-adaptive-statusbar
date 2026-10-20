@@ -20,7 +20,7 @@
   <string name="status">動作状況</string>
   <string name="waiting_hook">SystemUIからの応答を待っています。Vectorの有効化と対象設定を確認してください。</string>
   <string name="updated_seconds">更新: %1$d秒前</string>
-  <string name="experimental_note">実験版 · SM-S948Q / One UI 8.5\n縦画面で検証中。保護画面では標準色に戻ります。</string>
+  <string name="experimental_note">実験版 · SM-S948Q / One UI 8・9\n縦画面で検証中。保護画面では標準色に戻ります。</string>
   <string name="fixed_test">時計を白黒交互にして検証</string>
   <string name="debug">診断ログ・背景画像を保存</string>
   <string name="root_check">root状態を確認</string>

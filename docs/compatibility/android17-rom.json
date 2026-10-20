@@ -7,9 +7,9 @@
   "build_display": "CP2A.260605.016.S948QOPU1BZI9",
   "one_ui_version": "90000",
   "system_partition_fingerprint": "samsung/m3qjpnw/qssi_64:17/CP2A.260605.016/S948QOPU1BZI9:user/release-keys",
-  "runtime_fingerprint": null,
+  "runtime_fingerprint": "samsung/m3qjpnw/m3q:17/CP2A.260605.016/S948QOPU1BZI9_SJP1BZI9:user/release-keys",
   "runtime_verified": false,
-  "hook_profile_enabled": false,
+  "hook_profile_enabled": true,
   "artifacts": [
     {
       "name": "systemui.apk",
@@ -36,5 +36,6 @@
       "size": 54707468,
       "sha256": "a895cb27bf6be0cfe9f9b21ee091e17b53d926aa467ff9bbebe77fe8f101d30a"
     }
-  ]
+  ],
+  "installed_artifacts_match_rom": true
 }

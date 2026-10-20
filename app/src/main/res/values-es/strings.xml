@@ -20,7 +20,7 @@
   <string name="status">Estado</string>
   <string name="waiting_hook">Esperando a SystemUI. Comprueba que el módulo esté activado para SystemUI en Vector.</string>
   <string name="updated_seconds">Actualizado hace %1$d segundos</string>
-  <string name="experimental_note">Experimental · SM-S948Q / One UI 8.5\nPruebas en vertical. Las pantallas protegidas usan colores estándar.</string>
+  <string name="experimental_note">Experimental · SM-S948Q / One UI 8・9\nPruebas en vertical. Las pantallas protegidas usan colores estándar.</string>
   <string name="fixed_test">Probar colores alternos en el reloj</string>
   <string name="debug">Guardar registros e imagen de diagnóstico</string>
   <string name="root_check">Comprobar acceso root</string>
