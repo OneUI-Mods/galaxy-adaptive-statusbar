@@ -51,6 +51,9 @@ final class ComposeBatteryAdapter {
   private static volatile Entry mainBattery;
   private static int revision;
   private static boolean applied;
+  private static int visitedViews, visitedOwners, visitedNodes;
+  private static String rootType = "";
+  private static final Set<String> observedTags = new LinkedHashSet<>();
 
   private record Palette(int body, int percentage, boolean enabled, int revision) {}
 
@@ -183,6 +186,9 @@ final class ComposeBatteryAdapter {
   static Geometry geometry(View root) {
     Entry entry = mainBattery;
     if (entry == null || entry.layout == null) return null;
+    visitedViews = visitedOwners = visitedNodes = 0;
+    observedTags.clear();
+    rootType = root.getClass().getSimpleName();
     View owner = ownerView.get();
     Rect bounds =
         owner != null && owner.isAttachedToWindow() && owner.getRootView() == root
@@ -221,6 +227,7 @@ final class ComposeBatteryAdapter {
   }
 
   private static Rect findOwner(View view, int[] remaining) {
+    visitedViews++;
     if (--remaining[0] < 0 || !view.isShown()) return null;
     if (composeOwnerType.isInstance(view)) {
       Rect bounds = semanticBounds(view);
@@ -238,6 +245,7 @@ final class ComposeBatteryAdapter {
   }
 
   private static Rect semanticBounds(View view) {
+    visitedOwners++;
     Object owner = Reflect.getObjectField(view, "semanticsOwner");
     Object root = Reflect.callMethod(owner, "getUnmergedRootSemanticsNode");
     ArrayDeque<Object> nodes = new ArrayDeque<>();
@@ -245,9 +253,12 @@ final class ComposeBatteryAdapter {
     int remaining = 256;
     while (!nodes.isEmpty() && --remaining >= 0) {
       Object node = nodes.removeFirst();
+      visitedNodes++;
       Object config = Reflect.callMethod(node, "getConfig");
       for (Object item : (Iterable<?>) config) {
         Map.Entry<?, ?> property = (Map.Entry<?, ?>) item;
+        if (property.getKey() == batteryTag && observedTags.size() < 8)
+          observedTags.add(String.valueOf(property.getValue()));
         if (property.getKey() == batteryTag
             && ComposeBatteryColors.isBatteryTag(property.getValue())) {
           Object rect = Reflect.callMethod(node, "getBoundsInWindow");
@@ -262,7 +273,7 @@ final class ComposeBatteryAdapter {
           if (!pixels.isEmpty()) return pixels;
         }
       }
-      nodes.addAll((List<?>) Reflect.callMethod(node, "getChildren$ui", false, false));
+      nodes.addAll((List<?>) Reflect.callMethod(node, "getChildren$ui", true, false));
     }
     return null;
   }
@@ -331,7 +342,20 @@ final class ComposeBatteryAdapter {
     return composeView == null
         ? ""
         : mainBattery != null && mainBattery.layout != null
-            ? "; Compose ready; area=" + mainBattery.area
-            : "; waiting for Compose battery";
+            ? "; Compose "
+                + BuildConfig.VERSION_NAME
+                + "; area="
+                + mainBattery.area
+                + "; root="
+                + rootType
+                + "; views="
+                + visitedViews
+                + "; owners="
+                + visitedOwners
+                + "; nodes="
+                + visitedNodes
+                + "; tags="
+                + observedTags
+            : "; Compose " + BuildConfig.VERSION_NAME + " waiting for battery";
   }
 }
