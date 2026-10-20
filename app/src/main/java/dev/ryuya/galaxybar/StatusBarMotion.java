@@ -491,16 +491,6 @@ final class StatusBarMotion {
         leaf.view().draw(canvas);
         canvas.restoreToCount(child);
       }
-      // The Android 17 battery has no ImageView leaf. Draw its native Compose content
-      // from the source root, clipped to the measured battery region, without snapshots.
-      Rect battery = ComposeBatteryAdapter.nativeArea();
-      if (!battery.isEmpty()) {
-        battery.offset(-origin[0], -origin[1]);
-        int child = canvas.save();
-        canvas.clipRect(battery);
-        root.draw(canvas);
-        canvas.restoreToCount(child);
-      }
       canvas.restoreToCount(layer);
       canvas.restoreToCount(save);
     }
