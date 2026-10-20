@@ -26,7 +26,7 @@ GitHub: https://github.com/ryuya0124/galaxy-adaptive-statusbar （非公開）
 
 ## ビルドと導入
 
-JDK 17以上とAndroid SDK 36を使用します。
+JDK 21とAndroid SDK 37を使用します。
 
 ```sh
 export ANDROID_HOME="$HOME/Library/Android/sdk"  # 環境に合わせる

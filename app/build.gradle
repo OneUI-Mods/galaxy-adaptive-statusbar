@@ -4,14 +4,15 @@ plugins {
 
 android {
     namespace 'dev.ryuya.galaxybar'
-    compileSdk 36
+    compileSdk 37
+    buildToolsVersion '37.0.0'
 
     defaultConfig {
         applicationId 'dev.ryuya.galaxybar'
         minSdk 35
-        targetSdk 36
-        versionCode 34
-        versionName '0.6.13-experimental'
+        targetSdk 37
+        versionCode 35
+        versionName '0.6.14-experimental'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 

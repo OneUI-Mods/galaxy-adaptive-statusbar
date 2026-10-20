@@ -71,7 +71,7 @@ def main():
     parser.add_argument("--check-release-apk", type=Path)
     args = parser.parse_args()
     sdk = Path(os.environ.get("ANDROID_HOME", Path.home() / "Library/Android/sdk"))
-    build_tools = sdk / "build-tools/36.0.0"
+    build_tools = sdk / "build-tools/37.0.0"
     if args.check_release_apk:
         validate(args.check_release_apk.resolve(), build_tools / "aapt2")
         print("Release APK check passed: not debuggable, no test fixtures.")
