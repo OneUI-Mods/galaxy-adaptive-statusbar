@@ -6,6 +6,15 @@ import org.junit.Test;
 
 public class ComposeBatteryColorsTest {
   @Test
+  public void matchesSamsungsFullyQualifiedResourceTag() {
+    assertTrue(ComposeBatteryColors.isBatteryTag("com.android.systemui:id/battery"));
+    assertFalse(ComposeBatteryColors.isBatteryTag("battery"));
+    assertFalse(
+        ComposeBatteryColors.isBatteryTag("com.android.systemui:id/battery_chip_container"));
+    assertFalse(ComposeBatteryColors.isBatteryTag(null));
+  }
+
+  @Test
   public void onlyExplicitHomeBatteryReceivesAdaptiveColors() {
     Object home = new Object();
     assertTrue(ComposeBatteryColors.isMainBar(home, 8));

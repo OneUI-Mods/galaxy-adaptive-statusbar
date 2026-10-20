@@ -2,6 +2,10 @@ package dev.ryuya.galaxybar;
 
 /** BZI9 BatteryLayoutState colors; all native layout and charging state remain unchanged. */
 final class ComposeBatteryColors {
+  static boolean isBatteryTag(Object tag) {
+    return "com.android.systemui:id/battery".equals(tag);
+  }
+
   static boolean isMainBar(Object homeViewModel, int defaults) {
     return homeViewModel != null && (defaults & 16) == 0;
   }

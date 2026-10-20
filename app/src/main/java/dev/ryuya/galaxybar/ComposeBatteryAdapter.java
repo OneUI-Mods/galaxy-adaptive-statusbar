@@ -116,19 +116,18 @@ final class ComposeBatteryAdapter {
         Reflect.getStaticObjectField(
             Reflect.findClass("androidx.compose.ui.semantics.SemanticsProperties", loader),
             "TestTag");
-    Hooks.deoptimize(
-        battery.getDeclaredMethod(
-            "SamsungBattery",
-            model,
-            Reflect.findClass("kotlin.jvm.functions.Function0", loader),
-            Reflect.findClass("androidx.compose.ui.Modifier", loader),
-            Reflect.findClass(BASE + "BatteryTheme", loader),
-            Reflect.findClass(
-                "com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel",
-                loader),
-            composer,
-            int.class,
-            int.class));
+    battery.getDeclaredMethod(
+        "SamsungBattery",
+        model,
+        Reflect.findClass("kotlin.jvm.functions.Function0", loader),
+        Reflect.findClass("androidx.compose.ui.Modifier", loader),
+        Reflect.findClass(BASE + "BatteryTheme", loader),
+        Reflect.findClass(
+            "com.android.systemui.statusbar.pipeline.shared.ui.viewmodel.HomeStatusBarViewModel",
+            loader),
+        composer,
+        int.class,
+        int.class);
     HookRegistry.lifecycle(
         battery,
         "SamsungBattery",
@@ -249,7 +248,8 @@ final class ComposeBatteryAdapter {
       Object config = Reflect.callMethod(node, "getConfig");
       for (Object item : (Iterable<?>) config) {
         Map.Entry<?, ?> property = (Map.Entry<?, ?>) item;
-        if (property.getKey() == batteryTag && "battery".equals(property.getValue())) {
+        if (property.getKey() == batteryTag
+            && ComposeBatteryColors.isBatteryTag(property.getValue())) {
           Object rect = Reflect.callMethod(node, "getBoundsInWindow");
           RectF bounds =
               new RectF(
