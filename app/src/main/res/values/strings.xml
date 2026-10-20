@@ -79,4 +79,12 @@
   <string name="tab_colors">Colors</string>
   <string name="tab_adjustments">Adjustments</string>
   <string name="module_description">Adaptive status bar colors and One UI app animations.</string>
+  <string name="network_speed_style">Network speed display</string>
+  <string name="network_speed_spacing">Number-to-unit spacing</string>
+  <string name="network_speed_spacing_standard">Spacing: Standard</string>
+  <string name="network_speed_spacing_value">Spacing: %1$+d dp</string>
+  <string name="network_speed_spacing_amount">%1$+d dp</string>
+  <string name="network_speed_spacing_note">Android 17 / One UI 9. Applies while Communication &amp; status icons is on. 0 dp restores standard spacing.</string>
+  <string name="network_speed_spacing_reset">Use standard spacing</string>
+  <string name="network_speed_sample">Sample network speed</string>
 </resources>

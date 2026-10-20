@@ -78,4 +78,12 @@
   <string name="tab_colors">配色</string>
   <string name="tab_adjustments">调整</string>
   <string name="module_description">状态栏配色与 One UI 应用动画设置。</string>
+  <string name="network_speed_style">网络速度显示</string>
+  <string name="network_speed_spacing">数值与单位的行距</string>
+  <string name="network_speed_spacing_standard">行距：默认</string>
+  <string name="network_speed_spacing_value">行距：%1$+d dp</string>
+  <string name="network_speed_spacing_amount">%1$+d dp</string>
+  <string name="network_speed_spacing_note">适用于 Android 17 / One UI 9。启用通信和状态图标时生效。0 dp 恢复默认行距。</string>
+  <string name="network_speed_spacing_reset">恢复默认行距</string>
+  <string name="network_speed_sample">网络速度显示示例</string>
 </resources>

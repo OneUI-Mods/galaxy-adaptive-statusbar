@@ -348,6 +348,7 @@ final class Engine {
         }
       } else HookEntry.disableColors();
     }
+    NetworkSpeedTintAdapter.setSpacing(fresh.getInt(NetworkSpeedSpacing.KEY, 0));
     motion.configure(enabled && fresh.getBoolean("motion", true) && !stopped && !protectedContent);
     updateRenderState();
     main.removeCallbacks(ticker);

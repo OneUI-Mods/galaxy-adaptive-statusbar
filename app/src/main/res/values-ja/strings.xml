@@ -78,4 +78,12 @@
   <string name="tab_colors">配色</string>
   <string name="tab_adjustments">調整</string>
   <string name="module_description">ステータスバーの配色とOne UIのアプリアニメーションを設定します。</string>
+  <string name="network_speed_style">通信速度の表示</string>
+  <string name="network_speed_spacing">数値と単位の行間</string>
+  <string name="network_speed_spacing_standard">行間：標準</string>
+  <string name="network_speed_spacing_value">行間：%1$+d dp</string>
+  <string name="network_speed_spacing_amount">%1$+d dp</string>
+  <string name="network_speed_spacing_note">Android 17 / One UI 9向け。「通信・状態アイコン」がONのときに適用します。0 dpで標準の行間に戻ります。</string>
+  <string name="network_speed_spacing_reset">標準の行間に戻す</string>
+  <string name="network_speed_sample">通信速度の表示サンプル</string>
 </resources>

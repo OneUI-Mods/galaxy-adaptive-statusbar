@@ -8,4 +8,6 @@
   <item type="id" name="license_search" />
   <item type="id" name="license_list" />
   <item type="id" name="license_text" />
+  <item type="id" name="network_speed_spacing_slider" />
+  <item type="id" name="network_speed_spacing_value" />
 </resources>

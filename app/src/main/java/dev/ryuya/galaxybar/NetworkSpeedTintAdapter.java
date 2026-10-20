@@ -17,6 +17,31 @@ final class NetworkSpeedTintAdapter {
   private static final Map<TextView, ColorStateList> standard = new WeakHashMap<>();
   private static final Map<TextView, Integer> applied = new WeakHashMap<>();
 
+  private record Spacing(float extra, float multiplier) {}
+
+  private static final Map<TextView, Spacing> standardSpacing = new WeakHashMap<>();
+  private static int spacingDp;
+
+  static void setSpacing(int value) {
+    int next = NetworkSpeedSpacing.clamp(value);
+    if (next == spacingDp) return;
+    spacingDp = next;
+    for (TextView view : applied.keySet()) applySpacing(view);
+  }
+
+  private static void applySpacing(TextView view) {
+    Spacing nativeValue =
+        standardSpacing.computeIfAbsent(
+            view,
+            ignored -> new Spacing(view.getLineSpacingExtra(), view.getLineSpacingMultiplier()));
+    float extra =
+        NetworkSpeedSpacing.extra(
+            nativeValue.extra, view.getResources().getDisplayMetrics().density, spacingDp);
+    if (Math.abs(view.getLineSpacingExtra() - extra) > .01f
+        || view.getLineSpacingMultiplier() != nativeValue.multiplier)
+      view.setLineSpacing(extra, nativeValue.multiplier);
+  }
+
   static void install(ClassLoader loader) throws Exception {
     if (Build.VERSION.SDK_INT != 37) return;
     Class<?> owner = Reflect.findClass(OWNER, loader);
@@ -55,6 +80,7 @@ final class NetworkSpeedTintAdapter {
 
   static void apply(TextView view, int color) {
     standard.computeIfAbsent(view, ignored -> view.getTextColors());
+    applySpacing(view);
     if (java.util.Objects.equals(applied.get(view), color)) return;
     paint(view, color);
     applied.put(view, color);
@@ -71,13 +97,18 @@ final class NetworkSpeedTintAdapter {
     applied.remove(view);
     ColorStateList baseline = standard.get(view);
     if (baseline != null) view.setTextColor(baseline);
+    Spacing nativeValue = standardSpacing.remove(view);
+    if (nativeValue != null) view.setLineSpacing(nativeValue.extra, nativeValue.multiplier);
   }
 
   static void reset() {
     for (TextView view : applied.keySet()) {
       ColorStateList baseline = standard.get(view);
       if (baseline != null) view.setTextColor(baseline);
+      Spacing nativeValue = standardSpacing.get(view);
+      if (nativeValue != null) view.setLineSpacing(nativeValue.extra, nativeValue.multiplier);
     }
+    standardSpacing.clear();
     applied.clear();
     standard.clear();
   }

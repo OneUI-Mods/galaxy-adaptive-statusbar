@@ -45,6 +45,8 @@ public final class ConfigProvider extends ContentProvider {
       b.putInt("hz", p.getInt("hz", 10));
       b.putInt(
           "fade_ms", ColorFade.clampDuration(p.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)));
+      b.putInt(
+          NetworkSpeedSpacing.KEY, NetworkSpeedSpacing.clamp(p.getInt(NetworkSpeedSpacing.KEY, 0)));
       b.putString("algorithm", p.getString("algorithm", "robust"));
       b.putDouble("hysteresis", p.getFloat("hysteresis", .15f));
       b.putString("guard_reset_token", p.getString("guard_reset_token", ""));

@@ -167,6 +167,7 @@ public final class MainActivity extends AppCompatActivity {
         fade,
         getString(R.string.fade_duration_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
+    if (android.os.Build.VERSION.SDK_INT == 37) addNetworkSpeedSettings(adjustments);
     LinearLayout analysis = card(adjustments);
     String[] keys = {"robust", "mean", "median", "vote"};
     String[] labels = {
@@ -398,6 +399,79 @@ public final class MainActivity extends AppCompatActivity {
     position.setMargins(0, dp(4), 0, dp(8));
     parent.addView(button, position);
     return button;
+  }
+
+  private void addNetworkSpeedSettings(LinearLayout parent) {
+    LinearLayout container = card(parent);
+    text(
+        container,
+        getString(R.string.network_speed_style),
+        com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
+    LinearLayout row = new LinearLayout(this);
+    row.setGravity(android.view.Gravity.CENTER_VERTICAL);
+    container.addView(row, new LinearLayout.LayoutParams(-1, -2));
+    MaterialTextView label =
+        text(row, "", com.google.android.material.R.style.TextAppearance_Material3_TitleSmall);
+    label.setId(R.id.network_speed_spacing_value);
+    label.setLayoutParams(new LinearLayout.LayoutParams(0, -2, 1));
+    MaterialCardView sample = new MaterialCardView(this);
+    sample.setRadius(dp(16));
+    sample.setStrokeWidth(0);
+    sample.setCardBackgroundColor(
+        com.google.android.material.color.MaterialColors.getColor(
+            sample, com.google.android.material.R.attr.colorSurfaceContainerHigh));
+    MaterialTextView preview = new MaterialTextView(this);
+    preview.setText("12.3\nK/s");
+    preview.setTextSize(18);
+    preview.setTypeface(android.graphics.Typeface.DEFAULT_BOLD);
+    preview.setGravity(android.view.Gravity.CENTER);
+    preview.setIncludeFontPadding(false);
+    preview.setPadding(dp(10), dp(12), dp(10), dp(12));
+    preview.setContentDescription(getString(R.string.network_speed_sample));
+    sample.addView(preview, new android.view.ViewGroup.LayoutParams(-1, -2));
+    LinearLayout.LayoutParams samplePosition = new LinearLayout.LayoutParams(dp(84), -2);
+    samplePosition.setMargins(dp(12), dp(12), 0, dp(12));
+    row.addView(sample, samplePosition);
+    Slider slider = new Slider(this);
+    slider.setId(R.id.network_speed_spacing_slider);
+    slider.setContentDescription(getString(R.string.network_speed_spacing));
+    slider.setValueFrom(NetworkSpeedSpacing.MIN_DP);
+    slider.setValueTo(NetworkSpeedSpacing.MAX_DP);
+    slider.setStepSize(1);
+    slider.setValue(NetworkSpeedSpacing.clamp(prefs.getInt(NetworkSpeedSpacing.KEY, 0)));
+    slider.setLabelFormatter(value -> spacingLabel(Math.round(value), false));
+    java.util.function.IntConsumer update =
+        value -> {
+          label.setText(spacingLabel(value, true));
+          preview.setLineSpacing(dp(-2) + value * getResources().getDisplayMetrics().density, 1);
+        };
+    update.accept(Math.round(slider.getValue()));
+    slider.addOnChangeListener(
+        (control, value, fromUser) -> {
+          int spacing = Math.round(value);
+          update.accept(spacing);
+          if (fromUser) prefs.edit().putInt(NetworkSpeedSpacing.KEY, spacing).apply();
+        });
+    container.addView(slider);
+    text(
+        container,
+        getString(R.string.network_speed_spacing_note),
+        com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
+    button(
+        container,
+        getString(R.string.network_speed_spacing_reset),
+        () -> {
+          slider.setValue(0);
+          prefs.edit().putInt(NetworkSpeedSpacing.KEY, 0).apply();
+        });
+  }
+
+  private String spacingLabel(int value, boolean title) {
+    return value == 0
+        ? getString(R.string.network_speed_spacing_standard)
+        : getString(
+            title ? R.string.network_speed_spacing_value : R.string.network_speed_spacing_amount,
+            value);
   }
 
   private void resetCrashGuard() {

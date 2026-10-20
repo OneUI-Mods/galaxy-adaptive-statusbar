@@ -78,4 +78,12 @@
   <string name="tab_colors">Colores</string>
   <string name="tab_adjustments">Ajustes</string>
   <string name="module_description">Ajustes de color de la barra de estado y animaciones de One UI.</string>
+  <string name="network_speed_style">Velocidad de red</string>
+  <string name="network_speed_spacing">Espacio entre valor y unidad</string>
+  <string name="network_speed_spacing_standard">Espacio: Predeterminado</string>
+  <string name="network_speed_spacing_value">Espacio: %1$+d dp</string>
+  <string name="network_speed_spacing_amount">%1$+d dp</string>
+  <string name="network_speed_spacing_note">Android 17 / One UI 9. Se aplica con los iconos de comunicación y estado activados. 0 dp restaura el espacio original.</string>
+  <string name="network_speed_spacing_reset">Restaurar espacio original</string>
+  <string name="network_speed_sample">Ejemplo de velocidad de red</string>
 </resources>

@@ -78,4 +78,12 @@
   <string name="tab_colors">색상</string>
   <string name="tab_adjustments">조정</string>
   <string name="module_description">상태 표시줄 색상과 One UI 앱 애니메이션 설정.</string>
+  <string name="network_speed_style">네트워크 속도 표시</string>
+  <string name="network_speed_spacing">숫자와 단위의 줄 간격</string>
+  <string name="network_speed_spacing_standard">줄 간격: 기본</string>
+  <string name="network_speed_spacing_value">줄 간격: %1$+d dp</string>
+  <string name="network_speed_spacing_amount">%1$+d dp</string>
+  <string name="network_speed_spacing_note">Android 17 / One UI 9용입니다. 통신·상태 아이콘이 켜져 있을 때 적용됩니다. 0 dp는 기본 간격입니다.</string>
+  <string name="network_speed_spacing_reset">기본 간격으로 복원</string>
+  <string name="network_speed_sample">네트워크 속도 표시 예시</string>
 </resources>
