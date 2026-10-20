@@ -1,11 +1,14 @@
 package dev.ryuya.galaxybar;
 
 import android.content.Context;
+import android.net.LocalSocket;
+import android.net.LocalSocketAddress;
 import android.os.*;
 import android.provider.Settings;
 import android.system.Os;
 import android.system.OsConstants;
 import dev.ryuya.galaxybar.hook.*;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.*;
 import java.util.*;
 
@@ -164,6 +167,23 @@ final class ReloadSession {
             SystemClock.uptimeMillis(),
             power.isInteractive(),
             context.getSystemService(UserManager.class).isUserUnlocked())) return;
+    // The helper must still be alive and watching the screen through the restart gap.
+    // A stale file alone can never authorize a later, unrelated SystemUI start.
+    try (LocalSocket socket = new LocalSocket()) {
+      socket.connect(
+          new LocalSocketAddress(
+              "galaxy-reload-" + candidate.nonce(), LocalSocketAddress.Namespace.ABSTRACT));
+      socket.setSoTimeout(1000);
+      if (socket.getPeerCredentials().getUid() != 0) return;
+      socket
+          .getOutputStream()
+          .write((candidate.nonce() + "\n").getBytes(StandardCharsets.US_ASCII));
+      if (!"ALLOW\n"
+          .equals(new String(socket.getInputStream().readNBytes(6), StandardCharsets.US_ASCII)))
+        return;
+    } catch (java.io.IOException noLiveHelper) {
+      return;
+    }
     mediator = owner;
     ticket = candidate;
     deadline = SystemClock.uptimeMillis() + 5000;
