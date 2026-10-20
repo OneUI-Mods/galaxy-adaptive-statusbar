@@ -145,7 +145,7 @@ final class ReloadSession {
     try {
       var stat = Os.lstat(request.toString());
       if (!OsConstants.S_ISREG(stat.st_mode)
-          || stat.st_uid != 1000
+          || stat.st_uid != android.os.Process.myUid()
           || (stat.st_mode & 077) != 0
           || stat.st_size > 2048) return;
       properties = read(request);
