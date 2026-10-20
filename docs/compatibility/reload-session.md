@@ -32,4 +32,11 @@ CLIとGUIの両方で解除状態を保った再読み込みに成功した。sy
 
 Android 17のroot app_processではSettings providerとKeyguardManagerの通常初期化が使用できなかったため、boot countは固定のsettings CLI、ロック状態は直接Binderから取得する。SystemUIのUIDは1000と仮定せずPackageManagerと/procを照合する。GUIのsuにはKernelSUの-Mを指定し、アプリデータ隔離mount namespaceから実SystemUIの保存先へ到達させる。
 
-最初の未完了試験後は、通常の認証画面で実際にロックされ、CLI checkがLOCKEDを返すことも確認した。最終版で消灯・ロックを新たに行う試験は、利用者の「ロックしないで」という指示に従い省略する。時間・画面条件の拒否はJVM試験で確認。Android 16は契約照合のみで、現在の実機は17のため実機再試験は未実施。
+最初の未完了試験後は、通常の認証画面で実際にロックされ、CLI checkがLOCKEDを返すことも確認した。最終版の消灯・ロック試験は当初保留したが、その後の利用者の許可により下記の追加試験を実施した。時間・画面条件の拒否はJVM試験で確認。Android 16は契約照合のみで、現在の実機は17のため実機再試験は未実施。
+
+
+### ロックと消灯の追加試験
+
+配布済み0.6.18 / Galaxy Reload 0.2.0を変更せずBZI9で確認。解除済みからreloadを始め、旧SystemUI PIDが停止した約0.64秒時点で消灯した。helperは終了コード2 / SCREEN_OFFを返し、新SystemUIは通常の認証画面へ戻った。中断されたプロセスのログにGalaxy Reload resume経路の実行はなく、消灯中のcheck/reloadも終了コード2 / SCREEN_OFFだった。
+
+最初の点灯時は純正の顔認証が成功したため解除された。KeyguardFace.onAuthenticationSucceededとFACE TRIGGER_BIO_UNLOCKを照合し、この点灯後のコマンドはロック拒否試験として数えない。前面カメラを利用者が覆った状態で再試験し、正常な引き継ぎ後でも消灯によりshowing=true / inputRestricted=true / enabled=trueとなることを確認した。点灯してロック画面が表示されたままcheck/reloadはいずれも終了コード2 / LOCKEDを返し、SystemUI PIDは変化しなかった。13秒後もロック状態を維持し、未消費requestは存在しなかった。system_server・One UIホーム・kernel boot IDは全試験で不変、crash guardはblocked=false / crashes空。コード変更・認証設定の変更は行っていない。
