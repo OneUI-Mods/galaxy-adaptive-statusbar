@@ -132,6 +132,7 @@ public final class HookEntry extends XposedModule {
     if (HookRegistry.colorCount() != 0) return;
     if (protection != null) protection.arm();
     ModernTintAdapter.install(systemLoader);
+    NetworkSpeedTintAdapter.install(systemLoader);
     BatteryAdapter.install(systemLoader);
     HookRegistry.hook(
         ImageView.class,
@@ -160,6 +161,7 @@ public final class HookEntry extends XposedModule {
     boolean hadHooks = HookRegistry.colorCount() != 0;
     HookRegistry.clearColors();
     ModernTintAdapter.reset();
+    NetworkSpeedTintAdapter.reset();
     BatteryAdapter.reset();
     if (protection != null) protection.disarm();
     if (hadHooks) Hooks.log("GalaxyBar: color hooks disabled count=0");

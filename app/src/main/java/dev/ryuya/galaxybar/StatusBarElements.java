@@ -10,6 +10,14 @@ final class StatusBarElements {
         && nativeBatterySibling;
   }
 
+  static boolean isNetworkSpeedText(
+      int sdk, String className, String parentClass, String resourceName) {
+    return sdk == 37
+        && className.equals("com.android.systemui.statusbar.phone.SwitchableDoubleShadowTextView")
+        && parentClass.equals("com.android.systemui.statusbar.policy.NetspeedView")
+        && resourceName.equals("network_speed_contentview");
+  }
+
   static boolean isCompoundIndicator(String className, String resourceName) {
     return className.contains("OngoingChip")
         || resourceName.contains("capsule")

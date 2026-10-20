@@ -36,4 +36,22 @@ public class StatusBarElementsTest {
         StatusBarElements.isDedicatedComposeBattery(
             37, "android.widget.ImageView", "system_icons", true));
   }
+
+  @Test
+  public void nativeSpeedLabelIsSeparateFromOtherShadowTextAndAndroid16() {
+    String label = "com.android.systemui.statusbar.phone.SwitchableDoubleShadowTextView";
+    String owner = "com.android.systemui.statusbar.policy.NetspeedView";
+    assertTrue(StatusBarElements.isNetworkSpeedText(37, label, owner, "network_speed_contentview"));
+    assertFalse(
+        StatusBarElements.isNetworkSpeedText(36, label, owner, "network_speed_contentview"));
+    assertFalse(
+        StatusBarElements.isNetworkSpeedText(38, label, owner, "network_speed_contentview"));
+    assertFalse(StatusBarElements.isNetworkSpeedText(37, label, owner, "clock"));
+    assertFalse(
+        StatusBarElements.isNetworkSpeedText(
+            37, label, "android.widget.LinearLayout", "network_speed_contentview"));
+    assertFalse(
+        StatusBarElements.isNetworkSpeedText(
+            37, "android.widget.TextView", owner, "network_speed_contentview"));
+  }
 }

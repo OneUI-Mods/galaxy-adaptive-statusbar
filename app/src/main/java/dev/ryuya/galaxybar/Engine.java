@@ -70,6 +70,7 @@ final class Engine {
           });
   private final IdentityHashMap<ImageView, ColorFilter> originals = new IdentityHashMap<>();
   private final IdentityHashMap<ImageView, Integer> appliedColors = new IdentityHashMap<>();
+  private final Set<TextView> networkSpeeds = Collections.newSetFromMap(new IdentityHashMap<>());
   private final Set<View> modern = Collections.newSetFromMap(new IdentityHashMap<>());
   private final Set<View> nativeBatteries = Collections.newSetFromMap(new IdentityHashMap<>());
   private final Set<Drawable> batteries = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -380,7 +381,8 @@ final class Engine {
                 + texts.size()
                 + modern.size()
                 + batteries.size()
-                + nativeBatteries.size());
+                + nativeBatteries.size()
+                + networkSpeeds.size());
   }
 
   private void process(
@@ -642,6 +644,12 @@ final class Engine {
       }
       return;
     }
+    if (view instanceof TextView speed && NetworkSpeedTintAdapter.supports(view)) {
+      Rect area = new Rect();
+      if (config.getBoolean("signals", true) && area(view, area) && !area.isEmpty())
+        out.add(new Target(speed, area, -1, -1, "", key(speed) + ":network-speed"));
+      return;
+    }
     if (ModernTintAdapter.supports(view)) {
       Rect area = new Rect();
       if (config.getBoolean("signals", true)
@@ -858,6 +866,7 @@ final class Engine {
     try {
       Map<TextView, SpannableString> spans = new IdentityHashMap<>();
       Set<ImageView> live = Collections.newSetFromMap(new IdentityHashMap<>());
+      Set<TextView> liveNetworkSpeed = Collections.newSetFromMap(new IdentityHashMap<>());
       Set<View> liveModern = Collections.newSetFromMap(new IdentityHashMap<>());
       Set<View> liveNativeBattery = Collections.newSetFromMap(new IdentityHashMap<>());
       Set<Drawable> liveBattery = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -878,6 +887,10 @@ final class Engine {
           liveModern.add(t.view);
           modern.add(t.view);
           ModernTintAdapter.apply(t.view, colors[i]);
+        } else if (t.view instanceof TextView speed && NetworkSpeedTintAdapter.supports(speed)) {
+          liveNetworkSpeed.add(speed);
+          networkSpeeds.add(speed);
+          NetworkSpeedTintAdapter.apply(speed, colors[i]);
         } else if (t.view instanceof TextView text) {
           if (!text.getText().toString().equals(t.text)) continue;
           colorSpans++;
@@ -899,6 +912,13 @@ final class Engine {
             image.setColorFilter(colors[i], PorterDuff.Mode.SRC_IN);
             appliedColors.put(image, colors[i]);
           }
+        }
+      }
+      for (Iterator<TextView> it = networkSpeeds.iterator(); it.hasNext(); ) {
+        TextView view = it.next();
+        if (!liveNetworkSpeed.contains(view)) {
+          NetworkSpeedTintAdapter.restore(view);
+          it.remove();
         }
       }
       for (Iterator<View> it = modern.iterator(); it.hasNext(); ) {
@@ -989,6 +1009,8 @@ final class Engine {
       for (var e : originals.entrySet()) e.getKey().setColorFilter(e.getValue());
       originals.clear();
       appliedColors.clear();
+      for (TextView view : networkSpeeds) NetworkSpeedTintAdapter.restore(view);
+      networkSpeeds.clear();
       for (View view : modern) ModernTintAdapter.restore(view);
       modern.clear();
       for (View view : nativeBatteries) NativeBatteryView.restore(view);

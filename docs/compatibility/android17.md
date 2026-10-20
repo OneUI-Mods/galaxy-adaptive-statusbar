@@ -97,3 +97,9 @@ SystemUIへ読み込む前に、`tools/NativeBatteryRenderProbe.java`を実機�
 ホームの設定アイコンから3回開閉し、24秒の録画で、専用バッテリーが他の表示と一緒に移動・縮小・フェードすることを確認しました。さらに7回開閉してもSystemUIのPIDは維持され、動作ログのLast errorは空、クラッシュ保護のblockedはfalse、新規FATAL EXCEPTIONはありません。開閉の受け渡し／復元は同数でした。可変フレームレートの録画を1771フレームにデコードし、設定の黒背景が続く区間で時計が暗転して再び戻るパターンを検出する補助比較でも該当はありませんでした。これは録画範囲・時計領域の補助検査であり、あらゆるアプリ／方向転換のちらつきが存在しないという保証ではありません。
 
 JVM試験98件とrelease Lintが通過しています。Android 16用BatteryAdapterは変更していません。実機の一時的なスイッチ変更はONへ戻し、診断保存はOFF、GPU検証用DEXと、この試験で作成した端末内の録画ファイルのみを削除しました。system_server・One UIホームのPIDとカーネルboot IDは今回の読み込み直しで変わっていません。
+
+### Android 17の通信速度表示（0.6.12）
+
+実機のStatusBar階層で、`NetspeedView` / `networkSpeed`の下に`SwitchableDoubleShadowTextView` / `network_speed_contentview`を確認しました。表示は数値と単位の2行です。従来の非時計TextView経路は全文が同じLayout行にあることを要求し、2行表示を対象から外していました。
+
+17専用の識別を追加し、このラベルを1つの配色対象として採色します。TextViewの色を変更するため、毎回の通信速度の文字列更新で配色が消えません。元のColorStateListと透明度を保持し、純正DarkReceiverによる色更新を基準色へ保存してから適応色を再適用します。「通信・状態アイコン」および全体設定のOFF時には元の配色へ戻します。開閉時は既存のTextViewライブ描画で同じ色を使います。16の識別・文字配色経路は変更していません。
