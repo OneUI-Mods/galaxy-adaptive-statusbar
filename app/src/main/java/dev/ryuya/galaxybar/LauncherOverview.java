@@ -83,7 +83,8 @@ final class LauncherOverview {
                 protect(LauncherOverview.this::stop);
               }
             }));
-    Class<?> scene = Reflect.findClass("com.honeyspace.ui.common.taskScene.TaskSceneView", loader);
+    Class<?> scene =
+        Reflect.findClass(HookCompatibility.taskSceneView(Build.VERSION.SDK_INT), loader);
     hooks.add(
         Reflect.findAndHookMethod(
             scene,

@@ -104,8 +104,12 @@ final class LauncherMotion {
               }
             },
             this::fail);
-    if (context.getPackageManager().getPackageInfo(context.getPackageName(), 0).getLongVersionCode()
-        != 1750305027L) {
+    if (!HookCompatibility.matchesLauncherVersion(
+        Build.VERSION.SDK_INT,
+        context
+            .getPackageManager()
+            .getPackageInfo(context.getPackageName(), 0)
+            .getLongVersionCode())) {
       Hooks.log("GalaxyBar: unsupported One UI Home version; motion hooks not installed");
       return;
     }
@@ -290,8 +294,8 @@ final class LauncherMotion {
             if (s != null) end(s);
           }
         };
-    hooks.add(Reflect.findAndHookMethod(player, "end", finish));
-    hooks.add(Reflect.findAndHookMethod(player, "finish", finish));
+    for (String method : HookCompatibility.playerFinishMethods(Build.VERSION.SDK_INT))
+      hooks.add(Reflect.findAndHookMethod(player, method, finish));
     // Catch/moving can run with the old AnimatorSet paused, before any start/startSpring call.
     HookCallback gesture =
         new HookCallback() {

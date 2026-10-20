@@ -18,6 +18,7 @@ public class HookCompatibilityTest {
     assertFalse(
         HookCompatibility.supports(
             37, "samsung", "SM-S948Q", "m3q", Android17Hooks.CANDIDATE_FIRMWARE));
+    assertFalse(HookCompatibility.supports(37, "samsung", "SM-S948Q", "m3q", Android17Hooks.BUILD));
   }
 
   @Test
@@ -27,5 +28,30 @@ public class HookCompatibilityTest {
       assertFalse(
           HookCompatibility.supports(sdk, "samsung", "SM-S948Q", "m3q", Android16Hooks.BUILD));
     }
+  }
+
+  @Test
+  public void launcherArtifactsNeverCrossMatchVersions() {
+    assertTrue(HookCompatibility.matchesLauncherVersion(36, 1750305027L));
+    assertTrue(HookCompatibility.matchesLauncherVersion(37, 1800705053L));
+    assertFalse(HookCompatibility.matchesLauncherVersion(36, 1800705053L));
+    assertFalse(HookCompatibility.matchesLauncherVersion(37, 1750305027L));
+    assertFalse(HookCompatibility.matchesLauncherVersion(38, 1800705053L));
+  }
+
+  @Test
+  public void taskSceneRelocationIsVersionSpecific() {
+    assertEquals(
+        "com.honeyspace.ui.common.taskScene.TaskSceneView", HookCompatibility.taskSceneView(36));
+    assertEquals(
+        "com.honeyspace.common.taskscene.TaskSceneView", HookCompatibility.taskSceneView(37));
+    assertEquals(
+        "com.honeyspace.common.taskscene.TaskSceneData", HookCompatibility.taskSceneData(37));
+  }
+
+  @Test
+  public void removedAndroid17EndMethodIsNotRegistered() {
+    assertArrayEquals(new String[] {"end", "finish"}, HookCompatibility.playerFinishMethods(36));
+    assertArrayEquals(new String[] {"finish"}, HookCompatibility.playerFinishMethods(37));
   }
 }

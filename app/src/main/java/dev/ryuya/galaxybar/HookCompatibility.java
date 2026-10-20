@@ -18,6 +18,39 @@ final class HookCompatibility {
         android.os.Build.DISPLAY);
   }
 
+  static boolean matchesLauncherVersion(int sdk, long version) {
+    return switch (platform(sdk)) {
+      case ANDROID_16 -> version == Android16Hooks.LAUNCHER_VERSION;
+      case ANDROID_17 -> version == Android17Hooks.LAUNCHER_VERSION;
+      case UNSUPPORTED -> false;
+    };
+  }
+
+  static String taskSceneView(int sdk) {
+    return switch (platform(sdk)) {
+      case ANDROID_16 -> Android16Hooks.TASK_SCENE_VIEW;
+      case ANDROID_17 -> Android17Hooks.TASK_SCENE_VIEW;
+      case UNSUPPORTED -> throw new UnsupportedOperationException("Unreviewed task scene platform");
+    };
+  }
+
+  static String taskSceneData(int sdk) {
+    return switch (platform(sdk)) {
+      case ANDROID_16 -> Android16Hooks.TASK_SCENE_DATA;
+      case ANDROID_17 -> Android17Hooks.TASK_SCENE_DATA;
+      case UNSUPPORTED -> throw new UnsupportedOperationException("Unreviewed task scene platform");
+    };
+  }
+
+  static String[] playerFinishMethods(int sdk) {
+    return switch (platform(sdk)) {
+      case ANDROID_16 -> new String[] {"end", "finish"};
+      // Android 17 removed end(); finish still consumes the native completion callback.
+      case ANDROID_17 -> new String[] {"finish"};
+      case UNSUPPORTED -> throw new UnsupportedOperationException("Unreviewed animation platform");
+    };
+  }
+
   static Platform platform(int sdk) {
     return switch (sdk) {
       case 36 -> Platform.ANDROID_16;
