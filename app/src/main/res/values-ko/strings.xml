@@ -89,4 +89,6 @@
   <string name="privacy_motion_title">카메라 및 마이크 사용 표시</string>
   <string name="privacy_motion">사용 표시에 맞춰 아이콘 이동</string>
   <string name="privacy_motion_note">Android 17 / One UI 9 세로 화면용. 사용 표시에 맞춰 오른쪽 아이콘을 이동합니다. 작은 점도 조금 확대하고 옆에 여백을 만듭니다. 다음 표시부터 적용됩니다.</string>
+  <string name="privacy_fallback">공간이 부족하면 기본 표시로 전환</string>
+  <string name="privacy_fallback_note">끄면 공간이 부족해도 이동합니다. 시계나 알림과 겹칠 수 있습니다.</string>
 </resources>

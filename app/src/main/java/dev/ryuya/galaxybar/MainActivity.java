@@ -179,6 +179,11 @@ public final class MainActivity extends AppCompatActivity {
           privacy,
           getString(R.string.privacy_motion_note),
           com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
+      toggle(privacy, getString(R.string.privacy_fallback), "privacy_fallback", true);
+      text(
+          privacy,
+          getString(R.string.privacy_fallback_note),
+          com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     }
     LinearLayout analysis = card(adjustments);
     String[] keys = {"robust", "mean", "median", "vote"};

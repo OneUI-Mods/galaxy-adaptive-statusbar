@@ -1,5 +1,8 @@
 package dev.ryuya.galaxybar;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.ValueAnimator;
 import android.content.res.Configuration;
 import android.graphics.Rect;
 import android.os.Build;
@@ -23,10 +26,12 @@ final class PrivacySlide {
   private static final String BASE = "com.android.systemui.statusbar.";
   private static final Handler main = new Handler(Looper.getMainLooper());
   private static final PathInterpolator easing = new PathInterpolator(.2f, 0, 0, 1);
+  private static final PathInterpolator exitEasing = new PathInterpolator(.4f, 0, .2f, 1);
   private static WeakReference<View> root = new WeakReference<>(null);
   private static Constructor<?> visibility;
   private static Method applyVisibility;
   private static boolean installed, enabled, pending, replaying;
+  private static boolean crowdedFallback = true;
   // Before the first native emission, the pending event must originate from a fully visible group.
   private static volatile boolean otherSamsungHide, homeAllowed = true, infoAllowed = true;
   private static Object nativeVisibility;
@@ -49,6 +54,15 @@ final class PrivacySlide {
   }
 
   static void configure(boolean value) {
+    configure(value, crowdedFallback);
+  }
+
+  static void configure(boolean value, boolean fallback) {
+    crowdedFallback = fallback;
+    if (enabled && fallback && session != null && !session.fits()) {
+      session.close();
+      restoreNative();
+    }
     boolean next = value && installed;
     if (enabled == next) return;
     enabled = next;
@@ -251,10 +265,7 @@ final class PrivacySlide {
               if (active != null
                   && active.controller == p.thisObject
                   && !Boolean.TRUE.equals(p.args[1])) {
-                active.entering = false;
-                active.exiting = true;
-                active.restoreEntrance();
-                state = "leaving";
+                active.finish(Boolean.TRUE.equals(p.args[0]));
               }
             }
           });
@@ -303,7 +314,7 @@ final class PrivacySlide {
     float gap = 4 * group.getResources().getDisplayMetrics().density;
     float left = baselineLeft(group);
     float dx = PrivacySlideGeometry.dotShift(left + group.getWidth(), dotLeft, gap, alpha);
-    if (!fits(group, left, dx)) {
+    if (crowdedFallback && !fits(group, left, dx)) {
       releaseDot();
       return false;
     }
@@ -441,6 +452,8 @@ final class PrivacySlide {
     long started;
     boolean entering, exiting, closed;
     float appliedContentX, appliedContentAlpha;
+    float requestedShift;
+    ValueAnimator exitAnimator;
 
     Session(View group, View chip, Object controller) {
       this.group = group;
@@ -468,7 +481,9 @@ final class PrivacySlide {
               gap,
               1,
               1);
-      return bounds.width() > 0 && PrivacySlide.fits(group, baselineLeft(group), shift);
+      return bounds.width() > 0
+          && group.getWidth() > 0
+          && (!crowdedFallback || PrivacySlide.fits(group, baselineLeft(group), shift));
     }
 
     void attach() throws Exception {
@@ -501,11 +516,12 @@ final class PrivacySlide {
     public boolean onPreDraw() {
       if (closed) return true;
       try {
-        if (!scene(group) || !chip.isAttachedToWindow() || !canReserve()) {
+        if (!scene(group) || !canReserve() || (!exiting && !chip.isAttachedToWindow())) {
           close();
           restoreNative();
           return true;
         }
+        if (exiting) return true;
         Rect rect = (Rect) Reflect.getObjectField(controller, "animRect");
         int[] origin = new int[2];
         ((View) Reflect.getObjectField(controller, "animationWindowView"))
@@ -527,6 +543,7 @@ final class PrivacySlide {
                 gap,
                 reveal,
                 chip.getAlpha());
+        requestedShift = dx;
         iconSpace(group).chip(dx);
         if (entering && fraction < 1) {
           entrance(fraction);
@@ -540,6 +557,53 @@ final class PrivacySlide {
         fail(error);
       }
       return true;
+    }
+
+    void finish(boolean persistentDot) {
+      if (closed || exiting) return;
+      entering = false;
+      exiting = true;
+      restoreEntrance();
+      state = "leaving";
+      // Keep ownership across native chip removal. Releasing it at detach produces a jump
+      // when Samsung's persistent-dot window appears on a different frame.
+      float from = requestedShift;
+      exitAnimator = ValueAnimator.ofFloat(0, 1);
+      exitAnimator.setDuration(PrivacySlideGeometry.ENTER_DURATION_MS);
+      exitAnimator.setStartDelay(persistentDot ? 100 : 0);
+      exitAnimator.setInterpolator(exitEasing);
+      exitAnimator.addUpdateListener(
+          animator -> {
+            try {
+              if (closed) return;
+              if (!canReserve()) {
+                close();
+                restoreNative();
+                return;
+              }
+              float endpoint = persistentDot ? -gap * PrivacyDots.reservationAlpha() : 0;
+              float progress = (float) animator.getAnimatedValue();
+              requestedShift = from + (endpoint - from) * progress;
+              iconSpace(group).chip(requestedShift);
+            } catch (Throwable error) {
+              fail(error);
+            }
+          });
+      exitAnimator.addListener(
+          new AnimatorListenerAdapter() {
+            @Override
+            public void onAnimationEnd(Animator animation) {
+              if (!closed) {
+                try {
+                  PrivacyDots.refresh();
+                  close();
+                } catch (Throwable error) {
+                  fail(error);
+                }
+              }
+            }
+          });
+      exitAnimator.start();
     }
 
     void entrance(float progress) {
@@ -560,6 +624,12 @@ final class PrivacySlide {
     void close() {
       if (closed) return;
       closed = true;
+      if (exitAnimator != null) {
+        exitAnimator.removeAllUpdateListeners();
+        exitAnimator.removeAllListeners();
+        exitAnimator.cancel();
+        exitAnimator = null;
+      }
       if (group.getViewTreeObserver().isAlive())
         group.getViewTreeObserver().removeOnPreDrawListener(this);
       chip.removeOnAttachStateChangeListener(this);
@@ -578,6 +648,7 @@ final class PrivacySlide {
 
     @Override
     public void onViewDetachedFromWindow(View view) {
+      if (view == chip && exiting) return;
       close();
     }
   }

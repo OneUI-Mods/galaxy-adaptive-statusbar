@@ -352,7 +352,9 @@ final class Engine {
         }
       } else HookEntry.disableColors();
     }
-    PrivacySlide.configure(enabled && fresh.getBoolean("privacy_motion", false));
+    PrivacySlide.configure(
+        enabled && fresh.getBoolean("privacy_motion", false),
+        fresh.getBoolean("privacy_fallback", true));
     NetworkSpeedTintAdapter.setSpacing(fresh.getInt(NetworkSpeedSpacing.KEY, 0));
     motion.configure(enabled && fresh.getBoolean("motion", true) && !stopped && !protectedContent);
     updateRenderState();

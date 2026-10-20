@@ -23,6 +23,20 @@ final class PrivacyDots implements ViewTreeObserver.OnPreDrawListener {
     return !installed ? "unavailable" : !enabled ? "off" : "ready; active=" + visuals.size();
   }
 
+  static void refresh() {
+    observer.onPreDraw();
+  }
+
+  static float reservationAlpha() {
+    Object owner = controller.get();
+    if (!enabled || owner == null) return 0;
+    Object state = Reflect.getObjectField(owner, "currentViewState");
+    if (state == null) return 0;
+    Object target = Reflect.getObjectField(state, "designatedCorner");
+    if (target instanceof View corner && corner.isShown()) return corner.getAlpha();
+    return 0;
+  }
+
   static void install(ClassLoader loader) {
     if (Build.VERSION.SDK_INT != 37 || installed) return;
     try {

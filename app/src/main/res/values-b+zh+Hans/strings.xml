@@ -89,4 +89,6 @@
   <string name="privacy_motion_title">相机和麦克风使用指示</string>
   <string name="privacy_motion">为使用指示平滑移动图标</string>
   <string name="privacy_motion_note">适用于 Android 17 / One UI 9 竖屏。移动右侧图标，为使用指示留出空间。持续显示的小圆点也会略微放大，并在旁边留出间距。下次显示时生效。</string>
+  <string name="privacy_fallback">空间不足时使用原生布局</string>
+  <string name="privacy_fallback_note">关闭后，空间不足时仍会移动图标，可能与时钟或通知重叠。</string>
 </resources>

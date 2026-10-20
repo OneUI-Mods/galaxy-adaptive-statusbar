@@ -51,6 +51,7 @@ public final class ConfigProvider extends ContentProvider {
                     || key.equals("battery")
                     || key.equals("motion")));
       b.putInt("hz", p.getInt("hz", 10));
+      b.putBoolean("privacy_fallback", p.getBoolean("privacy_fallback", true));
       b.putInt(
           "fade_ms", ColorFade.clampDuration(p.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)));
       b.putInt(
