@@ -356,7 +356,7 @@ final class PrivacySlide {
   static boolean allowDot() {
     return enabled
         && statusBarRequested
-        && !pending
+        && (!pending || session != null && session.exiting)
         && (session == null || session.exiting)
         && !otherSamsungHide
         && homeAllowed
