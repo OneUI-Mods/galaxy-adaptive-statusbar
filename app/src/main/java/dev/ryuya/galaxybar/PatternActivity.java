@@ -15,14 +15,16 @@ import androidx.core.view.ViewCompat;
 import androidx.core.view.WindowCompat;
 import androidx.core.view.WindowInsetsCompat;
 import com.google.android.material.button.MaterialButton;
-import com.google.android.material.button.MaterialButtonToggleGroup;
 import com.google.android.material.card.MaterialCardView;
+import com.google.android.material.chip.Chip;
+import com.google.android.material.chip.ChipGroup;
+import com.google.android.material.color.MaterialColors;
 import com.google.android.material.textview.MaterialTextView;
 
 /** Test pixels intentionally extend behind the bar; all controls use Material 3 and safe insets. */
 public final class PatternActivity extends AppCompatActivity {
   private Pattern pattern;
-  private MaterialButtonToggleGroup choices;
+  private ChipGroup choices;
   private final int[] ids = new int[5];
 
   @Override
@@ -34,7 +36,13 @@ public final class PatternActivity extends AppCompatActivity {
     frame.addView(pattern);
     setContentView(frame);
     MaterialCardView card = new MaterialCardView(this);
-    FrameLayout.LayoutParams position = new FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM);
+    card.setRadius(dp(28));
+    card.setStrokeWidth(0);
+    card.setCardBackgroundColor(
+        MaterialColors.getColor(card, com.google.android.material.R.attr.colorSurfaceContainer));
+    int width = Math.min(getResources().getDisplayMetrics().widthPixels - dp(32), dp(560));
+    FrameLayout.LayoutParams position =
+        new FrameLayout.LayoutParams(width, -2, Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL);
     frame.addView(card, position);
     ViewCompat.setOnApplyWindowInsetsListener(
         frame,
@@ -49,7 +57,7 @@ public final class PatternActivity extends AppCompatActivity {
         });
     LinearLayout content = new LinearLayout(this);
     content.setOrientation(LinearLayout.VERTICAL);
-    content.setPadding(dp(16), dp(16), dp(16), dp(16));
+    content.setPadding(dp(20), dp(16), dp(20), dp(12));
     card.addView(content);
     MaterialTextView title = new MaterialTextView(this);
     title.setText(getString(R.string.pattern_title));
@@ -59,10 +67,15 @@ public final class PatternActivity extends AppCompatActivity {
     MaterialTextView info = new MaterialTextView(this);
     info.setText(getString(R.string.pattern_body));
     info.setTextAppearance(com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
+    info.setTextColor(
+        MaterialColors.getColor(info, com.google.android.material.R.attr.colorOnSurfaceVariant));
+    info.setPadding(0, dp(4), 0, dp(12));
     content.addView(info);
-    choices = new MaterialButtonToggleGroup(this);
+    choices = new ChipGroup(this);
     choices.setSingleSelection(true);
     choices.setSelectionRequired(true);
+    choices.setChipSpacingHorizontal(dp(8));
+    choices.setChipSpacingVertical(dp(4));
     content.addView(choices, new LinearLayout.LayoutParams(-1, -2));
     String[] labels = {
       getString(R.string.white),
@@ -72,28 +85,26 @@ public final class PatternActivity extends AppCompatActivity {
       getString(R.string.moving)
     };
     for (int i = 0; i < labels.length; i++) {
-      MaterialButton button =
-          new MaterialButton(
-              this, null, com.google.android.material.R.attr.materialButtonOutlinedStyle);
+      Chip button = new Chip(this);
       ids[i] = View.generateViewId();
       button.setId(ids[i]);
       button.setText(labels[i]);
-      button.setMinWidth(0);
-      button.setInsetTop(0);
-      button.setInsetBottom(0);
-      button.setPadding(dp(8), dp(8), dp(8), dp(8));
-      choices.addView(button, new LinearLayout.LayoutParams(0, dp(48), 1));
+      button.setCheckable(true);
+      button.setEnsureMinTouchTargetSize(true);
+      choices.addView(button);
     }
-    choices.addOnButtonCheckedListener(
-        (group, id, checked) -> {
-          if (checked)
-            for (int i = 0; i < ids.length; i++)
-              if (ids[i] == id) {
-                pattern.mode = i;
-                pattern.invalidate();
-              }
+    choices.setOnCheckedStateChangeListener(
+        (group, checked) -> {
+          if (checked.isEmpty()) return;
+          for (int i = 0; i < ids.length; i++)
+            if (ids[i] == checked.get(0)) {
+              pattern.mode = i;
+              pattern.invalidate();
+            }
         });
-    MaterialButton back = new MaterialButton(this);
+    MaterialButton back =
+        new MaterialButton(
+            new androidx.appcompat.view.ContextThemeWrapper(this, R.style.TonalActionTheme));
     back.setText(getString(R.string.back_settings));
     back.setOnClickListener(view -> finish());
     content.addView(back);

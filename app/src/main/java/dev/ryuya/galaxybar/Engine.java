@@ -594,7 +594,7 @@ final class Engine {
     boolean virtual = motion.active() && motion.nativeArea(view) != null;
     if (!virtual && (!view.isShown() || view.getAlpha() <= 0)) return;
     String name = view.getClass().getName(), id = id(view);
-    if (name.contains("OngoingChip") || id.contains("capsule")) return;
+    if (StatusBarElements.isCompoundIndicator(name, id)) return;
     if (ModernTintAdapter.supports(view)) {
       Rect area = new Rect();
       if (config.getBoolean("signals", true)

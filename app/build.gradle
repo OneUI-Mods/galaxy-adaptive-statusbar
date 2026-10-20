@@ -10,8 +10,8 @@ android {
         applicationId 'dev.ryuya.galaxybar'
         minSdk 35
         targetSdk 36
-        versionCode 24
-        versionName '0.6.3-experimental'
+        versionCode 25
+        versionName '0.6.4-experimental'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 

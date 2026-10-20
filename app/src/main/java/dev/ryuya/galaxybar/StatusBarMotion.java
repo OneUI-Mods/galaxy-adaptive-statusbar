@@ -252,11 +252,12 @@ final class StatusBarMotion {
     if (!view.isShown() || view.getAlpha() <= 0 || view.getWidth() <= 0 || view.getHeight() <= 0)
       return;
     String name = view.getClass().getName();
-    boolean capsule = name.contains("OngoingChip");
+    String resource = "";
     try {
-      capsule |= view.getResources().getResourceEntryName(view.getId()).contains("capsule");
+      resource = view.getResources().getResourceEntryName(view.getId());
     } catch (Exception ignored) {
     }
+    boolean capsule = StatusBarElements.isCompoundIndicator(name, resource);
     if (capsule
         || ModernTintAdapter.supports(view)
         || view instanceof TextView

@@ -3,4 +3,7 @@
     <item name="android:fontFamily">sans</item>
     <item name="colorPrimary">#435D92</item>
   </style>
+  <style name="TonalActionTheme" parent="">
+    <item name="materialButtonStyle">@style/Widget.Material3.Button.TonalButton</item>
+  </style>
 </resources>

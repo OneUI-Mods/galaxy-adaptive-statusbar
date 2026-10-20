@@ -81,8 +81,7 @@ public final class MainActivity extends AppCompatActivity {
         });
     ViewCompat.requestApplyInsets(safe);
     MaterialToolbar toolbar = new MaterialToolbar(this);
-    toolbar.setTitle(getString(R.string.screen_title));
-    toolbar.setSubtitle(getString(R.string.app_name));
+    toolbar.setTitle(getString(R.string.app_name));
     safe.addView(toolbar, new LinearLayout.LayoutParams(-1, dp(64)));
     pages = new SettingsTabs(this, safe, state);
     LinearLayout body = pages.page(R.string.tab_colors);
@@ -90,9 +89,24 @@ public final class MainActivity extends AppCompatActivity {
     LinearLayout operation = pages.page(R.string.tab_status);
     LinearLayout information = pages.page(R.string.tab_about);
     LinearLayout hero = card(body);
+    ((MaterialCardView) hero.getParent())
+        .setCardBackgroundColor(
+            com.google.android.material.color.MaterialColors.getColor(
+                hero, com.google.android.material.R.attr.colorPrimaryContainer));
     MaterialSwitch enabled = toggle(hero, getString(R.string.enabled), "enabled", false);
     enabledControl = enabled;
     enabled.setId(R.id.module_enabled);
+    MaterialCardView preview = new MaterialCardView(this);
+    preview.setRadius(dp(20));
+    preview.setStrokeWidth(0);
+    preview.setClickable(true);
+    preview.setFocusable(true);
+    preview.setContentDescription(getString(R.string.open_pattern));
+    preview.addView(new ColorPreview(this), new android.view.ViewGroup.LayoutParams(-1, dp(88)));
+    preview.setOnClickListener(v -> startActivity(new Intent(this, PatternActivity.class)));
+    LinearLayout.LayoutParams previewPosition = new LinearLayout.LayoutParams(-1, dp(88));
+    previewPosition.topMargin = dp(12);
+    hero.addView(preview, previewPosition);
     LinearLayout motionCard = card(adjustments);
     MaterialSwitch motion = toggle(motionCard, getString(R.string.motion_enabled), "motion", true);
     motion.setId(R.id.motion_enabled);
@@ -100,37 +114,37 @@ public final class MainActivity extends AppCompatActivity {
         motionCard,
         getString(R.string.motion_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
+    LinearLayout targets = card(body);
     text(
-        body,
+        targets,
         getString(R.string.color_targets),
         com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
-    toggle(body, getString(R.string.clock), "clock", true);
-    toggle(body, getString(R.string.notifications), "notifications", true);
-    toggle(body, getString(R.string.signals), "signals", true);
-    toggle(body, getString(R.string.battery), "battery", true);
+    toggle(targets, getString(R.string.clock), "clock", true);
+    toggle(targets, getString(R.string.notifications), "notifications", true);
+    toggle(targets, getString(R.string.signals), "signals", true);
+    toggle(targets, getString(R.string.battery), "battery", true);
     text(
-        body,
+        targets,
         getString(R.string.battery_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
+    LinearLayout sampling = card(body);
     int[] rates = {5, 10, 15, 30};
     String[] rateLabels = {"5 Hz", "10 Hz", "15 Hz", getString(R.string.rate_30)};
     int selected = 1;
     for (int i = 0; i < rates.length; i++) if (rates[i] == prefs.getInt("hz", 10)) selected = i;
     dropdown(
-        body,
+        sampling,
         getString(R.string.frequency),
         rateLabels,
         selected,
         index -> prefs.edit().putInt("hz", rates[index]).apply());
     text(
-        body,
+        sampling,
         getString(R.string.power_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
+    LinearLayout fade = card(adjustments);
     MaterialTextView fadeLabel =
-        text(
-            adjustments,
-            "",
-            com.google.android.material.R.style.TextAppearance_Material3_TitleSmall);
+        text(fade, "", com.google.android.material.R.style.TextAppearance_Material3_TitleSmall);
     fadeLabel.setId(R.id.fade_duration_value);
     Slider fadeSlider = new Slider(this);
     fadeSlider.setId(R.id.fade_duration_slider);
@@ -148,11 +162,12 @@ public final class MainActivity extends AppCompatActivity {
           fadeLabel.setText(getString(R.string.fade_duration_value, duration));
           if (fromUser) prefs.edit().putInt("fade_ms", duration).apply();
         });
-    adjustments.addView(fadeSlider);
+    fade.addView(fadeSlider);
     text(
-        adjustments,
+        fade,
         getString(R.string.fade_duration_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
+    LinearLayout analysis = card(adjustments);
     String[] keys = {"robust", "mean", "median", "vote"};
     String[] labels = {
       getString(R.string.robust),
@@ -164,14 +179,14 @@ public final class MainActivity extends AppCompatActivity {
     for (int i = 0; i < keys.length; i++)
       if (keys[i].equals(prefs.getString("algorithm", "robust"))) selected = i;
     dropdown(
-        adjustments,
+        analysis,
         getString(R.string.algorithm),
         labels,
         selected,
         index -> prefs.edit().putString("algorithm", keys[index]).apply());
     MaterialTextView suppression =
         text(
-            adjustments,
+            analysis,
             getString(R.string.hysteresis),
             com.google.android.material.R.style.TextAppearance_Material3_TitleSmall);
     Slider slider = new Slider(this);
@@ -185,7 +200,7 @@ public final class MainActivity extends AppCompatActivity {
           suppression.setText(getString(R.string.hysteresis_value, Math.round(value)));
           if (fromUser) prefs.edit().putFloat("hysteresis", value / 100f).apply();
         });
-    adjustments.addView(slider);
+    analysis.addView(slider);
     button(
         adjustments,
         getString(R.string.open_pattern),
@@ -231,8 +246,9 @@ public final class MainActivity extends AppCompatActivity {
         getString(R.string.guard_reload_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
     button(diagnostic, getString(R.string.root_check), this::checkRoot);
+    LinearLayout appearance = card(information);
     text(
-        information,
+        appearance,
         getString(R.string.appearance),
         com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
     String[] languageTags = {"", "ja", "en", "es", "ko", "zh-Hans"};
@@ -244,7 +260,7 @@ public final class MainActivity extends AppCompatActivity {
     for (int i = 1; i < languageTags.length; i++)
       if (currentLocale.equals(languageTags[i])) languageIndex = i;
     dropdown(
-        information,
+        appearance,
         getString(R.string.language),
         languageNames,
         languageIndex,
@@ -260,7 +276,7 @@ public final class MainActivity extends AppCompatActivity {
     for (int i = 0; i < themes.length; i++)
       if (themes[i] == prefs.getInt("ui_theme", -1)) themeIndex = i;
     dropdown(
-        information,
+        appearance,
         getString(R.string.theme),
         new String[] {
           getString(R.string.system_default), getString(R.string.light), getString(R.string.dark)
@@ -299,7 +315,12 @@ public final class MainActivity extends AppCompatActivity {
   private LinearLayout card(LinearLayout parent) {
     MaterialCardView card = new MaterialCardView(this);
     LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
-    params.setMargins(0, dp(12), 0, dp(20));
+    params.setMargins(0, 0, 0, dp(16));
+    card.setRadius(dp(28));
+    card.setStrokeWidth(0);
+    card.setCardBackgroundColor(
+        com.google.android.material.color.MaterialColors.getColor(
+            card, com.google.android.material.R.attr.colorSurfaceContainerLow));
     parent.addView(card, params);
     LinearLayout content = column(20);
     card.addView(content);
@@ -310,6 +331,11 @@ public final class MainActivity extends AppCompatActivity {
     MaterialTextView text = new MaterialTextView(this);
     text.setTextAppearance(appearance);
     text.setText(value);
+    text.setLineSpacing(dp(2), 1f);
+    if (appearance == com.google.android.material.R.style.TextAppearance_Material3_BodySmall)
+      text.setTextColor(
+          com.google.android.material.color.MaterialColors.getColor(
+              text, com.google.android.material.R.attr.colorOnSurfaceVariant));
     LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(-1, -2);
     params.setMargins(0, dp(8), 0, dp(8));
     parent.addView(text, params);
@@ -320,7 +346,9 @@ public final class MainActivity extends AppCompatActivity {
       LinearLayout parent, String label, String key, boolean defaultValue) {
     MaterialSwitch control = new MaterialSwitch(this);
     control.setText(label);
-    control.setMinHeight(dp(56));
+    control.setMinHeight(dp(60));
+    control.setTextAppearance(
+        com.google.android.material.R.style.TextAppearance_Material3_BodyLarge);
     boolean protectedMaster = key.equals("enabled") && protectionBlocked();
     control.setChecked(!protectedMaster && prefs.getBoolean(key, defaultValue));
     if (key.equals("enabled")) control.setEnabled(!protectedMaster);
@@ -344,9 +372,7 @@ public final class MainActivity extends AppCompatActivity {
       LinearLayout parent, String hint, String[] labels, int selected, Selection selection) {
     TextInputLayout field =
         new TextInputLayout(
-            this,
-            null,
-            com.google.android.material.R.attr.textInputOutlinedExposedDropdownMenuStyle);
+            this, null, com.google.android.material.R.attr.textInputFilledExposedDropdownMenuStyle);
     field.setHint(hint);
     MaterialAutoCompleteTextView input = new MaterialAutoCompleteTextView(field.getContext());
     input.setInputType(android.text.InputType.TYPE_NULL);
@@ -360,10 +386,17 @@ public final class MainActivity extends AppCompatActivity {
   }
 
   private MaterialButton button(LinearLayout parent, String label, Runnable action) {
-    MaterialButton button = new MaterialButton(this);
+    MaterialButton button =
+        new MaterialButton(
+            new androidx.appcompat.view.ContextThemeWrapper(this, R.style.TonalActionTheme));
+    button.setMinHeight(dp(52));
+    button.setGravity(android.view.Gravity.START | android.view.Gravity.CENTER_VERTICAL);
+    button.setCornerRadius(dp(20));
     button.setText(label);
     button.setOnClickListener(view -> action.run());
-    parent.addView(button, new LinearLayout.LayoutParams(-1, -2));
+    LinearLayout.LayoutParams position = new LinearLayout.LayoutParams(-1, -2);
+    position.setMargins(0, dp(4), 0, dp(8));
+    parent.addView(button, position);
     return button;
   }
 
