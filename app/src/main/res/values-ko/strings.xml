@@ -86,4 +86,7 @@
   <string name="network_speed_spacing_note">Android 17 / One UI 9용입니다. 통신·상태 아이콘이 켜져 있을 때 적용됩니다. 0 dp는 기본 간격입니다.</string>
   <string name="network_speed_spacing_reset">기본 간격으로 복원</string>
   <string name="network_speed_sample">네트워크 속도 표시 예시</string>
+  <string name="privacy_motion_title">카메라 및 마이크 사용 표시</string>
+  <string name="privacy_motion">사용 표시에 맞춰 아이콘 이동</string>
+  <string name="privacy_motion_note">Android 17 / One UI 9 세로 화면용. 카메라 및 마이크 사용 표시가 나타날 때 연결 및 배터리 아이콘을 왼쪽으로 이동합니다. 다음 표시부터 적용됩니다.</string>
 </resources>

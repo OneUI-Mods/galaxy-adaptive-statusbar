@@ -133,6 +133,7 @@ public final class HookEntry extends XposedModule {
     if (protection != null) protection.arm();
     ModernTintAdapter.install(systemLoader);
     NetworkSpeedTintAdapter.install(systemLoader);
+    PrivacySlide.install(systemLoader);
     BatteryAdapter.install(systemLoader);
     HookRegistry.hook(
         ImageView.class,
@@ -159,6 +160,7 @@ public final class HookEntry extends XposedModule {
 
   static void disableColors() {
     boolean hadHooks = HookRegistry.colorCount() != 0;
+    PrivacySlide.reset();
     HookRegistry.clearColors();
     ModernTintAdapter.reset();
     NetworkSpeedTintAdapter.reset();

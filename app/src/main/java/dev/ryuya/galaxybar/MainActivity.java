@@ -167,7 +167,19 @@ public final class MainActivity extends AppCompatActivity {
         fade,
         getString(R.string.fade_duration_note),
         com.google.android.material.R.style.TextAppearance_Material3_BodySmall);
-    if (android.os.Build.VERSION.SDK_INT == 37) addNetworkSpeedSettings(adjustments);
+    if (android.os.Build.VERSION.SDK_INT == 37) {
+      addNetworkSpeedSettings(adjustments);
+      LinearLayout privacy = card(adjustments);
+      text(
+          privacy,
+          getString(R.string.privacy_motion_title),
+          com.google.android.material.R.style.TextAppearance_Material3_TitleMedium);
+      toggle(privacy, getString(R.string.privacy_motion), "privacy_motion", false);
+      text(
+          privacy,
+          getString(R.string.privacy_motion_note),
+          com.google.android.material.R.style.TextAppearance_Material3_BodyMedium);
+    }
     LinearLayout analysis = card(adjustments);
     String[] keys = {"robust", "mean", "median", "vote"};
     String[] labels = {

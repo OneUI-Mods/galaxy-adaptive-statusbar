@@ -1,0 +1,8 @@
+plugins { id 'com.android.application' }
+android {
+ namespace 'dev.ryuya.privacyfixture'
+ compileSdk 37
+ buildToolsVersion '37.0.0'
+ defaultConfig { applicationId 'dev.ryuya.privacyfixture'; minSdk 36; targetSdk 37; versionCode 1; versionName 'internal' }
+ compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}

@@ -16,3 +16,9 @@ dependencyResolutionManagement {
 
 rootProject.name = 'GalaxyAdaptiveStatusBar'
 include ':app'
+
+// Opt-in, device-only privacy animation probe; not included in any app release.
+if (providers.gradleProperty('privacyFixture').isPresent()) {
+    include ':privacyFixture'
+    project(':privacyFixture').projectDir = file('tools/fixtures/privacy')
+}

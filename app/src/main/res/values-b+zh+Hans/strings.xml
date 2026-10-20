@@ -86,4 +86,7 @@
   <string name="network_speed_spacing_note">适用于 Android 17 / One UI 9。启用通信和状态图标时生效。0 dp 恢复默认行距。</string>
   <string name="network_speed_spacing_reset">恢复默认行距</string>
   <string name="network_speed_sample">网络速度显示示例</string>
+  <string name="privacy_motion_title">相机和麦克风使用指示</string>
+  <string name="privacy_motion">为使用指示平滑移动图标</string>
+  <string name="privacy_motion_note">适用于 Android 17 / One UI 9 竖屏。相机或麦克风使用指示出现时，将右侧的连接和电池图标向左移动。下次显示时生效。</string>
 </resources>

@@ -31,7 +31,15 @@ public final class ConfigProvider extends ContentProvider {
       Bundle b = new Bundle();
       for (String key :
           new String[] {
-            "enabled", "clock", "notifications", "signals", "battery", "debug", "fixed", "motion"
+            "enabled",
+            "clock",
+            "notifications",
+            "signals",
+            "battery",
+            "debug",
+            "fixed",
+            "motion",
+            "privacy_motion"
           })
         b.putBoolean(
             key,

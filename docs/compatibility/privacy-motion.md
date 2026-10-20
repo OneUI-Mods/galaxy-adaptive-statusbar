@@ -1,0 +1,9 @@
+# Android 17 privacy reservation
+
+BZI9の稼働APKと実機階層を調べ、`status_bar_end_side_content` が `AlphaOptimizedLinearLayout`、使用表示が `ComposeOngoingPrivacyChip` と確認した。実カメラストリームの開始後、右側alphaが1→0.67→0、visibilityがVISIBLE→INVISIBLEになり、使用表示が別の純正ビューとして現れた。openCameraだけでは使用表示は開始しなかったため、保存せず即閉じるImageReaderで再現した。撮影ファイル・音声は作らない。
+
+17専用の任意フックで、純正のイベント、visibility理由、ビューの適用経路を照合する。Samsungの8種類の非表示理由のうちイベント以外の理由、home allowed、keyguard、充電演出、system-info allowedを読み取る。元の理由配列、StateFlow、Composable、SnapshotState、変更フラグを書き換えない。条件を満たすカメラ・マイクの表示中だけ、右側のViewへ適用するVisibilityModelを差し替える。時計・通知の経路は変更しない。
+
+移動幅は実測した使用表示のbounds、通信・バッテリー領域、間隔から計算する。開始時は純正ビューを右端からrevealしながら320msの補間で場所を空け、終了時は純正のboundsとalphaに追従する。描画とタップは元のビューを使う。移動する親のクリップ設定、translationX、使用表示のclipBoundsを保存し、終了・OFF・消灯・detach時に復元する。steady状態で独自のフレームループは回さない。契約不一致、領域不足、タイムアウトでは純正へ戻す。
+
+本機能の初期設定はOFF。Android 16の定義は変更していない。JVMでは予約領域の間隔、単調な開始、終了、非有限値、領域不足、他の非表示理由、未定義入力の拒否を試験する。実機反映後の結果を追記する。

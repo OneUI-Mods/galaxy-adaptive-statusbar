@@ -87,4 +87,7 @@
   <string name="network_speed_spacing_note">Android 17 / One UI 9. Applies while Communication &amp; status icons is on. 0 dp restores standard spacing.</string>
   <string name="network_speed_spacing_reset">Use standard spacing</string>
   <string name="network_speed_sample">Sample network speed</string>
+  <string name="privacy_motion_title">Camera and microphone indicators</string>
+  <string name="privacy_motion">Slide icons for privacy indicators</string>
+  <string name="privacy_motion_note">Android 17 / One UI 9, portrait. Move the connection and battery icons left to make room for camera and microphone indicators. Applies to the next indicator animation.</string>
 </resources>

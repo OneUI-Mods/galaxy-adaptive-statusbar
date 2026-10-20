@@ -86,4 +86,7 @@
   <string name="network_speed_spacing_note">Android 17 / One UI 9向け。「通信・状態アイコン」がONのときに適用します。0 dpで標準の行間に戻ります。</string>
   <string name="network_speed_spacing_reset">標準の行間に戻す</string>
   <string name="network_speed_sample">通信速度の表示サンプル</string>
+  <string name="privacy_motion_title">カメラ・マイクの使用表示</string>
+  <string name="privacy_motion">使用表示に合わせてアイコンを移動</string>
+  <string name="privacy_motion_note">Android 17 / One UI 9の縦画面向け。カメラ・マイクの使用表示が出るとき、右側の通信・バッテリー表示を左へ移して場所を空けます。次の表示から適用します。</string>
 </resources>

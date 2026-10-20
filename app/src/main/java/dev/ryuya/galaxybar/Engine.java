@@ -33,6 +33,8 @@ final class Engine {
           try {
             configRevision++;
             if (uri != null && "motion".equals(uri.getLastPathSegment())) motion.configure(false);
+            if (uri != null && "privacy_motion".equals(uri.getLastPathSegment()))
+              PrivacySlide.configure(false);
             // A toggle invalidates the old session before the worker can read the new setting.
             // This also handles OFF→ON faster than a capture or a provider round trip.
             String key = uri == null ? null : uri.getLastPathSegment();
@@ -53,6 +55,7 @@ final class Engine {
         public void onReceive(Context ignored, Intent intent) {
           if (Intent.ACTION_SCREEN_OFF.equals(intent.getAction())) {
             motion.cancel("screen off");
+            PrivacySlide.cancel();
             epoch++;
             restore();
             worker.execute(() -> releaseCapture());
@@ -142,6 +145,7 @@ final class Engine {
 
   Engine(View root) throws Exception {
     this.root = root;
+    PrivacySlide.attach(root);
     context = root.getContext();
     motion =
         new StatusBarMotion(
@@ -348,6 +352,7 @@ final class Engine {
         }
       } else HookEntry.disableColors();
     }
+    PrivacySlide.configure(enabled && fresh.getBoolean("privacy_motion", false));
     NetworkSpeedTintAdapter.setSpacing(fresh.getInt(NetworkSpeedSpacing.KEY, 0));
     motion.configure(enabled && fresh.getBoolean("motion", true) && !stopped && !protectedContent);
     updateRenderState();
@@ -600,6 +605,8 @@ final class Engine {
               + renderState
               + "\n"
               + motion.status()
+              + "\nPrivacy motion: "
+              + PrivacySlide.status()
               + "\nLast error: "
               + lastError;
       context.getContentResolver().call(ConfigProvider.URI, "status", text, motion.registration());
