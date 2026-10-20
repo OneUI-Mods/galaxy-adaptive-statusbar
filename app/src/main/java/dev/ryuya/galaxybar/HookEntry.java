@@ -99,6 +99,7 @@ public final class HookEntry extends XposedModule {
   }
 
   private static void installHooks(ClassLoader loader) throws Throwable {
+    NativeBatteryView.installObservation(loader);
     Class<?> clock =
         Reflect.findClass("com.android.systemui.statusbar.policy.QSClockIndicatorView", loader);
     HookRegistry.lifecycle(

@@ -259,6 +259,7 @@ final class StatusBarMotion {
     }
     boolean capsule = StatusBarElements.isCompoundIndicator(name, resource);
     if (capsule
+        || NativeBatteryView.supports(view)
         || ModernTintAdapter.supports(view)
         || view instanceof TextView
         || view instanceof ImageView

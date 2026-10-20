@@ -23,4 +23,17 @@ public class StatusBarElementsTest {
     assertTrue(StatusBarElements.isCompoundIndicator("com.android.systemui.OngoingChip", ""));
     assertFalse(StatusBarElements.isCompoundIndicator("android.widget.FrameLayout", "status_bar"));
   }
+
+  @Test
+  public void onlyTheDedicatedAndroid17BatteryViewIsAnAtomicLeaf() {
+    String compose = "androidx.compose.ui.platform.ComposeView";
+    assertTrue(StatusBarElements.isDedicatedComposeBattery(37, compose, "system_icons", true));
+    assertFalse(StatusBarElements.isDedicatedComposeBattery(36, compose, "system_icons", true));
+    assertFalse(StatusBarElements.isDedicatedComposeBattery(38, compose, "system_icons", true));
+    assertFalse(StatusBarElements.isDedicatedComposeBattery(37, compose, "status_bar", true));
+    assertFalse(StatusBarElements.isDedicatedComposeBattery(37, compose, "system_icons", false));
+    assertFalse(
+        StatusBarElements.isDedicatedComposeBattery(
+            37, "android.widget.ImageView", "system_icons", true));
+  }
 }

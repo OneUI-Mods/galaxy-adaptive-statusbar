@@ -554,7 +554,9 @@ final class Engine {
               + String.format(Locale.US, "%.1f", lastMs)
               + " ms\nSession rate "
               + String.format(Locale.US, "%.1f", frames * 1000.0 / Math.max(1, now - started))
-              + " Hz\nBattery: "
+              + " Hz"
+              + NativeBatteryView.health()
+              + "\nBattery: "
               + BatteryAdapter.health()
               + "\nFade: "
               + config.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)
