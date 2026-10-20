@@ -250,8 +250,9 @@ final class Engine {
             }
             targets = mapped;
           } else collect(root, targets);
+          // Motion needs the native battery position even when its recoloring is OFF.
+          ComposeBatteryAdapter.Geometry battery = ComposeBatteryAdapter.geometry(root);
           if (config.getBoolean("battery", true)) {
-            ComposeBatteryAdapter.Geometry battery = ComposeBatteryAdapter.geometry(root);
             if (battery != null) {
               Rect area = sampleWindow ? motion.mappedArea(battery.area()) : battery.area();
               if (Rect.intersects(area, crop))
