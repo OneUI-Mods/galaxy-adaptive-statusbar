@@ -28,7 +28,8 @@ final class PrivacySlide {
   private static Constructor<?> visibility;
   private static Method applyVisibility;
   private static boolean installed, enabled, pending, replaying;
-  private static boolean otherSamsungHide = true, homeAllowed, infoAllowed;
+  // Before the first native emission, the pending event must originate from a fully visible group.
+  private static boolean otherSamsungHide, homeAllowed = true, infoAllowed = true;
   private static Object nativeVisibility;
   private static View nativeTarget;
   private static Session session;
@@ -109,8 +110,9 @@ final class PrivacySlide {
           new HookCallback() {
             @Override
             protected void beforeHookedMethod(MethodHookParam p) {
-              if (!(p.args[1] instanceof Object[] reasons) || reasons.length != 8) return;
-              otherSamsungHide = PrivacySlideGeometry.otherHide(reasons);
+              otherSamsungHide =
+                  PrivacySlideGeometry.otherHide(
+                      p.args[1] instanceof Object[] reasons ? reasons : null);
             }
           });
       HookRegistry.hook(
