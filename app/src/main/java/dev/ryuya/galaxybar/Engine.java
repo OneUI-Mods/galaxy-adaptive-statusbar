@@ -71,6 +71,7 @@ final class Engine {
   private final IdentityHashMap<ImageView, ColorFilter> originals = new IdentityHashMap<>();
   private final IdentityHashMap<ImageView, Integer> appliedColors = new IdentityHashMap<>();
   private final Set<View> modern = Collections.newSetFromMap(new IdentityHashMap<>());
+  private final Set<View> nativeBatteries = Collections.newSetFromMap(new IdentityHashMap<>());
   private final Set<Drawable> batteries = Collections.newSetFromMap(new IdentityHashMap<>());
   private final Set<TextView> texts = Collections.newSetFromMap(new IdentityHashMap<>());
   private final Map<String, Integer> previous = new ConcurrentHashMap<>();
@@ -116,9 +117,25 @@ final class Engine {
       int end,
       String text,
       String key,
-      BatteryAdapter.Geometry battery) {
+      BatteryAdapter.Geometry battery,
+      NativeBatteryView.Geometry nativeBattery) {
     Target(View view, Rect area, int start, int end, String text, String key) {
-      this(view, area, start, end, text, key, null);
+      this(view, area, start, end, text, key, null, null);
+    }
+
+    Target(
+        View view,
+        Rect area,
+        int start,
+        int end,
+        String text,
+        String key,
+        BatteryAdapter.Geometry battery) {
+      this(view, area, start, end, text, key, battery, null);
+    }
+
+    boolean hasBattery() {
+      return battery != null || nativeBattery != null;
     }
   }
 
@@ -232,7 +249,8 @@ final class Engine {
                         target.end,
                         target.text,
                         target.key,
-                        target.battery));
+                        target.battery,
+                        target.nativeBattery));
             }
             targets = mapped;
           } else collect(root, targets);
@@ -358,7 +376,11 @@ final class Engine {
             + "; fade targets: "
             + fadeTargets.size()
             + "; applied views: "
-            + (originals.size() + texts.size() + modern.size() + batteries.size());
+            + (originals.size()
+                + texts.size()
+                + modern.size()
+                + batteries.size()
+                + nativeBatteries.size());
   }
 
   private void process(
@@ -427,19 +449,29 @@ final class Engine {
               color = t.start % 2 == 0 ? Color.WHITE : Color.BLACK;
             previous.put(t.key, color);
             colors[i] = color;
-            if (t.battery != null) {
+            if (t.hasBattery()) {
               String percentKey = t.key + ":percentage";
               liveKeys.add(percentKey);
               percentageColors[i] =
-                  BatteryAdapter.percentageColor(
-                      bmp,
-                      crop,
-                      t.area,
-                      t.battery,
-                      color,
-                      previous.getOrDefault(percentKey, 0),
-                      settings.getString("algorithm", "robust"),
-                      settings.getDouble("hysteresis", .15));
+                  t.nativeBattery != null
+                      ? NativeBatteryView.percentageColor(
+                          bmp,
+                          crop,
+                          t.area,
+                          t.nativeBattery,
+                          color,
+                          previous.getOrDefault(percentKey, 0),
+                          settings.getString("algorithm", "robust"),
+                          settings.getDouble("hysteresis", .15))
+                      : BatteryAdapter.percentageColor(
+                          bmp,
+                          crop,
+                          t.area,
+                          t.battery,
+                          color,
+                          previous.getOrDefault(percentKey, 0),
+                          settings.getString("algorithm", "robust"),
+                          settings.getDouble("hysteresis", .15));
               previous.put(percentKey, percentageColors[i]);
               if (settings.getBoolean("debug"))
                 details
@@ -555,9 +587,9 @@ final class Engine {
               + " ms\nSession rate "
               + String.format(Locale.US, "%.1f", frames * 1000.0 / Math.max(1, now - started))
               + " Hz"
-              + NativeBatteryView.health()
-              + "\nBattery: "
-              + BatteryAdapter.health()
+              + (Build.VERSION.SDK_INT == 37
+                  ? NativeBatteryView.health()
+                  : "\nBattery: " + BatteryAdapter.health())
               + "\nFade: "
               + config.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)
               + " ms"
@@ -597,6 +629,19 @@ final class Engine {
     if (!virtual && (!view.isShown() || view.getAlpha() <= 0)) return;
     String name = view.getClass().getName(), id = id(view);
     if (StatusBarElements.isCompoundIndicator(name, id)) return;
+    if (NativeBatteryView.supports(view)) {
+      Rect area = new Rect();
+      NativeBatteryView.Geometry geometry = NativeBatteryView.geometry(view);
+      if (config.getBoolean("battery", true)
+          && geometry != null
+          && area(view, area)
+          && !area.isEmpty()) {
+        Rect drawing = NativeBatteryView.drawingArea(view, area, geometry.shape());
+        out.add(
+            new Target(view, drawing, -1, -1, "", key(view) + ":native-battery", null, geometry));
+      }
+      return;
+    }
     if (ModernTintAdapter.supports(view)) {
       Rect area = new Rect();
       if (config.getBoolean("signals", true)
@@ -739,7 +784,7 @@ final class Engine {
     for (int i = 0; i < targets.size(); i++) {
       Target target = targets.get(i);
       retarget(target.key, colors[i], now, live);
-      if (target.battery != null) retarget(target.key + ":percentage", percentages[i], now, live);
+      if (target.hasBattery()) retarget(target.key + ":percentage", percentages[i], now, live);
     }
     fades.keySet().retainAll(live);
     fadeTargets = targets;
@@ -788,7 +833,7 @@ final class Engine {
         if (!animate) body.finish();
         fadeColors[i] = body.color(now);
         running |= body.running(now);
-        if (target.battery != null) {
+        if (target.hasBattery()) {
           ColorFade percentage = fades.get(target.key + ":percentage");
           if (!animate) percentage.finish();
           fadePercentages[i] = percentage.color(now);
@@ -814,11 +859,16 @@ final class Engine {
       Map<TextView, SpannableString> spans = new IdentityHashMap<>();
       Set<ImageView> live = Collections.newSetFromMap(new IdentityHashMap<>());
       Set<View> liveModern = Collections.newSetFromMap(new IdentityHashMap<>());
+      Set<View> liveNativeBattery = Collections.newSetFromMap(new IdentityHashMap<>());
       Set<Drawable> liveBattery = Collections.newSetFromMap(new IdentityHashMap<>());
       for (int i = 0; i < targets.size(); i++) {
         Target t = targets.get(i);
         if (!t.view.isAttachedToWindow()) continue;
-        if (t.battery != null) {
+        if (t.nativeBattery != null) {
+          liveNativeBattery.add(t.view);
+          nativeBatteries.add(t.view);
+          NativeBatteryView.apply(t.view, colors[i], percentageColors[i]);
+        } else if (t.battery != null) {
           if (((ImageView) t.view).getDrawable() == t.battery.drawable()) {
             liveBattery.add(t.battery.drawable());
             batteries.add(t.battery.drawable());
@@ -855,6 +905,13 @@ final class Engine {
         View view = it.next();
         if (!liveModern.contains(view)) {
           ModernTintAdapter.restore(view);
+          it.remove();
+        }
+      }
+      for (Iterator<View> it = nativeBatteries.iterator(); it.hasNext(); ) {
+        View view = it.next();
+        if (!liveNativeBattery.contains(view)) {
+          NativeBatteryView.restore(view);
           it.remove();
         }
       }
@@ -934,6 +991,8 @@ final class Engine {
       appliedColors.clear();
       for (View view : modern) ModernTintAdapter.restore(view);
       modern.clear();
+      for (View view : nativeBatteries) NativeBatteryView.restore(view);
+      nativeBatteries.clear();
       for (Drawable drawable : batteries) BatteryAdapter.restore(drawable);
       batteries.clear();
       for (TextView t : texts) clear(t);
