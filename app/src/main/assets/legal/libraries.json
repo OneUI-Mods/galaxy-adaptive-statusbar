@@ -425,18 +425,10 @@
   {
     "id": "org.jetbrains.kotlin:kotlin-stdlib",
     "title": "Kotlin · kotlin-stdlib",
-    "version": "1.8.22",
+    "version": "2.2.10",
     "license": "Apache License 2.0",
     "asset": "legal/APACHE-2.0.txt",
-    "notice": "org.jetbrains.kotlin:kotlin-stdlib:1.8.22\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
-  },
-  {
-    "id": "org.jetbrains.kotlin:kotlin-stdlib-common",
-    "title": "Kotlin · kotlin-stdlib-common",
-    "version": "1.8.22",
-    "license": "Apache License 2.0",
-    "asset": "legal/APACHE-2.0.txt",
-    "notice": "org.jetbrains.kotlin:kotlin-stdlib-common:1.8.22\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
+    "notice": "org.jetbrains.kotlin:kotlin-stdlib:2.2.10\n\nCopyright belongs to the respective authors, including Google / The Android Open Source Project, JetBrains, and the Guava authors. See the distribution notices for the complete bundled notice."
   },
   {
     "id": "org.jetbrains.kotlin:kotlin-stdlib-jdk7",

@@ -7,3 +7,5 @@ compileSdkとtargetSdkを37へ更新しました。ビルド環境はJDK 21、AG
 4本のreleaseビルドとrelease Lint、既存JVM試験を実行しました。Android 16の実機は今回再試験していません。Android 17実機の更新・起動結果は追記します。
 
 検証済み：JVM試験102件、release Lint（error/fatalなし）、releaseビルド。
+
+AGP 9の組み込みKotlinによるstdlib 2.2.10の解決と、独立したstdlib-commonの除去を反映し、APKのライセンス一覧・通知を実依存へ合わせました。Maven POMのApache 2.0表記を照合しています。
