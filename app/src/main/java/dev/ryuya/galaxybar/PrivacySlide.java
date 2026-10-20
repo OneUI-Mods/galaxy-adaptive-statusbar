@@ -16,7 +16,6 @@ import dev.ryuya.galaxybar.hook.Reflect;
 import java.lang.ref.WeakReference;
 import java.lang.reflect.Constructor;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
 import java.util.List;
 
 /** Optional, View-only privacy reservation. Never changes Compose slots or native flow values. */
@@ -29,19 +28,24 @@ final class PrivacySlide {
   private static Method applyVisibility;
   private static boolean installed, enabled, pending, replaying;
   // Before the first native emission, the pending event must originate from a fully visible group.
-  private static boolean otherSamsungHide, homeAllowed = true, infoAllowed = true;
+  private static volatile boolean otherSamsungHide, homeAllowed = true, infoAllowed = true;
   private static Object nativeVisibility;
   private static View nativeTarget;
   private static Session session;
+  private static PrivacyIconSpace space;
   private static int pendingGeneration, completed;
   private static String state = "off";
 
   static void attach(View view) {
-    root = new WeakReference<>(view);
+    if (root.get() != view) {
+      cancel();
+      root = new WeakReference<>(view);
+    }
+    PrivacyDots.attach(view);
   }
 
   static String status() {
-    return state + "; completed=" + completed;
+    return state + "; completed=" + completed + "; dot=" + PrivacyDots.status();
   }
 
   static void configure(boolean value) {
@@ -50,6 +54,7 @@ final class PrivacySlide {
     enabled = next;
     if (!enabled) clearReservation();
     else state = "ready";
+    PrivacyDots.configure(enabled);
   }
 
   static void install(ClassLoader loader) {
@@ -61,6 +66,8 @@ final class PrivacySlide {
       Class<?> controller =
           Reflect.findClass(BASE + "events.SystemEventChipAnimationControllerImpl", loader);
       Class<?> function = Reflect.findClass("kotlin.jvm.functions.Function1", loader);
+      Reflect.findClass("com.android.systemui.privacy.ui.view.ComposeOngoingPrivacyChip", loader)
+          .getDeclaredField("launchableView");
       Class<?> visibilityType =
           Reflect.findClass(BASE + "pipeline.shared.ui.model.VisibilityModel", loader);
       Class<?> binder =
@@ -246,11 +253,12 @@ final class PrivacySlide {
                   && !Boolean.TRUE.equals(p.args[1])) {
                 active.entering = false;
                 active.exiting = true;
-                active.restoreChipClip();
+                active.restoreEntrance();
                 state = "leaving";
               }
             }
           });
+      PrivacyDots.install(loader);
       installed = true;
       state = "off";
     } catch (Throwable unavailable) {
@@ -280,6 +288,70 @@ final class PrivacySlide {
         && homeAllowed
         && infoAllowed
         && scene(rightGroup());
+  }
+
+  static boolean allowDot() {
+    return enabled && !otherSamsungHide && homeAllowed && infoAllowed && scene(rightGroup());
+  }
+
+  static boolean reserveDot(float dotLeft, float alpha) {
+    View group = rightGroup();
+    if (!allowDot() || group == null || !group.isShown() || group.getAlpha() < .99f) {
+      releaseDot();
+      return false;
+    }
+    float gap = 4 * group.getResources().getDisplayMetrics().density;
+    float left = baselineLeft(group);
+    float dx = PrivacySlideGeometry.dotShift(left + group.getWidth(), dotLeft, gap, alpha);
+    if (!fits(group, left, dx)) {
+      releaseDot();
+      return false;
+    }
+    if (dx < 0) iconSpace(group).dot(dx);
+    else if (space != null) space.dot(0);
+    releaseIdleSpace();
+    return true;
+  }
+
+  static void releaseDot() {
+    if (space != null) space.dot(0);
+    releaseIdleSpace();
+  }
+
+  private static void releaseIdleSpace() {
+    if (space != null && space.idle() && session == null && !pending) {
+      space.close();
+      space = null;
+    }
+  }
+
+  private static PrivacyIconSpace iconSpace(View group) {
+    if (space == null || space.group != group) {
+      if (space != null) space.close();
+      space = new PrivacyIconSpace(group, root.get());
+    }
+    return space;
+  }
+
+  private static float baselineLeft(View group) {
+    if (space != null && space.group == group) return space.baselineLeft();
+    int[] at = new int[2];
+    group.getLocationOnScreen(at);
+    return at[0];
+  }
+
+  private static boolean fits(View group, float left, float dx) {
+    float gap = 4 * group.getResources().getDisplayMetrics().density;
+    float occupied = 0;
+    for (String id : new String[] {"clock", "notificationIcons"}) {
+      View start = find(root.get(), id);
+      if (start != null && start.isShown()) {
+        int[] at = new int[2];
+        start.getLocationOnScreen(at);
+        occupied = Math.max(occupied, at[0] + start.getWidth() + gap);
+      }
+    }
+    return group.getWidth() > 0 && PrivacySlideGeometry.fits(left, dx, occupied);
   }
 
   private static boolean scene(View view) {
@@ -329,18 +401,25 @@ final class PrivacySlide {
     clearReservation();
     enabled = resume;
     state = enabled ? "ready" : "off";
+    PrivacyDots.configure(enabled);
   }
 
   static void reset() {
     clearReservation();
     installed = false;
+    PrivacyDots.reset();
   }
 
   private static void clearReservation() {
     enabled = false;
+    PrivacyDots.configure(false);
     pending = false;
     ++pendingGeneration;
     if (session != null) session.close();
+    if (space != null) {
+      space.close();
+      space = null;
+    }
     restoreNative();
     nativeVisibility = null;
     nativeTarget = null;
@@ -352,28 +431,27 @@ final class PrivacySlide {
     HookEntry.stopHooks(error);
   }
 
-  private record Clipping(ViewGroup parent, boolean children, boolean padding) {}
-
   private static final class Session
       implements ViewTreeObserver.OnPreDrawListener, View.OnAttachStateChangeListener {
-    final View group, chip, window;
+    final View group, chip, window, content;
     final Object controller;
-    final float baselineX;
-    final Rect baselineClip;
-    final ArrayList<Clipping> clipping = new ArrayList<>();
+    final float contentX, contentAlpha;
+    final boolean chipClipsChildren, chipClipsPadding;
     final float gap;
     long started;
     boolean entering, exiting, closed;
-    float appliedX;
+    float appliedContentX, appliedContentAlpha;
 
     Session(View group, View chip, Object controller) {
       this.group = group;
       this.chip = chip;
       this.controller = controller;
       window = root.get();
-      baselineX = appliedX = group.getTranslationX();
-      Rect clip = chip.getClipBounds();
-      baselineClip = clip == null ? null : new Rect(clip);
+      content = (View) Reflect.getObjectField(chip, "launchableView");
+      contentX = appliedContentX = content.getTranslationX();
+      contentAlpha = appliedContentAlpha = content.getAlpha();
+      chipClipsChildren = ((ViewGroup) chip).getClipChildren();
+      chipClipsPadding = ((ViewGroup) chip).getClipToPadding();
       gap = 4 * group.getResources().getDisplayMetrics().density;
     }
 
@@ -382,39 +460,21 @@ final class PrivacySlide {
       int[] origin = new int[2];
       ((View) Reflect.getObjectField(controller, "animationWindowView"))
           .getLocationOnScreen(origin);
-      int[] icons = new int[2];
-      group.getLocationOnScreen(icons);
       float shift =
           PrivacySlideGeometry.shift(
-              icons[0] + group.getWidth(),
+              baselineLeft(group) + group.getWidth(),
               origin[0] + bounds.left,
               origin[0] + bounds.right,
               gap,
               1,
               1);
-      float occupied = 0;
-      for (String id : new String[] {"clock", "notificationIcons"}) {
-        View start = find(window, id);
-        if (start != null && start.isShown()) {
-          int[] at = new int[2];
-          start.getLocationOnScreen(at);
-          occupied = Math.max(occupied, at[0] + start.getWidth() + gap);
-        }
-      }
-      return group.getWidth() > 0
-          && bounds.width() > 0
-          && PrivacySlideGeometry.fits(icons[0], shift, occupied);
+      return bounds.width() > 0 && PrivacySlide.fits(group, baselineLeft(group), shift);
     }
 
     void attach() throws Exception {
-      for (var parent = group.getParent();
-          parent instanceof ViewGroup container && container != window;
-          parent = container.getParent()) {
-        clipping.add(
-            new Clipping(container, container.getClipChildren(), container.getClipToPadding()));
-        container.setClipChildren(false);
-        container.setClipToPadding(false);
-      }
+      iconSpace(group);
+      ((ViewGroup) chip).setClipChildren(false);
+      ((ViewGroup) chip).setClipToPadding(false);
       group.getViewTreeObserver().addOnPreDrawListener(this);
       chip.addOnAttachStateChangeListener(this);
       window.addOnAttachStateChangeListener(this);
@@ -424,7 +484,7 @@ final class PrivacySlide {
       } finally {
         replaying = false;
       }
-      chip.setClipBounds(new Rect(chip.getWidth(), 0, chip.getWidth(), chip.getHeight()));
+      entrance(0);
       main.postDelayed(
           () -> {
             if (!closed) {
@@ -450,14 +510,14 @@ final class PrivacySlide {
         int[] origin = new int[2];
         ((View) Reflect.getObjectField(controller, "animationWindowView"))
             .getLocationOnScreen(origin);
-        int[] location = new int[2];
-        group.getLocationOnScreen(location);
-        float baselineRight = location[0] - group.getTranslationX() + baselineX + group.getWidth();
+        float baselineRight = baselineLeft(group) + group.getWidth();
         float fraction =
             started == 0
                 ? 0
                 : easing.getInterpolation(
-                    PrivacySlideGeometry.unit((SystemClock.uptimeMillis() - started) / 320f));
+                    PrivacySlideGeometry.unit(
+                        (SystemClock.uptimeMillis() - started)
+                            / (float) PrivacySlideGeometry.ENTER_DURATION_MS));
         float reveal = entering ? fraction : started == 0 ? 0 : 1;
         float dx =
             PrivacySlideGeometry.shift(
@@ -467,16 +527,12 @@ final class PrivacySlide {
                 gap,
                 reveal,
                 chip.getAlpha());
-        appliedX = baselineX + dx;
-        group.setTranslationX(appliedX);
+        iconSpace(group).chip(dx);
         if (entering && fraction < 1) {
-          int left = Math.round(chip.getWidth() * (1 - fraction));
-          Rect clip = new Rect(left, 0, chip.getWidth(), chip.getHeight());
-          if (baselineClip != null) clip.intersect(baselineClip);
-          chip.setClipBounds(clip);
+          entrance(fraction);
           chip.postInvalidateOnAnimation();
         } else {
-          restoreChipClip();
+          restoreEntrance();
           if (!exiting && started != 0) state = "holding";
           if (exiting) chip.postInvalidateOnAnimation();
         }
@@ -486,8 +542,19 @@ final class PrivacySlide {
       return true;
     }
 
-    void restoreChipClip() {
-      chip.setClipBounds(baselineClip);
+    void entrance(float progress) {
+      appliedContentX = contentX + PrivacySlideGeometry.entranceOffset(chip.getWidth(), progress);
+      appliedContentAlpha = contentAlpha * PrivacySlideGeometry.entranceAlpha(progress);
+      content.setTranslationX(appliedContentX);
+      content.setAlpha(appliedContentAlpha);
+    }
+
+    void restoreEntrance() {
+      if (Math.abs(content.getTranslationX() - appliedContentX) < .01f)
+        content.setTranslationX(contentX);
+      if (Math.abs(content.getAlpha() - appliedContentAlpha) < .01f) content.setAlpha(contentAlpha);
+      ((ViewGroup) chip).setClipChildren(chipClipsChildren);
+      ((ViewGroup) chip).setClipToPadding(chipClipsPadding);
     }
 
     void close() {
@@ -497,15 +564,11 @@ final class PrivacySlide {
         group.getViewTreeObserver().removeOnPreDrawListener(this);
       chip.removeOnAttachStateChangeListener(this);
       window.removeOnAttachStateChangeListener(this);
-      if (Math.abs(group.getTranslationX() - appliedX) < .01f) group.setTranslationX(baselineX);
-      restoreChipClip();
-      for (Clipping item : clipping) {
-        item.parent.setClipChildren(item.children);
-        item.parent.setClipToPadding(item.padding);
-      }
-      clipping.clear();
+      if (space != null && space.group == group) space.chip(0);
+      restoreEntrance();
       if (session == this) session = null;
       pending = false;
+      releaseIdleSpace();
       completed++;
       state = enabled ? "ready" : "off";
     }

@@ -4,6 +4,11 @@ BZI9の稼働APKと実機階層を調べ、`status_bar_end_side_content` が `Al
 
 17専用の任意フックで、純正のイベント、visibility理由、ビューの適用経路を照合する。Samsungの8種類の非表示理由のうちイベント以外の理由、home allowed、keyguard、充電演出、system-info allowedを読み取る。元の理由配列、StateFlow、Composable、SnapshotState、変更フラグを書き換えない。条件を満たすカメラ・マイクの表示中だけ、右側のViewへ適用するVisibilityModelを差し替える。時計・通知の経路は変更しない。
 
-移動幅は実測した使用表示のbounds、通信・バッテリー領域、間隔から計算する。開始時は純正ビューを右端からrevealしながら320msの補間で場所を空け、終了時は純正のboundsとalphaに追従する。描画とタップは元のビューを使う。移動する親のクリップ設定、translationX、使用表示のclipBoundsを保存し、終了・OFF・消灯・detach時に復元する。steady状態で独自のフレームループは回さない。契約不一致、領域不足、タイムアウトでは純正へ戻す。
+移動幅は実測した使用表示のbounds、通信・バッテリー領域、間隔から計算する。開始時は400msで場所を空け、純正のlaunchable View全体を右から滑り込ませる。図柄を横から切り出すclipは使わず、同じ進行度から算出したalphaでフェードする。終了時は純正のboundsとalphaに追従する。描画とタップは元のビューを使う。移動する親のクリップ設定、translationX、使用表示の子ViewのtranslationX・alphaと親のクリップを保存し、終了・OFF・消灯・detach時に復元する。steady状態で独自のフレームループは回さない。契約不一致、領域不足、タイムアウトでは純正へ戻す。
 
 本機能の初期設定はOFF。Android 16の定義は変更していない。JVMでは予約領域の間隔、単調な開始、終了、非有限値、領域不足、他の非表示理由、未定義入力の拒否を試験する。実機反映後の結果を追記する。
+
+
+0.6.16では永続ドットの純正Viewも観察する。display 0のPrivacyDotViewControllerImplのinitialize/showDotViewから参照を取得し、現在のViewStateは読み取りだけに使う。位置情報だけの点や、非対応の画面には適用しない。点のImageViewを中心から+2 dp、最大1.5倍に拡大し、純正の色・可視性・alpha・contentDescription・操作を維持する。点が見えている間は4 dp以上の余白を作り、時計・通知と重なる場合は純正へ戻す。
+
+大きな使用表示と点は1個のPrivacyIconSpaceを共有し、2つの予約幅を加算せず必要な広い方だけ採用する。点のフェードalphaとともに余白を縮め、両方が終われば親クリップ・translationを復元する。点と表示の監視はネイティブ描画のpre-drawに従い、待機中に独自のフレームループは持たない。OFF・消灯・detachでも復元する。Compose stateおよびprivacyの有効状態は変更しない。

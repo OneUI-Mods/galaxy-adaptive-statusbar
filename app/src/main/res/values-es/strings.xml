@@ -88,5 +88,5 @@
   <string name="network_speed_sample">Ejemplo de velocidad de red</string>
   <string name="privacy_motion_title">Indicadores de cámara y micrófono</string>
   <string name="privacy_motion">Deslizar iconos para los indicadores</string>
-  <string name="privacy_motion_note">Android 17 / One UI 9, en vertical. Desplaza los iconos de conexión y batería a la izquierda para dejar espacio a los indicadores de cámara y micrófono. Se aplica en la próxima animación.</string>
+  <string name="privacy_motion_note">Android 17 / One UI 9, en vertical. Desplaza los iconos de la derecha para dejar espacio al indicador. Amplía ligeramente el punto persistente y deja espacio a su lado. Se aplica al siguiente indicador.</string>
 </resources>

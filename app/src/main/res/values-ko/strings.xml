@@ -88,5 +88,5 @@
   <string name="network_speed_sample">네트워크 속도 표시 예시</string>
   <string name="privacy_motion_title">카메라 및 마이크 사용 표시</string>
   <string name="privacy_motion">사용 표시에 맞춰 아이콘 이동</string>
-  <string name="privacy_motion_note">Android 17 / One UI 9 세로 화면용. 카메라 및 마이크 사용 표시가 나타날 때 연결 및 배터리 아이콘을 왼쪽으로 이동합니다. 다음 표시부터 적용됩니다.</string>
+  <string name="privacy_motion_note">Android 17 / One UI 9 세로 화면용. 사용 표시에 맞춰 오른쪽 아이콘을 이동합니다. 작은 점도 조금 확대하고 옆에 여백을 만듭니다. 다음 표시부터 적용됩니다.</string>
 </resources>

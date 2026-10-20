@@ -89,5 +89,5 @@
   <string name="network_speed_sample">Sample network speed</string>
   <string name="privacy_motion_title">Camera and microphone indicators</string>
   <string name="privacy_motion">Slide icons for privacy indicators</string>
-  <string name="privacy_motion_note">Android 17 / One UI 9, portrait. Move the connection and battery icons left to make room for camera and microphone indicators. Applies to the next indicator animation.</string>
+  <string name="privacy_motion_note">Android 17 / One UI 9, portrait. Slide the right-hand icons to make room for the indicator. Slightly enlarge the persistent dot and leave a little space beside it. Applies to the next indicator.</string>
 </resources>
