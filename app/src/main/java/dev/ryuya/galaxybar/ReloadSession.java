@@ -41,7 +41,11 @@ final class ReloadSession {
           != boolean.class) throw new NoSuchMethodException("Keyguard return type");
       owner.getDeclaredMethod("onSystemReady");
       owner.getDeclaredMethod("onStartedGoingToSleep", int.class);
-      owner.getDeclaredMethod("hideLocked");
+      owner.getDeclaredMethod("onKeyguardExitFinished", String.class);
+      owner.getDeclaredMethod("showKeyguard$1", Bundle.class);
+      owner.getDeclaredField("mKeyguardViewControllerLazy");
+      Reflect.findClass("com.android.keyguard.KeyguardViewController", loader)
+          .getDeclaredMethod("hide", long.class, long.class);
       for (String field :
           new String[] {"mShowing", "mPM", "mSelectedUserInteractor", "mUpdateMonitor"})
         owner.getDeclaredField(field);
@@ -80,12 +84,18 @@ final class ReloadSession {
                       () -> {
                         try {
                           if (!eligible()) {
-                            finish(false);
+                            finish(true);
                             return;
                           }
-                          // Use Samsung's own exit path; never alter credentials, trust, or enabled
-                          // state.
-                          Reflect.callMethod(mediator, "hideLocked");
+                          // Use the completed-exit path also used for an occluded keyguard.
+                          // The generic hide path requires a fresh authentication event on One UI.
+                          Object controller =
+                              Reflect.callMethod(
+                                  Reflect.getObjectField(mediator, "mKeyguardViewControllerLazy"),
+                                  "get");
+                          Reflect.callMethod(controller, "hide", SystemClock.uptimeMillis(), 0L);
+                          Reflect.callMethod(
+                              mediator, "onKeyguardExitFinished", "Galaxy Reload resume");
                           main.postDelayed(ReloadSession::observeCompletion, 100);
                         } catch (Throwable error) {
                           stop(error);
@@ -107,7 +117,7 @@ final class ReloadSession {
                   try {
                     // Explicit lock requests and forced authentication always keep the native path.
                     if (p.args[0] != null || !eligible()) {
-                      finish(false);
+                      finish(true);
                       return;
                     }
                     p.setResult(false);
@@ -124,7 +134,7 @@ final class ReloadSession {
               new HookCallback() {
                 @Override
                 protected void beforeHookedMethod(MethodHookParam p) {
-                  if (active) finish(false);
+                  if (active) finish(true);
                 }
               }));
       Properties support = new Properties();
@@ -189,7 +199,7 @@ final class ReloadSession {
     deadline = SystemClock.uptimeMillis() + 5000;
     active = true;
     if (!eligible()) {
-      finish(false);
+      finish(true);
       return;
     }
     Properties result = candidate.properties();
@@ -267,7 +277,7 @@ final class ReloadSession {
       main.post(
           () -> {
             try {
-              Reflect.callMethod(owner, "doKeyguardLocked", null, true, true);
+              Reflect.callMethod(owner, "showKeyguard$1", (Object) null);
             } catch (Throwable error) {
               Hooks.log(error);
             }
