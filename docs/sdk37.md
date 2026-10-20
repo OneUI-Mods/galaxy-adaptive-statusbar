@@ -8,4 +8,4 @@ compileSdkとtargetSdkを37へ更新しました。ビルド環境はJDK 21、AG
 
 検証済み：JVM試験102件、release Lint（error/fatalなし）、releaseビルド。
 
-AGP 9の組み込みKotlinによるstdlib 2.2.10の解決と、独立したstdlib-commonの除去を反映し、APKのライセンス一覧・通知を実依存へ合わせました。Maven POMのApache 2.0表記を照合しています。
+AGP 9の組み込みKotlinによるstdlib 2.2.10の解決と、独立したstdlib-commonの除去を反映し、APKのライセンス一覧・通知を実依存へ合わせました。JetBrainsのv2.2.10タグでライセンスを照合し、JVM stdlibの派生コードを含むApache・BSD・Boostの通知と本文を収録しました。
