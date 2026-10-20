@@ -116,9 +116,21 @@ final class Engine {
       int end,
       String text,
       String key,
-      BatteryAdapter.Geometry battery) {
+      BatteryAdapter.Geometry battery,
+      ComposeBatteryAdapter.Geometry composeBattery) {
     Target(View view, Rect area, int start, int end, String text, String key) {
-      this(view, area, start, end, text, key, null);
+      this(view, area, start, end, text, key, null, null);
+    }
+
+    Target(
+        View view,
+        Rect area,
+        int start,
+        int end,
+        String text,
+        String key,
+        BatteryAdapter.Geometry battery) {
+      this(view, area, start, end, text, key, battery, null);
     }
   }
 
@@ -211,7 +223,8 @@ final class Engine {
             && (!originals.isEmpty()
                 || !texts.isEmpty()
                 || !modern.isEmpty()
-                || !batteries.isEmpty())) {
+                || !batteries.isEmpty()
+                || ComposeBatteryAdapter.applied())) {
           epoch++;
           restore("capture ineligible");
         }
@@ -232,10 +245,19 @@ final class Engine {
                         target.end,
                         target.text,
                         target.key,
-                        target.battery));
+                        target.battery,
+                        target.composeBattery));
             }
             targets = mapped;
           } else collect(root, targets);
+          if (config.getBoolean("battery", true)) {
+            ComposeBatteryAdapter.Geometry battery = ComposeBatteryAdapter.geometry();
+            if (battery != null) {
+              Rect area = sampleWindow ? motion.mappedArea(battery.area()) : battery.area();
+              if (Rect.intersects(area, crop))
+                targets.add(new Target(root, area, -1, -1, "", "compose-battery", null, battery));
+            }
+          }
           Object vr = Reflect.callMethod(root, "getViewRootImpl");
           SurfaceControl surface = (SurfaceControl) Reflect.callMethod(vr, "getSurfaceControl");
           SurfaceControl movingSurface = moving ? motion.overlaySurface() : null;
@@ -427,19 +449,29 @@ final class Engine {
               color = t.start % 2 == 0 ? Color.WHITE : Color.BLACK;
             previous.put(t.key, color);
             colors[i] = color;
-            if (t.battery != null) {
+            if (t.battery != null || t.composeBattery != null) {
               String percentKey = t.key + ":percentage";
               liveKeys.add(percentKey);
               percentageColors[i] =
-                  BatteryAdapter.percentageColor(
-                      bmp,
-                      crop,
-                      t.area,
-                      t.battery,
-                      color,
-                      previous.getOrDefault(percentKey, 0),
-                      settings.getString("algorithm", "robust"),
-                      settings.getDouble("hysteresis", .15));
+                  t.composeBattery != null
+                      ? ComposeBatteryAdapter.percentageColor(
+                          bmp,
+                          crop,
+                          t.area,
+                          t.composeBattery,
+                          color,
+                          previous.getOrDefault(percentKey, 0),
+                          settings.getString("algorithm", "robust"),
+                          settings.getDouble("hysteresis", .15))
+                      : BatteryAdapter.percentageColor(
+                          bmp,
+                          crop,
+                          t.area,
+                          t.battery,
+                          color,
+                          previous.getOrDefault(percentKey, 0),
+                          settings.getString("algorithm", "robust"),
+                          settings.getDouble("hysteresis", .15));
               previous.put(percentKey, percentageColors[i]);
               if (settings.getBoolean("debug"))
                 details
@@ -556,6 +588,7 @@ final class Engine {
               + String.format(Locale.US, "%.1f", frames * 1000.0 / Math.max(1, now - started))
               + " Hz\nBattery: "
               + BatteryAdapter.health()
+              + ComposeBatteryAdapter.health()
               + "\nFade: "
               + config.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS)
               + " ms"
@@ -737,7 +770,8 @@ final class Engine {
     for (int i = 0; i < targets.size(); i++) {
       Target target = targets.get(i);
       retarget(target.key, colors[i], now, live);
-      if (target.battery != null) retarget(target.key + ":percentage", percentages[i], now, live);
+      if (target.battery != null || target.composeBattery != null)
+        retarget(target.key + ":percentage", percentages[i], now, live);
     }
     fades.keySet().retainAll(live);
     fadeTargets = targets;
@@ -786,7 +820,7 @@ final class Engine {
         if (!animate) body.finish();
         fadeColors[i] = body.color(now);
         running |= body.running(now);
-        if (target.battery != null) {
+        if (target.battery != null || target.composeBattery != null) {
           ColorFade percentage = fades.get(target.key + ":percentage");
           if (!animate) percentage.finish();
           fadePercentages[i] = percentage.color(now);
@@ -813,10 +847,14 @@ final class Engine {
       Set<ImageView> live = Collections.newSetFromMap(new IdentityHashMap<>());
       Set<View> liveModern = Collections.newSetFromMap(new IdentityHashMap<>());
       Set<Drawable> liveBattery = Collections.newSetFromMap(new IdentityHashMap<>());
+      boolean liveComposeBattery = false;
       for (int i = 0; i < targets.size(); i++) {
         Target t = targets.get(i);
         if (!t.view.isAttachedToWindow()) continue;
-        if (t.battery != null) {
+        if (t.composeBattery != null) {
+          liveComposeBattery = true;
+          ComposeBatteryAdapter.apply(t.composeBattery, colors[i], percentageColors[i]);
+        } else if (t.battery != null) {
           if (((ImageView) t.view).getDrawable() == t.battery.drawable()) {
             liveBattery.add(t.battery.drawable());
             batteries.add(t.battery.drawable());
@@ -856,6 +894,7 @@ final class Engine {
           it.remove();
         }
       }
+      if (!liveComposeBattery && ComposeBatteryAdapter.applied()) ComposeBatteryAdapter.restore();
       for (Iterator<Drawable> it = batteries.iterator(); it.hasNext(); ) {
         Drawable drawable = it.next();
         if (!liveBattery.contains(drawable)) {
@@ -933,6 +972,7 @@ final class Engine {
       for (View view : modern) ModernTintAdapter.restore(view);
       modern.clear();
       for (Drawable drawable : batteries) BatteryAdapter.restore(drawable);
+      ComposeBatteryAdapter.restore();
       batteries.clear();
       for (TextView t : texts) clear(t);
       texts.clear();

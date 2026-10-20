@@ -99,6 +99,7 @@ public final class HookEntry extends XposedModule {
   }
 
   private static void installHooks(ClassLoader loader) throws Throwable {
+    ComposeBatteryAdapter.installDiscovery(loader);
     Class<?> clock =
         Reflect.findClass("com.android.systemui.statusbar.policy.QSClockIndicatorView", loader);
     HookRegistry.lifecycle(
@@ -132,6 +133,7 @@ public final class HookEntry extends XposedModule {
     if (protection != null) protection.arm();
     ModernTintAdapter.install(systemLoader);
     BatteryAdapter.install(systemLoader);
+    ComposeBatteryAdapter.installColors();
     HookRegistry.hook(
         ImageView.class,
         "setColorFilter",
@@ -157,6 +159,7 @@ public final class HookEntry extends XposedModule {
 
   static void disableColors() {
     boolean hadHooks = HookRegistry.colorCount() != 0;
+    ComposeBatteryAdapter.restore();
     HookRegistry.clearColors();
     ModernTintAdapter.reset();
     BatteryAdapter.reset();
