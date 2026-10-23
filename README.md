@@ -6,7 +6,7 @@ Galaxy One UIの時計を文字ごとに、通知・通信表示をアイコン�
 
 **0.5.3は実験版です。** SM-S948Q / Android 16 / One UI 8.5の縦画面を対象に、One UIホームでのアプリ開閉と履歴への追従に対応します。アプリが縮小したときにバー全体が完全にフェードアウトし、途中で広げ直すと自然に戻るよう改善しました。開閉後のちらつきと保護画面後の復帰にも対応します。追従中も時計の文字別・アイコン別・電池の自動配色を継続します。現在のHome Up設定で確認していますが、すべてのアニメーション設定や履歴カードに対応するものではありません。横画面、長時間負荷、One UI 9は未検証です。
 
-GitHub: https://github.com/ryuya0124/galaxy-adaptive-statusbar （非公開）
+GitHub: https://github.com/ryuya0124/galaxy-adaptive-statusbar
 
 ## 対応環境
 
