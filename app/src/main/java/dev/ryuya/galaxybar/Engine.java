@@ -444,11 +444,10 @@ final class Engine {
           int[] colors = new int[targets.size()];
           int[] percentageColors = new int[targets.size()];
           StringBuilder details = new StringBuilder();
-          Set<String> liveKeys = new HashSet<>();
+          Map<String, Integer> nextPrevious = new HashMap<>();
           for (int i = 0; i < targets.size(); i++) {
             Target t = targets.get(i);
-            liveKeys.add(t.key);
-            double[] values = samples(bmp, t.area, crop);
+            double[] values = samples(framePixels, bmp.getWidth(), bmp.getHeight(), t.area, crop);
             int color =
                 Contrast.choose(
                     values,
@@ -457,11 +456,10 @@ final class Engine {
                     settings.getDouble("hysteresis", .15));
             if (settings.getBoolean("fixed") && t.start >= 0 && isClock(t.view))
               color = t.start % 2 == 0 ? Color.WHITE : Color.BLACK;
-            previous.put(t.key, color);
+            nextPrevious.put(t.key, color);
             colors[i] = color;
             if (t.hasBattery()) {
               String percentKey = t.key + ":percentage";
-              liveKeys.add(percentKey);
               percentageColors[i] =
                   t.nativeBattery != null
                       ? NativeBatteryView.percentageColor(
@@ -482,7 +480,7 @@ final class Engine {
                           previous.getOrDefault(percentKey, 0),
                           settings.getString("algorithm", "robust"),
                           settings.getDouble("hysteresis", .15));
-              previous.put(percentKey, percentageColors[i]);
+              nextPrevious.put(percentKey, percentageColors[i]);
               if (settings.getBoolean("debug"))
                 details
                     .append(percentKey)
@@ -499,7 +497,8 @@ final class Engine {
                   .append('\n');
             }
           }
-          previous.keySet().retainAll(liveKeys);
+          previous.clear();
+          previous.putAll(nextPrevious);
           lastMs = (SystemClock.elapsedRealtimeNanos() - start) / 1e6;
           frames++;
           errors = 0;
@@ -564,14 +563,25 @@ final class Engine {
                 restore("protected content");
               }
             });
+      } else if (t instanceof BackgroundSamples.Unavailable) {
+        errors = 0;
+        unchangedFrames = 0;
+        state = "Waiting for an opaque background; standard status bar";
+        main.post(
+            () -> {
+              if (!closed && epoch == generation) restore("background not yet opaque");
+            });
       } else if (t instanceof LayerCapture.UnavailableException) {
+        errors = 0;
         state = "Capture temporarily unavailable (secure, protected, or surface transition)";
         main.post(
             () -> {
               if (!closed && epoch == generation) restore("capture unavailable");
             });
       } else main.post(() -> fail(t));
-      if (capture != null && !(t instanceof LayerCapture.UnavailableException)) {
+      if (capture != null
+          && !(t instanceof LayerCapture.UnavailableException)
+          && !(t instanceof BackgroundSamples.Unavailable)) {
         capture.close();
         capture = null;
       }
@@ -616,24 +626,13 @@ final class Engine {
     }
   }
 
-  private static double[] samples(Bitmap b, Rect area, Rect crop) {
+  private static double[] samples(int[] pixels, int width, int height, Rect area, Rect crop) {
     Rect r = new Rect(area);
     if (!r.intersect(crop)) throw new IllegalStateException("Target outside crop");
     int x0 = Math.max(0, (r.left - crop.left) / 2), y0 = Math.max(0, (r.top - crop.top) / 2);
-    int x1 = Math.min(b.getWidth(), (r.right - crop.left + 1) / 2),
-        y1 = Math.min(b.getHeight(), (r.bottom - crop.top + 1) / 2);
-    double[] a = new double[Math.max(1, (x1 - x0) * (y1 - y0))];
-    int n = 0;
-    int step = Math.max(1, (int) Math.sqrt(a.length / 256.0));
-    for (int y = y0; y < y1; y += step)
-      for (int x = x0; x < x1; x += step) {
-        int p = b.getPixel(x, y);
-        if (Color.alpha(p) < 250)
-          throw new IllegalStateException("Undefined/transparent background");
-        a[n++] = Contrast.luminance(p);
-      }
-    if (n == 0) throw new IllegalStateException("Empty background");
-    return Arrays.copyOf(a, n);
+    int x1 = Math.min(width, (r.right - crop.left + 1) / 2),
+        y1 = Math.min(height, (r.bottom - crop.top + 1) / 2);
+    return BackgroundSamples.read(pixels, width, height, x0, y0, x1, y1);
   }
 
   private void collect(View view, List<Target> out) {
