@@ -138,6 +138,7 @@ internal object ChargingMotion {
                             if (session?.chip === owner && session?.icons === icons) return
                             val battery = meter!!.invoke(owner) as? View ?: return
                             val growing = background!!.get(owner) as? View ?: return
+                            if (icons.width <= 0 || battery.width <= 0) return
                             if (
                                 icons.display?.displayId != 0 ||
                                     icons.layoutDirection != View.LAYOUT_DIRECTION_LTR
@@ -222,8 +223,7 @@ internal object ChargingMotion {
         private var initialIconsRight = 0f
 
         fun start() {
-            icons.getLocationOnScreen(position)
-            initialIconsRight = position[0] + icons.width.toFloat()
+            initialIconsRight = screenBounds(icons).right
             for (speed in observedSpeeds) addSpeed(speed)
             for (speed in NetworkSpeedTintAdapter.nativeContainers()) collectCompanions(speed)
             collectCompanions(icons.rootView)
@@ -241,20 +241,16 @@ internal object ChargingMotion {
             }
             try {
                 if (growing.width <= 0 || icons.width <= 0) return true
-                matrix.reset()
-                growing.transformMatrixToGlobal(matrix)
-                area.set(0f, 0f, growing.width.toFloat(), growing.height.toFloat())
-                matrix.mapRect(area)
-                icons.getLocationOnScreen(position)
+                val expandedLeft = screenBounds(growing).left
                 // Remove only our local delta. Parent movement (including the privacy chip)
                 // remains in screen space, so simultaneous reservations do not add twice.
-                val baselineRight = position[0] + icons.width - (appliedX - originalX)
-                battery.getLocationOnScreen(position)
+                val baselineRight = screenBounds(icons).right - (appliedX - originalX)
+                val batteryLeft = screenBounds(battery).left
                 val shift =
                     ChargingMotionGeometry.shift(
                         baselineRight,
-                        position[0].toFloat(),
-                        area.left,
+                        batteryLeft,
+                        expandedLeft,
                         gap,
                         growing.alpha * chip.alpha,
                     )
@@ -284,6 +280,14 @@ internal object ChargingMotion {
             return true
         }
 
+        private fun screenBounds(view: View): RectF {
+            matrix.reset()
+            view.transformMatrixToGlobal(matrix)
+            area.set(0f, 0f, view.width.toFloat(), view.height.toFloat())
+            matrix.mapRect(area)
+            return area
+        }
+
         private fun collectCompanions(view: View?) {
             if (view == null || view === icons) return
             var ancestor = view.parent
@@ -307,7 +311,7 @@ internal object ChargingMotion {
             battery.getLocationOnScreen(position)
             if (abs(at[1] - position[1]) < battery.height) {
                 val inheritedShift = if (contains(icons, view)) appliedX - originalX else 0f
-                companions.add(CompanionView(view, at[0] + view.width - inheritedShift))
+                companions.add(CompanionView(view, screenBounds(view).right - inheritedShift))
             }
         }
 
@@ -324,11 +328,15 @@ internal object ChargingMotion {
             private val original = view.translationX
             private var applied = original
             private val clipping = IconClipping.acquire(view, root.get())
-            private val position = IntArray(2)
+            private val matrix = Matrix()
+            private val area = RectF()
 
             fun move(shift: Float, parentShift: Float) {
-                view.getLocationOnScreen(position)
-                val baselineRight = position[0] + view.width - (applied - original)
+                matrix.reset()
+                view.transformMatrixToGlobal(matrix)
+                area.set(0f, 0f, view.width.toFloat(), view.height.toFloat())
+                matrix.mapRect(area)
+                val baselineRight = area.right - (applied - original)
                 val next = original + initialRight + parentShift + shift - baselineRight
                 if (abs(next - applied) > 0.01f) {
                     applied = next
