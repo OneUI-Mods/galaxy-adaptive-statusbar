@@ -7,6 +7,7 @@ import android.os.Handler
 import android.os.Looper
 import android.view.View
 import android.view.View.OnAttachStateChangeListener
+import android.view.ViewGroup
 import android.view.ViewTreeObserver.OnPreDrawListener
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
@@ -134,7 +135,9 @@ internal object ChargingMotion {
                             )
                                 return
                             cancel()
-                            session = Session(owner, icons, battery, growing).also { it.start() }
+                            val next = Session(owner, icons, battery, growing)
+                            session = next
+                            next.start()
                             state = "following native battery"
                         } catch (error: Throwable) {
                             fail(error)
@@ -199,6 +202,8 @@ internal object ChargingMotion {
         OnPreDrawListener, OnAttachStateChangeListener {
         private val originalX = icons.translationX
         private var appliedX = originalX
+        private val clipping = IconClipping.acquire(icons, root.get())
+        private val companions = ArrayList<CompanionView>()
         private val matrix = Matrix()
         private val area = RectF()
         private val position = IntArray(2)
@@ -207,6 +212,7 @@ internal object ChargingMotion {
         private val timeout = Runnable { if (session === this) cancel() }
 
         fun start() {
+            collectCompanions(root.get())
             chip.viewTreeObserver.addOnPreDrawListener(this)
             chip.addOnAttachStateChangeListener(this)
             main.postDelayed(timeout, 15000)
@@ -241,12 +247,45 @@ internal object ChargingMotion {
                 if (abs(next - appliedX) > 0.01f) {
                     appliedX = next
                     icons.translationX = next
+                    for (companion in companions) companion.move(shift)
                 }
                 maxShift = maxOf(maxShift, -shift)
             } catch (error: Throwable) {
                 fail(error)
             }
             return true
+        }
+
+        private fun collectCompanions(view: View?) {
+            if (view == null || view === icons) return
+            if (
+                view.javaClass.name == "com.android.systemui.statusbar.policy.NetspeedView" &&
+                    view.isShown
+            ) {
+                val at = IntArray(2)
+                view.getLocationOnScreen(at)
+                battery.getLocationOnScreen(position)
+                if (abs(at[1] - position[1]) < battery.height) companions.add(CompanionView(view))
+                return
+            }
+            if (view is ViewGroup)
+                for (i in 0 until view.childCount) collectCompanions(view.getChildAt(i))
+        }
+
+        private class CompanionView(val view: View) : AutoCloseable {
+            private val original = view.translationX
+            private var applied = original
+            private val clipping = IconClipping.acquire(view, root.get())
+
+            fun move(shift: Float) {
+                applied = original + shift
+                view.translationX = applied
+            }
+
+            override fun close() {
+                if (abs(view.translationX - applied) < 0.01f) view.translationX = original
+                clipping.close()
+            }
         }
 
         override fun onViewAttachedToWindow(v: View) {}
@@ -262,6 +301,9 @@ internal object ChargingMotion {
             if (chip.viewTreeObserver.isAlive) chip.viewTreeObserver.removeOnPreDrawListener(this)
             chip.removeOnAttachStateChangeListener(this)
             if (abs(icons.translationX - appliedX) < 0.01f) icons.translationX = originalX
+            for (companion in companions) companion.close()
+            companions.clear()
+            clipping.close()
             completed++
         }
     }
