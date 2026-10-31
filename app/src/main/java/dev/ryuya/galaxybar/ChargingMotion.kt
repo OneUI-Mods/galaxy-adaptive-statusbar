@@ -219,8 +219,11 @@ internal object ChargingMotion {
         private val gap = 4f * icons.resources.displayMetrics.density
         private var closed = false
         private val timeout = Runnable { if (session === this) cancel() }
+        private var initialIconsRight = 0f
 
         fun start() {
+            icons.getLocationOnScreen(position)
+            initialIconsRight = position[0] + icons.width.toFloat()
             for (speed in observedSpeeds) addSpeed(speed)
             for (speed in NetworkSpeedTintAdapter.nativeContainers()) collectCompanions(speed)
             collectCompanions(icons.rootView)
@@ -269,7 +272,10 @@ internal object ChargingMotion {
                     collectCompanions(icons.rootView)
                     if (root.get() !== icons.rootView) collectCompanions(root.get())
                 }
-                for (companion in companions) companion.move(shift)
+                for (companion in companions) companion.move(
+                    shift,
+                    baselineRight - initialIconsRight,
+                )
                 speedViews = companions.size
                 maxShift = maxOf(maxShift, -shift)
             } catch (error: Throwable) {
@@ -294,12 +300,15 @@ internal object ChargingMotion {
         }
 
         private fun addSpeed(view: View) {
-            if (view.width <= 0 || view.height <= 0 || contains(icons, view)) return
+            if (view.width <= 0 || view.height <= 0) return
             if (companions.any { contains(it.view, view) || contains(view, it.view) }) return
             val at = IntArray(2)
             view.getLocationOnScreen(at)
             battery.getLocationOnScreen(position)
-            if (abs(at[1] - position[1]) < battery.height) companions.add(CompanionView(view))
+            if (abs(at[1] - position[1]) < battery.height) {
+                val inheritedShift = if (contains(icons, view)) appliedX - originalX else 0f
+                companions.add(CompanionView(view, at[0] + view.width - inheritedShift))
+            }
         }
 
         private fun contains(owner: View, child: View): Boolean {
@@ -311,13 +320,16 @@ internal object ChargingMotion {
             return false
         }
 
-        private class CompanionView(val view: View) : AutoCloseable {
+        private class CompanionView(val view: View, val initialRight: Float) : AutoCloseable {
             private val original = view.translationX
             private var applied = original
             private val clipping = IconClipping.acquire(view, root.get())
+            private val position = IntArray(2)
 
-            fun move(shift: Float) {
-                val next = original + shift
+            fun move(shift: Float, parentShift: Float) {
+                view.getLocationOnScreen(position)
+                val baselineRight = position[0] + view.width - (applied - original)
+                val next = original + initialRight + parentShift + shift - baselineRight
                 if (abs(next - applied) > 0.01f) {
                     applied = next
                     view.translationX = applied
