@@ -38,6 +38,11 @@ internal object ChargingMotion {
     private var preparations = 0
     private var preparation = "none"
     private val observedSpeeds = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
+    private var observedBattery = WeakReference<View>(null)
+
+    fun observeBattery(view: View) {
+        observedBattery = WeakReference(view)
+    }
 
     fun observeSpeed(view: View) {
         observedSpeeds.add(view)
@@ -142,7 +147,11 @@ internal object ChargingMotion {
                             val owner = p.thisObject as? View ?: return
                             if (session?.chip === owner && session?.icons === icons) return
                             preparation = "battery"
-                            val battery = meter!!.invoke(owner) as? View ?: return
+                            val nativeBattery = meter!!.invoke(owner) as? View ?: return
+                            // One UI 9 can retain the legacy BatteryMeterView at width zero while
+                            // drawing its dedicated Compose sibling. Use the visible anchor only;
+                            // Samsung still owns the legacy view's alpha animation.
+                            val battery = batteryAnchor(nativeBattery) ?: return
                             preparation = "background"
                             val growing = background!!.get(owner) as? View ?: return
                             preparation = "layout:${icons.width}/${battery.width}"
@@ -204,6 +213,24 @@ internal object ChargingMotion {
         session?.close()
         session = null
         state = if (enabled) "ready" else "off"
+    }
+
+    private fun batteryAnchor(native: View): View? {
+        if (native.width > 0 && native.isAttachedToWindow) return native
+        val observed = observedBattery.get()
+        if (observed != null && observed.width > 0 && observed.rootView === root.get())
+            return observed
+        fun find(view: View): View? {
+            if (view.width > 0 && NativeBatteryView.supports(view)) return view
+            if (view is ViewGroup)
+                for (i in 0 until view.childCount) {
+                    find(view.getChildAt(i))?.let {
+                        return it
+                    }
+                }
+            return null
+        }
+        return root.get()?.let(::find)
     }
 
     fun reset() {

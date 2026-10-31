@@ -811,6 +811,7 @@ class Engine(root: View) {
         val id = Engine.id(view)
         if (StatusBarElements.isCompoundIndicator(name, id!!)) return
         if (NativeBatteryView.supports(view)) {
+            ChargingMotion.observeBattery(view)
             val area = Rect()
             val geometry = NativeBatteryView.geometry(view)
             if (
