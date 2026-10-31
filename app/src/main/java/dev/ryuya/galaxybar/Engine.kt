@@ -876,7 +876,11 @@ class Engine(root: View) {
         )
             return
 
-        if (view is TextView && view.getLayout() != null && !view.getText().toString().isBlank()) {
+        if (
+            view is TextView &&
+                view.getLayout() != null &&
+                !TextCompatibility.isBlank(view.getText().toString())
+        ) {
             val clock = Engine.isClock(view)
             val battery = Engine.ancestor(view, "battery")
             if (
@@ -920,7 +924,7 @@ class Engine(root: View) {
                 start = 0
                 end = value.length
             }
-            if (value.substring(start, end).isBlank()) {
+            if (TextCompatibility.isBlank(value.substring(start, end))) {
                 if (!characters) break
                 start = end
                 end = iterator.next()
