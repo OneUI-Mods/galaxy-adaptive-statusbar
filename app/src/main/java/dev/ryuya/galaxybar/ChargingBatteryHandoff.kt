@@ -19,6 +19,9 @@ internal class ChargingBatteryHandoff(private val battery: View, private val lab
     private val matrix = Matrix()
     private val bounds = RectF()
     private val matrixValues = FloatArray(9)
+    private var alignedFrames = 0
+
+    fun status() = "${battery.javaClass.simpleName}; aligned=$alignedFrames"
 
     fun normalBounds(): Rect? {
         val shape = NativeBatteryView.geometry(battery)?.shape ?: return null
@@ -73,6 +76,7 @@ internal class ChargingBatteryHandoff(private val battery: View, private val lab
             originalLabelX +
                 (targetCenter - bounds.centerX()) / scale * ChargingBatteryBlend.motion(progress)
         text.translationX = appliedLabelX
+        alignedFrames++
     }
 
     override fun close() {

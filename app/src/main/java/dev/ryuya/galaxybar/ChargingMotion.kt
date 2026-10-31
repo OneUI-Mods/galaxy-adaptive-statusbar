@@ -41,6 +41,7 @@ internal object ChargingMotion {
     private var speedViews = 0
     private var preparations = 0
     private var preparation = "none"
+    private var lastBatteryHandoff = "none"
     private val observedSpeeds = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
     private var observedBattery = WeakReference<View>(null)
 
@@ -71,7 +72,7 @@ internal object ChargingMotion {
     fun isEnabled() = enabled
 
     fun status() =
-        "$state; completed=$completed; maxShift=$maxShift; speedViews=$speedViews; observed=${observedSpeeds.size}; prepared=$preparations/$preparation"
+        "$state; completed=$completed; maxShift=$maxShift; speedViews=$speedViews; observed=${observedSpeeds.size}; prepared=$preparations/$preparation; battery=${session?.batteryStatus() ?: lastBatteryHandoff}"
 
     fun install(loader: ClassLoader?) {
         if (Build.VERSION.SDK_INT != 37 || installed) return
@@ -320,10 +321,15 @@ internal object ChargingMotion {
     }
 
     private fun batteryAnchor(native: View): View? {
-        if (native.width > 0 && native.isAttachedToWindow) return native
         val observed = observedBattery.get()
-        if (observed != null && observed.width > 0 && observed.rootView === root.get())
+        if (
+            observed != null &&
+                observed.width > 0 &&
+                observed.isShown &&
+                observed.rootView === root.get()
+        )
             return observed
+        if (native.width > 0 && native.isShown && native.isAttachedToWindow) return native
         fun find(view: View): View? {
             if (view.width > 0 && NativeBatteryView.supports(view)) return view
             if (view is ViewGroup)
@@ -382,6 +388,8 @@ internal object ChargingMotion {
             else (batteryReturnDeadline - SystemClock.uptimeMillis()).coerceIn(0L, 450L)
 
         fun normalBatteryBounds() = batteryHandoff.normalBounds()
+
+        fun batteryStatus() = batteryHandoff.status()
 
         fun batteryAlpha(entering: Boolean, fraction: Float) =
             batteryHandoff.apply(entering, fraction)
@@ -558,6 +566,7 @@ internal object ChargingMotion {
         fun close() {
             if (closed) return
             closed = true
+            lastBatteryHandoff = batteryHandoff.status()
             batteryHandoff.close()
             main.removeCallbacks(timeout)
             frames.removeFrameCallback(this)
