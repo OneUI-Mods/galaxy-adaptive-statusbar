@@ -5,6 +5,7 @@ import android.graphics.RectF
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.view.Choreographer
 import android.view.View
 import android.view.View.OnAttachStateChangeListener
 import android.view.ViewGroup
@@ -195,8 +196,10 @@ internal object ChargingMotion {
                 chip,
                 "resetSystemIconState",
                 object : HookCallback() {
-                    override fun beforeHookedMethod(p: MethodHookParam) {
-                        if (session?.chip === p.thisObject) cancel()
+                    override fun afterHookedMethod(p: MethodHookParam) {
+                        // Native reset writes translationX=0. Restore our last displayed position
+                        // before the next draw, then animate home instead of snapping to it.
+                        if (session?.chip === p.thisObject) session?.finish()
                     }
                 },
             )
@@ -247,7 +250,7 @@ internal object ChargingMotion {
     }
 
     private class Session(val chip: View, val icons: View, val battery: View, val growing: View) :
-        OnPreDrawListener, OnAttachStateChangeListener {
+        OnPreDrawListener, OnAttachStateChangeListener, Choreographer.FrameCallback {
         private val originalX = icons.translationX
         private var appliedX = originalX
         private val clipping = IconClipping.acquire(icons, root.get())
@@ -259,6 +262,11 @@ internal object ChargingMotion {
         private var closed = false
         private val timeout = Runnable { if (session === this) cancel() }
         private var initialIconsRight = 0f
+        private val frames = Choreographer.getInstance()
+        private val spring = ChargingMotionSpring()
+        private var targetShift = 0f
+        private var frameTime = 0L
+        private var finishing = false
 
         fun start() {
             initialIconsRight = screenBounds(icons).right
@@ -268,13 +276,18 @@ internal object ChargingMotion {
             if (root.get() !== icons.rootView) collectCompanions(root.get())
             chip.viewTreeObserver.addOnPreDrawListener(this)
             chip.addOnAttachStateChangeListener(this)
+            frames.postFrameCallback(this)
             main.postDelayed(timeout, 15000)
         }
 
         override fun onPreDraw(): Boolean {
             if (closed) return true
-            if (!enabled || !chip.isAttachedToWindow || !chip.isShown) {
+            if (!enabled) {
                 if (session === this) cancel()
+                return true
+            }
+            if (!chip.isAttachedToWindow || !chip.isShown) {
+                finish()
                 return true
             }
             try {
@@ -284,7 +297,7 @@ internal object ChargingMotion {
                 // remains in screen space, so simultaneous reservations do not add twice.
                 val baselineRight = screenBounds(icons).right - (appliedX - originalX)
                 val batteryLeft = screenBounds(battery).left
-                val shift =
+                targetShift =
                     ChargingMotionGeometry.shift(
                         baselineRight,
                         batteryLeft,
@@ -292,11 +305,6 @@ internal object ChargingMotion {
                         gap,
                         growing.alpha * chip.alpha,
                     )
-                val next = originalX + shift
-                if (abs(next - appliedX) > 0.01f) {
-                    appliedX = next
-                    icons.translationX = next
-                }
                 // The native speed view may become visible after the animator was prepared.
                 if (companions.isEmpty()) {
                     for (speed in observedSpeeds) addSpeed(speed)
@@ -306,16 +314,49 @@ internal object ChargingMotion {
                     collectCompanions(icons.rootView)
                     if (root.get() !== icons.rootView) collectCompanions(root.get())
                 }
-                for (companion in companions) companion.move(
-                    shift,
-                    baselineRight - initialIconsRight,
-                )
                 speedViews = companions.size
-                maxShift = maxOf(maxShift, -shift)
             } catch (error: Throwable) {
                 fail(error)
             }
             return true
+        }
+
+        override fun doFrame(frameTimeNanos: Long) {
+            if (closed) return
+            if (!enabled || !icons.isAttachedToWindow) {
+                if (session === this) cancel()
+                return
+            }
+            try {
+                val elapsed = if (frameTime == 0L) 0f else (frameTimeNanos - frameTime) / 1e9f
+                frameTime = frameTimeNanos
+                val shift = spring.step(targetShift, elapsed)
+                val baselineRight = screenBounds(icons).right - (appliedX - originalX)
+                appliedX = originalX + shift
+                icons.translationX = appliedX
+                for (companion in companions) companion.move(
+                    shift,
+                    baselineRight - initialIconsRight,
+                )
+                maxShift = maxOf(maxShift, -shift)
+                if (finishing && spring.isSettled(0f)) {
+                    if (session === this) cancel()
+                    return
+                }
+                frames.postFrameCallback(this)
+            } catch (error: Throwable) {
+                fail(error)
+            }
+        }
+
+        fun finish() {
+            if (closed) return
+            icons.translationX = appliedX
+            if (finishing) return
+            finishing = true
+            targetShift = 0f
+            if (chip.viewTreeObserver.isAlive) chip.viewTreeObserver.removeOnPreDrawListener(this)
+            state = "returning icons"
         }
 
         private fun screenBounds(view: View): RectF {
@@ -391,13 +432,14 @@ internal object ChargingMotion {
         override fun onViewAttachedToWindow(v: View) {}
 
         override fun onViewDetachedFromWindow(v: View) {
-            if (session === this) cancel()
+            finish()
         }
 
         fun close() {
             if (closed) return
             closed = true
             main.removeCallbacks(timeout)
+            frames.removeFrameCallback(this)
             if (chip.viewTreeObserver.isAlive) chip.viewTreeObserver.removeOnPreDrawListener(this)
             chip.removeOnAttachStateChangeListener(this)
             if (abs(icons.translationX - appliedX) < 0.01f) icons.translationX = originalX
