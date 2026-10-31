@@ -127,21 +127,16 @@ class CrashLoopState {
             state.cause = p.getProperty("cause", "")
             state.lastStopCause = p.getProperty("last_stop_cause", "")
             state.lastStopAt = p.getProperty("last_stop_at", "0").toLong()
-            for (entry in
-                p.getProperty("launches", "")
-                    .split(";".toRegex())
-                    .dropLastWhile { it.isEmpty() }
-                    .toTypedArray()) {
+            for (entry in TextCompatibility.split(p.getProperty("launches", ""), ";")) {
                 if (entry.isEmpty()) continue
-                val pair = entry.split(":".toRegex()).dropLastWhile { it.isEmpty() }.toTypedArray()
+                val pair = TextCompatibility.split(entry, ":")
                 require(pair.size == 2) { "Guard launch" }
                 state.launches.put(pair[0].toInt(), pair[1].toLong())
             }
-            for (time in
-                p.getProperty("crashes", "")
-                    .split(";".toRegex())
-                    .dropLastWhile { it.isEmpty() }
-                    .toTypedArray()) if (!time.isEmpty()) state.crashes.add(time.toLong())
+            for (time in TextCompatibility.split(p.getProperty("crashes", ""), ";")) if (
+                !time.isEmpty()
+            )
+                state.crashes.add(time.toLong())
             require(!(state.launches.size > 8 || state.crashes.size > 32)) { "Guard bounds" }
             return state
         }
