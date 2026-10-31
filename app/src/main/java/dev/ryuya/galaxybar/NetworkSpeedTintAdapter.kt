@@ -26,6 +26,11 @@ object NetworkSpeedTintAdapter {
         WeakHashMap<TextView?, NetworkSpeedTintAdapter.Spacing?>()
     private var spacingDp: Int = 0
 
+    internal fun nativeContainers(): List<View> =
+        applied.keys
+            .mapNotNull { text -> text?.parent as? View }
+            .filter { it.javaClass.name == OWNER }
+
     @JvmStatic
     fun setSpacing(value: Int) {
         val next = NetworkSpeedSpacing.clamp(value)

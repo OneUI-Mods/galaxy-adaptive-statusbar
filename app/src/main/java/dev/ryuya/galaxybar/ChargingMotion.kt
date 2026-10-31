@@ -32,6 +32,7 @@ internal object ChargingMotion {
     private var state = "off"
     private var completed = 0
     private var maxShift = 0f
+    private var speedViews = 0
 
     fun attach(view: View) {
         if (root.get() !== view) {
@@ -51,7 +52,7 @@ internal object ChargingMotion {
 
     fun isEnabled() = enabled
 
-    fun status() = "$state; completed=$completed; maxShift=$maxShift"
+    fun status() = "$state; completed=$completed; maxShift=$maxShift; speedViews=$speedViews"
 
     fun install(loader: ClassLoader?) {
         if (Build.VERSION.SDK_INT != 37 || installed) return
@@ -212,7 +213,9 @@ internal object ChargingMotion {
         private val timeout = Runnable { if (session === this) cancel() }
 
         fun start() {
-            collectCompanions(root.get())
+            for (speed in NetworkSpeedTintAdapter.nativeContainers()) collectCompanions(speed)
+            collectCompanions(icons.rootView)
+            if (root.get() !== icons.rootView) collectCompanions(root.get())
             chip.viewTreeObserver.addOnPreDrawListener(this)
             chip.addOnAttachStateChangeListener(this)
             main.postDelayed(timeout, 15000)
@@ -247,8 +250,17 @@ internal object ChargingMotion {
                 if (abs(next - appliedX) > 0.01f) {
                     appliedX = next
                     icons.translationX = next
-                    for (companion in companions) companion.move(shift)
                 }
+                // The native speed view may become visible after the animator was prepared.
+                if (companions.isEmpty()) {
+                    for (speed in NetworkSpeedTintAdapter.nativeContainers()) collectCompanions(
+                        speed
+                    )
+                    collectCompanions(icons.rootView)
+                    if (root.get() !== icons.rootView) collectCompanions(root.get())
+                }
+                for (companion in companions) companion.move(shift)
+                speedViews = companions.size
                 maxShift = maxOf(maxShift, -shift)
             } catch (error: Throwable) {
                 fail(error)
@@ -258,10 +270,14 @@ internal object ChargingMotion {
 
         private fun collectCompanions(view: View?) {
             if (view == null || view === icons) return
-            if (
-                view.javaClass.name == "com.android.systemui.statusbar.policy.NetspeedView" &&
-                    view.isShown
-            ) {
+            var ancestor = view.parent
+            while (ancestor is View) {
+                if (ancestor === icons) return
+                ancestor = ancestor.parent
+            }
+            if (view.javaClass.name == "com.android.systemui.statusbar.policy.NetspeedView") {
+                if (view.width <= 0 || view.height <= 0 || companions.any { it.view === view })
+                    return
                 val at = IntArray(2)
                 view.getLocationOnScreen(at)
                 battery.getLocationOnScreen(position)
@@ -278,8 +294,11 @@ internal object ChargingMotion {
             private val clipping = IconClipping.acquire(view, root.get())
 
             fun move(shift: Float) {
-                applied = original + shift
-                view.translationX = applied
+                val next = original + shift
+                if (abs(next - applied) > 0.01f) {
+                    applied = next
+                    view.translationX = applied
+                }
             }
 
             override fun close() {
