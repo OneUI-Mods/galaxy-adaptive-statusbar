@@ -8,9 +8,10 @@ import java.util.WeakHashMap
 internal object IconClipping {
     private class Saved(val children: Boolean, val padding: Boolean, var users: Int = 0)
 
-    private val owners = WeakHashMap<ViewGroup, Saved>()
+    private val registry = ThreadLocal.withInitial { WeakHashMap<ViewGroup, Saved>() }
 
     fun acquire(view: View, window: View?): AutoCloseable {
+        val owners = registry.get()
         val parents = ArrayList<ViewGroup>()
         var parent = view.parent
         while (parent is ViewGroup && parent !== window) {
