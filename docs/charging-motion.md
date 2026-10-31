@@ -2,7 +2,7 @@
 
 SM-S948Q / BZI9のSystemUIと同一ハッシュの実機APKを解析した。Samsungの充電VIはCompose側の充電Flowを使い、HomeStatusBarViewModelの別の5入力combineがバー全体を隠す。充電Flowそのものは変更せず、後者のinvokeの第5入力（充電による非表示理由）だけを無効化する。ロック・アプリ全画面・Samsungイベント・disable flagsの判断は純正に残す。
 
-SamsungBatteryStatusChipのgetSystemIconAnimatorは、元のBatteryMeterViewのalphaとstatusIconsの固定距離移動を別々に作る。元電池のalphaは保持する。固定距離移動のupdateだけを、対象Viewの同一性を確認したSession中に置換する。充電チップbackgroundの実変換行列と画面上の境界から、各描画前に必要な左移動を算出する。別の時間ベースのアニメーションを走らせず、純正springのオーバーシュート・方向反転・縮小に追従する。
+SamsungBatteryStatusChipのgetSystemIconAnimatorは、元のBatteryMeterViewのalphaとstatusIconsの固定距離移動を別々に作る。元電池のalphaは保持する。固定距離移動のupdateだけを、対象Viewの同一性を確認したSession中に置換する。充電チップbackgroundの実変換行列と画面上の境界から、各描画前に必要な左移動を算出する。移動先は純正springのオーバーシュート・方向反転・縮小に追従する。アイコン座標を直接代入せず、Choreographer同期の臨界減衰springで位置・速度を連続に更新する。純正resetの後も現在位置を保持し、最後の右移動が収束してから解放する。消灯・無効化・ステータスバーdetachなどの中断は直ちに復元する。
 
 隣接ViewのtranslationXだけを所有し、他のparent移動は画面座標へ含める。純正の電池アンカーを動かさない。初期フレームで隙間が飛ばないよう、余白も拡大量と一緒に増やす。resetSystemIconState・detach・画面消灯・設定OFF・モジュール解除で解除し、15秒の単回上限を設ける。毎フレームのキャプチャ、Compose状態/引数/slotの書き換え、恒常ポーリングはしない。
 
@@ -12,7 +12,7 @@ Android17限定の既存allowlist内で完全な型/メソッド/フィールド
 
 ## 2026-10-31 検証
 
-- JVM回帰試験131件（追加8件）とrelease lintが成功。release配布スクリプトでライセンス58件、API 102、検証用Activity不在、alignment、継続署名を検査した。
+- JVM回帰試験136件（追加13件）とrelease lintが成功。release配布スクリプトでライセンス58件、API 102、検証用Activity不在、alignment、継続署名を検査した。
 - 実機の抜き差し録画で、祖先のクリッピングと、準備時に非表示の通信速度表示の取り漏れを検出した。クリッピングを充電・プライバシー移動で参照カウント共有し、速度の実TextViewを登録する方式に修正した。
 - One UI 9では非表示の従来BatteryMeterViewが幅0のまま残る場合がある。実描画を観測した専用Composeビューをアンカーとして使用する。純正のBatteryMeterViewのalpha操作は変更しない。移動量は小数座標の変換行列で計算し、丸め誤差によるフィードバックを避ける。
 - 最終コードは同じ実機で充電イベントの一時シミュレーションを行い、録画で時計・通知の表示維持、通信速度と右側アイコンの同時移動、縮小後の位置復帰を確認した。診断値はcompleted=1、speedViews=1。シミュレーションはfinallyで解除し、実際のUSB充電状態に戻した。
@@ -22,3 +22,7 @@ Android17限定の既存allowlist内で完全な型/メソッド/フィールド
 確認はSM-S948Q / BZI9の縦画面・LTRで実施。Android 16実機、RTL、全画面アプリやロック中の充電、同時イベントの全組み合わせは再試験していない。Android 16は新フック導入対象外、RTL・別displayは純正経路へ戻す。
 
 別件として、既存PrivacyDotsにはScreenDecorationsとmain間のスレッド違反を記録した。充電経路の例外ではなく、今回その処理は変更していない。全モジュールのログが無エラーであるとは扱わない。
+
+左右の移動の補間に対し5件の試験を追加した。段階的な左移動・右への復帰・途中の方向反転の速度保持・60/120Hzの等価性・長い停止時間と異常入力の抑制を確認する。終了時の純正translationX=0をafter hookで検出し、描画前に現在位置を復元するため、最後のフレームで瞬間移動しない。
+
+補間追加後も同じ実機で充電イベントを再現し、録画の連続フレームで左移動と終了後の段階的な右移動、速度表示の同時移動と復帰を確認した。充電イベントのシミュレーションは解除済み。
