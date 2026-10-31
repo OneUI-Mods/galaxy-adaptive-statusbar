@@ -6,6 +6,7 @@ import android.graphics.RectF
 import android.os.Build
 import android.os.Handler
 import android.os.Looper
+import android.os.SystemClock
 import android.view.Choreographer
 import android.view.View
 import android.view.View.OnAttachStateChangeListener
@@ -98,6 +99,26 @@ internal object ChargingMotion {
             val alphaEntering = alpha.getDeclaredField("\$isIn").apply { isAccessible = true }
             val alphaAnimator = alpha.getDeclaredField("\$this_apply").apply { isAccessible = true }
             val alphaValue = alphaAnimator.type.getMethod("getAnimatedValue")
+            val cleanup =
+                Reflect.findClass(
+                    BASE + "pipeline.shared.ui.composable.ChargingVIKt\$ChargingVI\$1\$1",
+                    loader,
+                )
+            val cleanupLabel = cleanup.getDeclaredField("label").apply { isAccessible = true }
+            val cleanupChip =
+                cleanup.getDeclaredField("\$chipView\$delegate").apply { isAccessible = true }
+            val cleanupHidden =
+                cleanup.getDeclaredField("\$shouldHideStatusBarForChargingVI\$delegate").apply {
+                    isAccessible = true
+                }
+            val stateValue =
+                Reflect.findClass("androidx.compose.runtime.State", loader).getMethod("getValue")
+            val continuation = Reflect.findClass("kotlin.coroutines.Continuation", loader)
+            val delay =
+                Reflect.findClass("kotlinx.coroutines.DelayKt", loader)
+                    .getMethod("delay", Long::class.javaPrimitiveType, continuation)
+            val unit = Reflect.findClass("kotlin.Unit", loader).getField("INSTANCE").get(null)
+            cleanup.getDeclaredMethod("invokeSuspend", Any::class.java)
             check(alphaOwner.type == chip)
             check(alphaEntering.type == Boolean::class.javaPrimitiveType)
             alpha.getDeclaredMethod("onAnimationUpdate", animator)
@@ -222,6 +243,7 @@ internal object ChargingMotion {
                     override fun beforeHookedMethod(p: MethodHookParam) {
                         val active = session ?: return
                         if (!enabled || active.chip !== p.thisObject) return
+                        active.beginBatteryReturn()
                         active.normalBatteryBounds()?.let { p.args[0] = it }
                     }
                 },
@@ -242,6 +264,29 @@ internal object ChargingMotion {
                         } catch (error: Throwable) {
                             fail(error)
                         }
+                    }
+                },
+            )
+            HookRegistry.hook(
+                cleanup,
+                "invokeSuspend",
+                Any::class.java,
+                object : HookCallback() {
+                    override fun beforeHookedMethod(p: MethodHookParam) {
+                        val active = session ?: return
+                        if (
+                            !enabled || p.args[0] !== unit || cleanupLabel.getInt(p.thisObject) != 0
+                        )
+                            return
+                        if (stateValue.invoke(cleanupChip.get(p.thisObject)) !== active.chip) return
+                        if (stateValue.invoke(cleanupHidden.get(p.thisObject)) != false) return
+                        val remaining = active.batteryReturnDelay()
+                        if (remaining < 16L) return
+                        // Suspend this native coroutine normally. Its unchanged label-zero body
+                        // runs when DelayKt resumes the same continuation; cancellation still
+                        // arrives as Result.Failure and passes directly through the native code.
+                        // No Compose state, coroutine label or completion is modified.
+                        p.setResult(delay.invoke(null, remaining, p.thisObject))
                     }
                 },
             )
@@ -321,6 +366,16 @@ internal object ChargingMotion {
         private var frameTime = 0L
         private var finishing = false
         private val batteryHandoff = ChargingBatteryHandoff(battery)
+        private var batteryReturnDeadline = 0L
+
+        fun beginBatteryReturn() {
+            if (batteryReturnDeadline == 0L)
+                batteryReturnDeadline = SystemClock.uptimeMillis() + 450L
+        }
+
+        fun batteryReturnDelay(): Long =
+            if (closed || finishing || !icons.isAttachedToWindow || batteryReturnDeadline == 0L) 0L
+            else (batteryReturnDeadline - SystemClock.uptimeMillis()).coerceIn(0L, 450L)
 
         fun normalBatteryBounds() = batteryHandoff.normalBounds()
 
