@@ -10,6 +10,7 @@ import kotlin.jvm.JvmStatic
 class GalaxyBarApplication : Application() {
     override fun onCreate() {
         super.onCreate()
+        FrameworkServiceConnection.register(this)
         GalaxyBarApplication.applyTheme(this)
         DynamicColors.applyToActivitiesIfAvailable(this)
     }

@@ -32,6 +32,10 @@ def validate(apk, aapt):
     manifest = run(
         aapt, "dump", "xmltree", "--file", "AndroidManifest.xml", apk, capture=True
     ).stdout
+    if ("io.github.libxposed.service.XposedProvider" not in manifest
+            or "dev.ryuya.galaxybar.XposedService" not in manifest):
+        raise RuntimeError("Missing official API 102 app-side Binder provider")
+
     with zipfile.ZipFile(apk) as archive:
         names = set(archive.namelist())
         if "assets/xposed_init" in names:
