@@ -1,6 +1,7 @@
 package dev.ryuya.galaxybar
 
 import android.graphics.Matrix
+import android.graphics.Rect
 import android.graphics.RectF
 import android.os.Build
 import android.os.Handler
@@ -87,6 +88,25 @@ internal object ChargingMotion {
                     loader,
                 )
             val animator = Reflect.findClass("androidx.core.animation.Animator", loader)
+            val alpha =
+                Reflect.findClass(
+                    BASE +
+                        "events.SamsungBatteryStatusChip\$getSystemIconAnimator\$alphaAnimator\$1\$1",
+                    loader,
+                )
+            val alphaOwner = alpha.getDeclaredField("this\$0").apply { isAccessible = true }
+            val alphaEntering = alpha.getDeclaredField("\$isIn").apply { isAccessible = true }
+            val alphaAnimator = alpha.getDeclaredField("\$this_apply").apply { isAccessible = true }
+            val alphaValue = alphaAnimator.type.getMethod("getAnimatedValue")
+            check(alphaOwner.type == chip)
+            check(alphaEntering.type == Boolean::class.javaPrimitiveType)
+            alpha.getDeclaredMethod("onAnimationUpdate", animator)
+            chip.getDeclaredMethod(
+                "getAnimatorOut",
+                Rect::class.java,
+                Float::class.javaPrimitiveType,
+                Boolean::class.javaPrimitiveType,
+            )
             val args = Array<Class<*>>(6) { Any::class.java }
             visibility.getDeclaredMethod("invoke", *args)
             val viewModel = visibility.getDeclaredField("this\$0").apply { isAccessible = true }
@@ -194,6 +214,39 @@ internal object ChargingMotion {
             )
             HookRegistry.hook(
                 chip,
+                "getAnimatorOut",
+                Rect::class.java,
+                Float::class.javaPrimitiveType,
+                Boolean::class.javaPrimitiveType,
+                object : HookCallback() {
+                    override fun beforeHookedMethod(p: MethodHookParam) {
+                        val active = session ?: return
+                        if (!enabled || active.chip !== p.thisObject) return
+                        active.normalBatteryBounds()?.let { p.args[0] = it }
+                    }
+                },
+            )
+            HookRegistry.hook(
+                alpha,
+                "onAnimationUpdate",
+                animator,
+                object : HookCallback() {
+                    override fun afterHookedMethod(p: MethodHookParam) {
+                        val active = session ?: return
+                        if (!enabled || alphaOwner.get(p.thisObject) !== active.chip) return
+                        try {
+                            val fraction =
+                                alphaValue.invoke(alphaAnimator.get(p.thisObject)) as? Float
+                                    ?: return
+                            active.batteryAlpha(alphaEntering.getBoolean(p.thisObject), fraction)
+                        } catch (error: Throwable) {
+                            fail(error)
+                        }
+                    }
+                },
+            )
+            HookRegistry.hook(
+                chip,
                 "resetSystemIconState",
                 object : HookCallback() {
                     override fun afterHookedMethod(p: MethodHookParam) {
@@ -267,6 +320,12 @@ internal object ChargingMotion {
         private var targetShift = 0f
         private var frameTime = 0L
         private var finishing = false
+        private val batteryHandoff = ChargingBatteryHandoff(battery)
+
+        fun normalBatteryBounds() = batteryHandoff.normalBounds()
+
+        fun batteryAlpha(entering: Boolean, fraction: Float) =
+            batteryHandoff.apply(entering, fraction)
 
         fun start() {
             initialIconsRight = screenBounds(icons).right
@@ -355,6 +414,7 @@ internal object ChargingMotion {
             if (finishing) return
             finishing = true
             targetShift = 0f
+            batteryHandoff.close()
             if (chip.viewTreeObserver.isAlive) chip.viewTreeObserver.removeOnPreDrawListener(this)
             state = "returning icons"
         }
@@ -438,6 +498,7 @@ internal object ChargingMotion {
         fun close() {
             if (closed) return
             closed = true
+            batteryHandoff.close()
             main.removeCallbacks(timeout)
             frames.removeFrameCallback(this)
             if (chip.viewTreeObserver.isAlive) chip.viewTreeObserver.removeOnPreDrawListener(this)
