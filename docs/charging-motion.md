@@ -1,0 +1,11 @@
+# 充電中のステータスバー表示（Android 17）
+
+SM-S948Q / BZI9のSystemUIと同一ハッシュの実機APKを解析した。Samsungの充電VIはCompose側の充電Flowを使い、HomeStatusBarViewModelの別の5入力combineがバー全体を隠す。充電Flowそのものは変更せず、後者のinvokeの第5入力（充電による非表示理由）だけを無効化する。ロック・アプリ全画面・Samsungイベント・disable flagsの判断は純正に残す。
+
+SamsungBatteryStatusChipのgetSystemIconAnimatorは、元のBatteryMeterViewのalphaとstatusIconsの固定距離移動を別々に作る。元電池のalphaは保持する。固定距離移動のupdateだけを、対象Viewの同一性を確認したSession中に置換する。充電チップbackgroundの実変換行列と画面上の境界から、各描画前に必要な左移動を算出する。別の時間ベースのアニメーションを走らせず、純正springのオーバーシュート・方向反転・縮小に追従する。
+
+隣接ViewのtranslationXだけを所有し、他のparent移動は画面座標へ含める。純正の電池アンカーを動かさない。初期フレームで隙間が飛ばないよう、余白も拡大量と一緒に増やす。resetSystemIconState・detach・画面消灯・設定OFF・モジュール解除で解除し、15秒の単回上限を設ける。毎フレームのキャプチャ、Compose状態/引数/slotの書き換え、恒常ポーリングはしない。
+
+Android17限定の既存allowlist内で完全な型/メソッド/フィールド契約が揃う場合だけ導入する。Android16のフックは変更しない。設定は調整タブの「充電演出中もステータスバーを表示」。初期値ON、全体スイッチに従う。変更は次回の充電演出から適用する。
+
+純正APK・逆コンパイル結果・端末ログは公開ソースへ含めない。geometryの回帰試験8件で通常位置、拡大、spring反転、alpha、余白の連続性、他の移動との重複、異常値を確認する。実機検証結果は後続の検証追記へ分ける。

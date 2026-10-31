@@ -207,6 +207,13 @@ class MainActivity : AppCompatActivity() {
             com.google.android.material.R.style.TextAppearance_Material3_BodySmall,
         )
         if (Build.VERSION.SDK_INT == 37) {
+            val charging = card(adjustments)
+            toggle(charging, getString(R.string.charging_motion), "charging_motion", true)
+            text(
+                charging,
+                getString(R.string.charging_motion_note),
+                com.google.android.material.R.style.TextAppearance_Material3_BodyMedium,
+            )
             addNetworkSpeedSettings(adjustments)
             val privacy = card(adjustments)
             text(

@@ -72,6 +72,8 @@ class Engine(root: View) {
                 try {
                     configRevision++
                     if (uri != null && "motion" == uri.getLastPathSegment()) motion.configure(false)
+                    if (uri != null && "charging_motion" == uri.getLastPathSegment())
+                        ChargingMotion.configure(false)
                     if (uri != null && "privacy_motion" == uri.getLastPathSegment())
                         PrivacySlide.configure(false)
                     // A toggle invalidates the old session before the worker can read the new
@@ -104,6 +106,7 @@ class Engine(root: View) {
                 if (Intent.ACTION_SCREEN_OFF == intent.getAction()) {
                     motion.cancel("screen off")
                     PrivacySlide.cancel()
+                    ChargingMotion.cancel()
                     epoch++
                     restore()
                     worker!!.execute(Runnable { releaseCapture() })
@@ -221,6 +224,7 @@ class Engine(root: View) {
     init {
         this.root = root
         PrivacySlide.attach(root)
+        ChargingMotion.attach(root)
         context = root.getContext()
         motion =
             StatusBarMotion(
@@ -461,6 +465,7 @@ class Engine(root: View) {
             enabled && fresh.getBoolean("privacy_motion", false),
             fresh.getBoolean("privacy_fallback", true),
         )
+        ChargingMotion.configure(enabled && fresh.getBoolean("charging_motion", true))
         NetworkSpeedTintAdapter.setSpacing(fresh.getInt(NetworkSpeedSpacing.KEY, 0))
         motion.configure(
             enabled && fresh.getBoolean("motion", true) && !stopped && !protectedContent
@@ -788,6 +793,8 @@ class Engine(root: View) {
                     motion.status() +
                     "\nPrivacy motion: " +
                     PrivacySlide.status() +
+                    "\nCharging motion: " +
+                    ChargingMotion.status() +
                     "\nLast error: " +
                     lastError)
             context

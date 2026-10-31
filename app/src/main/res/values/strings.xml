@@ -92,4 +92,6 @@
   <string name="privacy_motion_note">Android 17 / One UI 9, portrait. Slide the right-hand icons to make room for the indicator. Slightly enlarge the persistent dot and leave a little space beside it. Applies to the next indicator.</string>
   <string name="privacy_fallback">Use the native layout when space is limited</string>
   <string name="privacy_fallback_note">When off, icons keep moving even in a crowded status bar. They may overlap the clock or notifications.</string>
+    <string name="charging_motion">Keep status bar visible while charging</string>
+    <string name="charging_motion_note">Keep the native charging animation and move nearby icons with the growing battery. Changes apply to the next charging animation.</string>
 </resources>

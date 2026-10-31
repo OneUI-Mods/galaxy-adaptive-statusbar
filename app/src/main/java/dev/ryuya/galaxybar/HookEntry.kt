@@ -157,6 +157,7 @@ class HookEntry : XposedModule() {
             ModernTintAdapter.install(HookEntry.systemLoader)
             NetworkSpeedTintAdapter.install(HookEntry.systemLoader)
             PrivacySlide.install(HookEntry.systemLoader)
+            ChargingMotion.install(HookEntry.systemLoader)
             BatteryAdapter.install(HookEntry.systemLoader)
             HookRegistry.hook(
                 ImageView::class.java,
@@ -199,6 +200,7 @@ class HookEntry : XposedModule() {
         fun disableColors() {
             val hadHooks: Boolean = HookRegistry.colorCount() != 0
             PrivacySlide.reset()
+            ChargingMotion.reset()
             HookRegistry.clearColors()
             ModernTintAdapter.reset()
             NetworkSpeedTintAdapter.reset()

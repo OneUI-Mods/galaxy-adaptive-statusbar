@@ -62,6 +62,7 @@ class ConfigProvider : ContentProvider() {
                 ),
             )
             b.putInt("hz", p.getInt("hz", 10))
+            b.putBoolean("charging_motion", p.getBoolean("charging_motion", true))
             b.putBoolean("privacy_fallback", p.getBoolean("privacy_fallback", true))
             b.putInt(
                 "fade_ms",

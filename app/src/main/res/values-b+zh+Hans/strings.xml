@@ -91,4 +91,6 @@
   <string name="privacy_motion_note">适用于 Android 17 / One UI 9 竖屏。移动右侧图标，为使用指示留出空间。持续显示的小圆点也会略微放大，并在旁边留出间距。下次显示时生效。</string>
   <string name="privacy_fallback">空间不足时使用原生布局</string>
   <string name="privacy_fallback_note">关闭后，空间不足时仍会移动图标，可能与时钟或通知重叠。</string>
+    <string name="charging_motion">充电动画期间保持状态栏可见</string>
+    <string name="charging_motion_note">保留原生充电动画，并随电池图标的放大将相邻图标向左移动。更改从下次充电动画开始生效。</string>
 </resources>

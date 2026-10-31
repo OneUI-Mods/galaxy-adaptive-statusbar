@@ -274,7 +274,7 @@ object PrivacySlide {
                         PrivacySlide.homeAllowed =
                             JavaBoolean.TRUE == p!!.args!![0] &&
                                 (JavaBoolean.TRUE != p!!.args!![1]) &&
-                                (JavaBoolean.TRUE != p!!.args!![4])
+                                (JavaBoolean.TRUE != p!!.args!![4] || ChargingMotion.isEnabled())
                     }
                 },
             )

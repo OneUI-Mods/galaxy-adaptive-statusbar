@@ -91,4 +91,6 @@
   <string name="privacy_motion_note">Android 17 / One UI 9, en vertical. Desplaza los iconos de la derecha para dejar espacio al indicador. Amplía ligeramente el punto persistente y deja espacio a su lado. Se aplica al siguiente indicador.</string>
   <string name="privacy_fallback">Usar la posición original si falta espacio</string>
   <string name="privacy_fallback_note">Si se desactiva, los iconos siguen moviéndose aunque haya poco espacio. Pueden superponerse al reloj o a las notificaciones.</string>
+    <string name="charging_motion">Mostrar la barra de estado durante la carga</string>
+    <string name="charging_motion_note">Conserva la animación de carga y desplaza los iconos junto a la batería. Los cambios se aplican a la próxima animación.</string>
 </resources>
