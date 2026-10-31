@@ -2,6 +2,7 @@ package dev.ryuya.galaxybar
 
 import android.view.Choreographer
 import android.view.View
+import dev.ryuya.galaxybar.hook.Hooks
 import kotlin.math.abs
 
 /** One continuous motion owns the large chip, its persistent dot, and the final return. */
@@ -59,7 +60,7 @@ constructor(
         try {
             if (!group.isAttachedToWindow) {
                 close()
-                onIdle()
+                notifyIdle()
                 return
             }
             val elapsed = if (lastFrame == 0L) 0f else (frameTimeNanos - lastFrame) / 1e9f
@@ -74,12 +75,20 @@ constructor(
                 frames.postFrameCallback(this)
             } else if (idle()) {
                 // Do not release clipping or restore the baseline while the return is moving.
-                onIdle()
+                notifyIdle()
             }
         } catch (error: Throwable) {
             close()
+            notifyIdle()
+            Hooks.log("GalaxyBar: privacy icon motion stopped: $error")
+        }
+    }
+
+    private fun notifyIdle() {
+        try {
             onIdle()
-            dev.ryuya.galaxybar.hook.Hooks.log("GalaxyBar: privacy icon motion stopped: $error")
+        } catch (error: Throwable) {
+            Hooks.log("GalaxyBar: privacy icon release stopped: $error")
         }
     }
 
