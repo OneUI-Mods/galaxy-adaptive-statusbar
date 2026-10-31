@@ -1,0 +1,19 @@
+# 使用表示から緑の点への移動 — 0.6.24
+
+PrivacyIconSpaceは以前、chipShiftとdotShiftの小さい方をそのままView.translationXへ書いていた。別のUIスレッドから届く点の位置が遅れた場合、大きいchip用の400ms移動が先に終了し、その後のdotShiftが一括で適用されていた。最後の予約が消える場合も、まだ戻っている途中で所有権を解放すると座標が飛ぶ。
+
+移動先の合成方法は保ち、実際のtranslationXを1個のChoreographer同期springで更新する。位置と速度はchip/dotの切り替え・再測定・方向反転でもリセットしない。充電の移動で使っていた純粋なspringをIconMotionSpringへ共通化した。dotが遅れて届いても、移動中の値から新しい目標へ追従する。
+
+両方の予約が0になりspringが収束するまでPrivacyIconSpaceとclip leaseを保つ。収束時のcallbackでidleの所有権を解放する。設定OFF、対象のdetach、例外時は予約とframe callbackを即解除して所有している座標だけを戻す。非同期のframe/idle callbackにも例外境界を置き、SystemUIのlooperへ失敗を伝播させない。
+
+## 確認
+
+- JVM148件。追加3件は遅れた点への受け渡し、途中の再測定、最後の復帰中の所有権を検査。release lintと配布検査も成功。
+- 独立実機プロセス8項目。配布APKのPrivacyIconSpaceを呼び、chip/dot setterがViewを瞬間移動させないこと、収束前にidleにならないこと、OFF後に残ったframeが座標を再変更しないことを確認した。併せてView所有looperへのdispatchとclip併用/復元を再確認した。
+- SM-S948Q / Android17 BZI9で既存のprivate privacy fixtureをcamera=true / mic=falseで実行。マイク権限は与えず、カメラのフレームは破棄してファイルもネットワーク送信も行わない。使用表示→点への切り替えは録画の連続フレームでアイコンが段階的に移動することを確認した。
+- 実機の途中状態ではchip約-151pxからdot用の約-12pxへ移り、259frameで追従していた。最大frame step約16.66pxは登場時を含む値で、受け渡しだけの最大値とは扱わない。
+- dotはactive=true / drawScale約1.4875、native View scaleは1×1のまま。0.6.23で直した横伸びが再発していない。点自身はScreenDecorationsのcapture除外のため、通常アイコンの録画と点のView階層・状態表示は別の証拠として扱う。
+
+nativeの別のカメラ・マイク使用表示が残る場合、fixture終了後も点が有効なのは正常である。最後の予約の解除は独立fixtureで確認する。Android16実機・全回転・全同時イベントを再試験したものではない。Android16には今回のAndroid17限定hookを追加しない。
+
+private録画・View階層・端末ログ・fixture APKは配布へ含めない。PRではKotlin移行・Binder受け口・充電表示・緑の点の修正と今回の移動をまとめ、未試験範囲を記載して統合する。
