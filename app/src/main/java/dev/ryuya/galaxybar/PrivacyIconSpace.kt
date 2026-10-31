@@ -1,51 +1,101 @@
 package dev.ryuya.galaxybar
 
+import android.view.Choreographer
 import android.view.View
-import kotlin.jvm.JvmField
 import kotlin.math.abs
 
-/* One owner for icon translation while the large chip hands over to the persistent dot. */
-class PrivacyIconSpace(group: View, window: View?) {
-    @JvmField val group: View
-    private val baseline: Float
+/** One continuous motion owns the large chip, its persistent dot, and the final return. */
+class PrivacyIconSpace
+@JvmOverloads
+constructor(
+    @JvmField val group: View,
+    window: View?,
+    private val onIdle: () -> Unit = {},
+) : Choreographer.FrameCallback {
+    private val baseline = group.translationX
     private val clipping = IconClipping.acquire(group, window)
-    private var applied: Float
-    private var chipShift: Float = 0f
-    private var dotShift: Float = 0f
-
-    init {
-        this.group = group
-        applied = group.getTranslationX()
-        baseline = applied
-    }
+    private val frames = Choreographer.getInstance()
+    private val spring = IconMotionSpring()
+    private val location = IntArray(2)
+    private var applied = baseline
+    private var chipShift = 0f
+    private var dotShift = 0f
+    private var lastFrame = 0L
+    private var scheduled = false
+    private var closed = false
+    private var frameCount = 0
+    private var maxStep = 0f
 
     fun baselineLeft(): Float {
-        val at = IntArray(2)
-        group.getLocationOnScreen(at)
-        return at[0] - group.getTranslationX() + baseline
+        group.getLocationOnScreen(location)
+        return location[0] - group.translationX + baseline
     }
 
     fun chip(shift: Float) {
-        chipShift = shift
-        apply()
+        chipShift = validShift(shift)
+        schedule()
     }
 
     fun dot(shift: Float) {
-        dotShift = shift
-        apply()
+        dotShift = validShift(shift)
+        schedule()
     }
 
-    private fun apply() {
-        applied = baseline + PrivacySlideGeometry.combinedShift(chipShift, dotShift)
-        group.setTranslationX(applied)
+    private fun validShift(value: Float) = if (value.isFinite()) value.coerceAtMost(0f) else 0f
+
+    private fun target() = PrivacySlideGeometry.combinedShift(chipShift, dotShift)
+
+    private fun schedule() {
+        if (!closed && !scheduled && !spring.isSettled(target())) {
+            scheduled = true
+            lastFrame = 0L
+            frames.postFrameCallback(this)
+        }
     }
 
-    fun idle(): Boolean {
-        return chipShift == 0f && dotShift == 0f
+    override fun doFrame(frameTimeNanos: Long) {
+        scheduled = false
+        if (closed) return
+        try {
+            if (!group.isAttachedToWindow) {
+                close()
+                onIdle()
+                return
+            }
+            val elapsed = if (lastFrame == 0L) 0f else (frameTimeNanos - lastFrame) / 1e9f
+            lastFrame = frameTimeNanos
+            val next = baseline + spring.step(target(), elapsed)
+            maxStep = maxOf(maxStep, abs(next - applied))
+            applied = next
+            group.translationX = applied
+            frameCount++
+            if (!spring.isSettled(target())) {
+                scheduled = true
+                frames.postFrameCallback(this)
+            } else if (idle()) {
+                // Do not release clipping or restore the baseline while the return is moving.
+                onIdle()
+            }
+        } catch (error: Throwable) {
+            close()
+            onIdle()
+            dev.ryuya.galaxybar.hook.Hooks.log("GalaxyBar: privacy icon motion stopped: $error")
+        }
     }
+
+    fun idle() = closed || chipShift == 0f && dotShift == 0f && spring.isSettled(0f)
+
+    fun isClosed() = closed
+
+    fun status() =
+        "x=${applied - baseline}; target=${target()}; frames=$frameCount; maxStep=$maxStep"
 
     fun close() {
-        if (abs(group.getTranslationX() - applied) < .01f) group.setTranslationX(baseline)
+        if (closed) return
+        closed = true
+        frames.removeFrameCallback(this)
+        scheduled = false
+        if (abs(group.translationX - applied) < .01f) group.translationX = baseline
         clipping.close()
     }
 }

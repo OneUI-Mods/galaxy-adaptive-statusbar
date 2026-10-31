@@ -3,10 +3,10 @@ package dev.ryuya.galaxybar
 import org.junit.Assert.*
 import org.junit.Test
 
-class ChargingMotionSpringTest {
+class IconMotionSpringTest {
     @Test
     fun suddenReservationMovesOverMultipleFrames() {
-        val spring = ChargingMotionSpring()
+        val spring = IconMotionSpring()
         val first = spring.step(-150f, 1f / 60)
         assertTrue(first < 0f && first > -150f)
         repeat(60) { spring.step(-150f, 1f / 60) }
@@ -15,7 +15,7 @@ class ChargingMotionSpringTest {
 
     @Test
     fun returningHomeDoesNotSnap() {
-        val spring = ChargingMotionSpring()
+        val spring = IconMotionSpring()
         repeat(30) { spring.step(-150f, 1f / 60) }
         val first = spring.step(0f, 1f / 60)
         assertTrue(first > -150f && first < 0f)
@@ -25,7 +25,7 @@ class ChargingMotionSpringTest {
 
     @Test
     fun reversingTargetPreservesMomentum() {
-        val spring = ChargingMotionSpring()
+        val spring = IconMotionSpring()
         repeat(3) { spring.step(-150f, 1f / 120) }
         val previous = spring.position
         val next = spring.step(0f, 1f / 120)
@@ -36,8 +36,8 @@ class ChargingMotionSpringTest {
 
     @Test
     fun frameRatesGiveEquivalentTrajectory() {
-        val low = ChargingMotionSpring()
-        val high = ChargingMotionSpring()
+        val low = IconMotionSpring()
+        val high = IconMotionSpring()
         repeat(12) { low.step(-150f, 1f / 60) }
         repeat(24) { high.step(-150f, 1f / 120) }
         assertEquals(low.position, high.position, .001f)
@@ -45,7 +45,7 @@ class ChargingMotionSpringTest {
 
     @Test
     fun pausesAndInvalidTimesCannotTeleport() {
-        val spring = ChargingMotionSpring()
+        val spring = IconMotionSpring()
         assertEquals(0f, spring.step(Float.NaN, .02f), 0f)
         assertEquals(0f, spring.step(-150f, Float.POSITIVE_INFINITY), 0f)
         assertEquals(0f, spring.step(-150f, -1f), 0f)

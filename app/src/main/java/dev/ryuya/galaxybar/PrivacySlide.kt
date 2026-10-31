@@ -79,7 +79,9 @@ object PrivacySlide {
             "; requested=" +
             PrivacySlide.statusBarRequested +
             "; dot=" +
-            PrivacyDots.status())
+            PrivacyDots.status() +
+            "; icons=" +
+            (PrivacySlide.space?.status() ?: "idle"))
     }
 
     @JvmStatic
@@ -520,9 +522,16 @@ object PrivacySlide {
 
     @JvmStatic
     private fun iconSpace(group: View?): PrivacyIconSpace? {
-        if (PrivacySlide.space == null || PrivacySlide.space!!.group !== group) {
+        if (
+            PrivacySlide.space == null ||
+                PrivacySlide.space!!.isClosed() ||
+                PrivacySlide.space!!.group !== group
+        ) {
             if (PrivacySlide.space != null) PrivacySlide.space!!.close()
-            PrivacySlide.space = PrivacyIconSpace(group!!, PrivacySlide.root.get())
+            PrivacySlide.space =
+                PrivacyIconSpace(group!!, PrivacySlide.root.get()) {
+                    PrivacySlide.releaseIdleSpace()
+                }
         }
         return PrivacySlide.space
     }

@@ -4,7 +4,7 @@ import kotlin.math.abs
 import kotlin.math.exp
 
 /** A critically damped follower; changing the target never resets position or velocity. */
-internal class ChargingMotionSpring {
+internal class IconMotionSpring {
     var position = 0f
         private set
 

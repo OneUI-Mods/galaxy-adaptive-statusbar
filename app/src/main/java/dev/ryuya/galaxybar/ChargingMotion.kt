@@ -370,7 +370,7 @@ internal object ChargingMotion {
         private val timeout = Runnable { if (session === this) cancel() }
         private var initialIconsRight = 0f
         private val frames = Choreographer.getInstance()
-        private val spring = ChargingMotionSpring()
+        private val spring = IconMotionSpring()
         private var targetShift = 0f
         private var frameTime = 0L
         private var finishing = false
