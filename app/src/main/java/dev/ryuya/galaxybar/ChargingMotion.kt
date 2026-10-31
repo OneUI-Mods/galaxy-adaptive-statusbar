@@ -35,6 +35,8 @@ internal object ChargingMotion {
     private var completed = 0
     private var maxShift = 0f
     private var speedViews = 0
+    private var preparations = 0
+    private var preparation = "none"
     private val observedSpeeds = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
 
     fun observeSpeed(view: View) {
@@ -60,7 +62,7 @@ internal object ChargingMotion {
     fun isEnabled() = enabled
 
     fun status() =
-        "$state; completed=$completed; maxShift=$maxShift; speedViews=$speedViews; observed=${observedSpeeds.size}"
+        "$state; completed=$completed; maxShift=$maxShift; speedViews=$speedViews; observed=${observedSpeeds.size}; prepared=$preparations/$preparation"
 
     fun install(loader: ClassLoader?) {
         if (Build.VERSION.SDK_INT != 37 || installed) return
@@ -132,13 +134,21 @@ internal object ChargingMotion {
                 object : HookCallback() {
                     override fun beforeHookedMethod(p: MethodHookParam) {
                         if (!enabled) return
+                        preparations++
+                        preparation = "target"
                         try {
                             val icons = p.args[0] as? View ?: return
+                            preparation = "owner"
                             val owner = p.thisObject as? View ?: return
                             if (session?.chip === owner && session?.icons === icons) return
+                            preparation = "battery"
                             val battery = meter!!.invoke(owner) as? View ?: return
+                            preparation = "background"
                             val growing = background!!.get(owner) as? View ?: return
+                            preparation = "layout:${icons.width}/${battery.width}"
                             if (icons.width <= 0 || battery.width <= 0) return
+                            preparation =
+                                "display:${icons.display?.displayId}/${icons.layoutDirection}"
                             if (
                                 icons.display?.displayId != 0 ||
                                     icons.layoutDirection != View.LAYOUT_DIRECTION_LTR
@@ -148,6 +158,7 @@ internal object ChargingMotion {
                             val next = Session(owner, icons, battery, growing)
                             session = next
                             next.start()
+                            preparation = "following"
                             state = "following native battery"
                         } catch (error: Throwable) {
                             fail(error)
