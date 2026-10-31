@@ -187,16 +187,27 @@ object PrivacyDots {
         main.post {
             posted.set(false)
             val latest = pending.getAndSet(null) ?: return@post
-            val next =
-                enabled &&
-                    latest.round &&
-                    PrivacySlide.allowDot() &&
-                    PrivacySlide.reserveDot(latest.left, latest.alpha)
-            reservedAlpha = if (next) latest.alpha else 0f
-            if (!next) PrivacySlide.releaseDot()
-            if (permitted != next) {
-                permitted = next
+            try {
+                val next =
+                    enabled &&
+                        latest.round &&
+                        PrivacySlide.allowDot() &&
+                        PrivacySlide.reserveDot(latest.left, latest.alpha)
+                reservedAlpha = if (next) latest.alpha else 0f
+                if (!next) PrivacySlide.releaseDot()
+                if (permitted != next) {
+                    permitted = next
+                    refresh()
+                }
+            } catch (error: Throwable) {
+                // This Runnable is outside the hook callback boundary. A reservation failure
+                // must disable only this presentation, never escape into SystemUI's looper.
+                enabled = false
+                permitted = false
+                reservedAlpha = 0f
+                runCatching { PrivacySlide.releaseDot() }
                 refresh()
+                Hooks.log("GalaxyBar: privacy dot reservation stopped: $error")
             }
         }
     }
@@ -257,7 +268,9 @@ object PrivacyDots {
                 displayedFactor = visual?.factor ?: 1f
                 dot.getLocationOnScreen(location)
                 val extra = dot.width * (displayedFactor - 1f) / 2f
-                publish(DotSnapshot(location[0] - extra, target.alpha, round))
+                publish(
+                    DotSnapshot(location[0] - extra, PrivacySlideGeometry.unit(target.alpha), round)
+                )
             } catch (error: Throwable) {
                 // This callback is already on the owner's looper: restore here, then notify
                 // the main-thread reservation. A restore cannot fail on a foreign hierarchy.
