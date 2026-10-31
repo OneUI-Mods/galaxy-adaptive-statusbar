@@ -16,6 +16,8 @@ import dev.ryuya.galaxybar.hook.Reflect
 import java.lang.ref.WeakReference
 import java.lang.reflect.Field
 import java.lang.reflect.Method
+import java.util.Collections
+import java.util.WeakHashMap
 import kotlin.math.abs
 
 /** Keeps the native charging VI, including its battery crossfade and spring animation. */
@@ -33,6 +35,11 @@ internal object ChargingMotion {
     private var completed = 0
     private var maxShift = 0f
     private var speedViews = 0
+    private val observedSpeeds = Collections.newSetFromMap(WeakHashMap<View, Boolean>())
+
+    fun observeSpeed(view: View) {
+        observedSpeeds.add(view)
+    }
 
     fun attach(view: View) {
         if (root.get() !== view) {
@@ -52,7 +59,8 @@ internal object ChargingMotion {
 
     fun isEnabled() = enabled
 
-    fun status() = "$state; completed=$completed; maxShift=$maxShift; speedViews=$speedViews"
+    fun status() =
+        "$state; completed=$completed; maxShift=$maxShift; speedViews=$speedViews; observed=${observedSpeeds.size}"
 
     fun install(loader: ClassLoader?) {
         if (Build.VERSION.SDK_INT != 37 || installed) return
@@ -213,6 +221,7 @@ internal object ChargingMotion {
         private val timeout = Runnable { if (session === this) cancel() }
 
         fun start() {
+            for (speed in observedSpeeds) addSpeed(speed)
             for (speed in NetworkSpeedTintAdapter.nativeContainers()) collectCompanions(speed)
             collectCompanions(icons.rootView)
             if (root.get() !== icons.rootView) collectCompanions(root.get())
@@ -253,6 +262,7 @@ internal object ChargingMotion {
                 }
                 // The native speed view may become visible after the animator was prepared.
                 if (companions.isEmpty()) {
+                    for (speed in observedSpeeds) addSpeed(speed)
                     for (speed in NetworkSpeedTintAdapter.nativeContainers()) collectCompanions(
                         speed
                     )
@@ -276,16 +286,29 @@ internal object ChargingMotion {
                 ancestor = ancestor.parent
             }
             if (view.javaClass.name == "com.android.systemui.statusbar.policy.NetspeedView") {
-                if (view.width <= 0 || view.height <= 0 || companions.any { it.view === view })
-                    return
-                val at = IntArray(2)
-                view.getLocationOnScreen(at)
-                battery.getLocationOnScreen(position)
-                if (abs(at[1] - position[1]) < battery.height) companions.add(CompanionView(view))
+                addSpeed(view)
                 return
             }
             if (view is ViewGroup)
                 for (i in 0 until view.childCount) collectCompanions(view.getChildAt(i))
+        }
+
+        private fun addSpeed(view: View) {
+            if (view.width <= 0 || view.height <= 0 || contains(icons, view)) return
+            if (companions.any { contains(it.view, view) || contains(view, it.view) }) return
+            val at = IntArray(2)
+            view.getLocationOnScreen(at)
+            battery.getLocationOnScreen(position)
+            if (abs(at[1] - position[1]) < battery.height) companions.add(CompanionView(view))
+        }
+
+        private fun contains(owner: View, child: View): Boolean {
+            var view: Any? = child
+            while (view is View) {
+                if (view === owner) return true
+                view = view.parent
+            }
+            return false
         }
 
         private class CompanionView(val view: View) : AutoCloseable {

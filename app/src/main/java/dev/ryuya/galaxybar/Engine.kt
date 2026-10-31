@@ -836,6 +836,7 @@ class Engine(root: View) {
             return
         }
         if (view is TextView && NetworkSpeedTintAdapter.supports(view)) {
+            ChargingMotion.observeSpeed(view)
             val area = Rect()
             if (config.getBoolean("signals", true) && area(view, area) && !area.isEmpty())
                 out.add(Engine.Target(view, area, -1, -1, "", Engine.key(view) + ":network-speed"))
