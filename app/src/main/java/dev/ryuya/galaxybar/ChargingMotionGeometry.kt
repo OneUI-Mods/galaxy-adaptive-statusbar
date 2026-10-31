@@ -12,9 +12,12 @@ internal object ChargingMotionGeometry {
         alpha: Float,
     ): Float {
         if (
-            listOf(iconsRight, normalBatteryLeft, expandedLeft, gap, alpha).any {
-                !it.isFinite()
-            } || gap < 0
+            !iconsRight.isFinite() ||
+                !normalBatteryLeft.isFinite() ||
+                !expandedLeft.isFinite() ||
+                !gap.isFinite() ||
+                !alpha.isFinite() ||
+                gap < 0
         )
             return 0f
         val growth = (normalBatteryLeft - expandedLeft).coerceAtLeast(0f)

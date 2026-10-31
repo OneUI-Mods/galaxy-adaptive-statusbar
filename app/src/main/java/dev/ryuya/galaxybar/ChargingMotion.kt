@@ -102,7 +102,11 @@ internal object ChargingMotion {
                         // flags and Samsung's other visibility requests still run through native
                         // code.
                         if (
-                            enabled && root.get()?.isAttachedToWindow == true && p.args[4] == true
+                            enabled &&
+                                root.get()?.isAttachedToWindow == true &&
+                                root.get()?.layoutDirection == View.LAYOUT_DIRECTION_LTR &&
+                                displayId.getInt(viewModel.get(p.thisObject)) == 0 &&
+                                p.args[4] == true
                         ) {
                             p.args[4] = false
                         }
