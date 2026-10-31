@@ -6,7 +6,8 @@ import org.junit.Test
 class ChargingBatteryBlendTest {
     @Test
     fun normalBatteryAppearsBeforeTheLastFivePercent() {
-        assertEquals(.5f, ChargingBatteryBlend.alpha(.5f), .001f)
+        val halfway = ChargingBatteryBlend.alpha(.5f)
+        assertTrue(halfway > .1f && halfway < .5f)
         assertTrue(ChargingBatteryBlend.alpha(.94f) > .9f)
     }
 

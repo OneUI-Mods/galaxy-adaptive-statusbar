@@ -33,6 +33,7 @@ internal object ChargingMotion {
     private var session: Session? = null
     private var meter: Method? = null
     private var background: Field? = null
+    private var batteryLabel: Field? = null
     private var translatedView: Field? = null
     private var state = "off"
     private var completed = 0
@@ -143,6 +144,8 @@ internal object ChargingMotion {
             chip.getDeclaredMethod("resetSystemIconState")
             meter = chip.getDeclaredMethod("getBatteryMeterView")
             background = chip.getDeclaredField("background")
+            batteryLabel = chip.getDeclaredField("batteryLevelText").apply { isAccessible = true }
+            check(View::class.java.isAssignableFrom(batteryLabel!!.type))
             translatedView = update.getDeclaredField("\$v")
             update.getDeclaredMethod("onAnimationUpdate", animator)
             check(View::class.java.isAssignableFrom(meter!!.returnType))
@@ -365,7 +368,8 @@ internal object ChargingMotion {
         private var targetShift = 0f
         private var frameTime = 0L
         private var finishing = false
-        private val batteryHandoff = ChargingBatteryHandoff(battery)
+        private val batteryHandoff =
+            ChargingBatteryHandoff(battery, batteryLabel!!.get(chip) as? View)
         private var batteryReturnDeadline = 0L
 
         fun beginBatteryReturn() {
@@ -405,6 +409,7 @@ internal object ChargingMotion {
                 return true
             }
             try {
+                batteryHandoff.onFrame()
                 if (growing.width <= 0 || icons.width <= 0) return true
                 val expandedLeft = screenBounds(growing).left
                 // Remove only our local delta. Parent movement (including the privacy chip)
