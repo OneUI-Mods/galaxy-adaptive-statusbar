@@ -91,4 +91,6 @@
   <string name="privacy_motion_note">Android 17 / One UI 9の縦画面向け。使用表示に合わせて右側のアイコンを移動します。小さな緑の点も少し大きくし、隣に余白を作ります。次の表示から適用します。</string>
   <string name="privacy_fallback">空きが少ないときは純正表示へ戻す</string>
   <string name="privacy_fallback_note">OFFでも移動を続けます。時計や通知が多い場合は、表示が重なることがあります。</string>
+    <string name="charging_motion">充電演出中もステータスバーを表示</string>
+    <string name="charging_motion_note">純正の充電アニメーションに合わせて、周囲のアイコンを左へ移動します。変更は次の充電アニメーションから適用されます。</string>
 </resources>
