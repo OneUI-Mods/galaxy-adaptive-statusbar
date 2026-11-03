@@ -160,6 +160,7 @@ class HookEntry : XposedModule() {
             if (HookRegistry.colorCount() != 0) return
             if (HookEntry.protection != null) HookEntry.protection!!.arm()
             ModernTintAdapter.install(HookEntry.systemLoader)
+            NotificationIconTintAdapter.install(HookEntry.systemLoader)
             NetworkSpeedTintAdapter.install(HookEntry.systemLoader)
             PrivacySlide.install(HookEntry.systemLoader)
             ChargingMotion.install(HookEntry.systemLoader)
@@ -207,6 +208,7 @@ class HookEntry : XposedModule() {
             PrivacySlide.reset()
             ChargingMotion.reset()
             HookRegistry.clearColors()
+            NotificationIconTintAdapter.reset()
             ModernTintAdapter.reset()
             NetworkSpeedTintAdapter.reset()
             BatteryAdapter.reset()

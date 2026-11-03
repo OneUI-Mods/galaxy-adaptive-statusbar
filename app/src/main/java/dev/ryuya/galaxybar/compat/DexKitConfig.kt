@@ -6,7 +6,7 @@ internal object DexKitConfig {
     val MODULE_VERSION
         get() = dev.ryuya.galaxybar.BuildConfig.VERSION_CODE
 
-    const val PROFILE_HASH = "872560b2008b7cd63520f6b95bb5ab84caba07b3d3a7ade22b20f2e0efd25c8a"
+    const val PROFILE_HASH = "5fd3456080562203df097c8517938918de46864e063f8f19dded32dfb14b19ad"
     val FEATURE_PREFIXES = setOf<String>()
     val TARGETS = setOf("com.android.systemui", "com.sec.android.app.launcher")
     val HOSTS = setOf("com.sec.android.app.launcher", "com.android.systemui")
@@ -68,6 +68,7 @@ internal object DexKitConfig {
                     "com.android.systemui.privacy.ui.view.ComposeOngoingPrivacyChip",
                     "com.android.systemui.statusbar.data.repository.StatusBarModePerDisplayRepositoryImpl",
                     "com.android.systemui.statusbar.data.repository.StatusBarModePerDisplayRepositoryImpl\$commandQueueCallback\$1",
+                    "com.android.systemui.statusbar.StatusBarIconView",
                     "com.android.systemui.statusbar.events.PrivacyDotViewControllerImpl",
                     "com.android.systemui.statusbar.events.ViewState",
                     "com.android.systemui.statusbar.phone.SwitchableDoubleShadowTextView",

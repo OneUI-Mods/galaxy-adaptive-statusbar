@@ -871,11 +871,7 @@ class Engine(root: View) {
                 )
             return
         }
-        if (
-            name.endsWith(".StatusBarIconView") &&
-                (Reflect.callMethod(view, "getVisibleState") as Int?) == 2
-        )
-            return
+        if (NotificationIconTintAdapter.hidden(view)) return
 
         if (
             view is TextView &&
@@ -891,7 +887,10 @@ class Engine(root: View) {
             )
                 addText(view, out, clock)
         }
-        if (view is ImageView && view.getDrawable() != null) {
+        if (
+            view is ImageView &&
+                (view.getDrawable() != null || NotificationIconTintAdapter.supports(view))
+        ) {
             val battery = Engine.ancestor(view, "battery")
             val notification = Engine.ancestor(view, "notification_icon")
             val selected: Boolean =
@@ -1144,6 +1143,7 @@ class Engine(root: View) {
                                 image.setColorFilter(colors[i], Mode.SRC_IN)
                                 appliedColors.put(image, colors[i])
                             }
+                            NotificationIconTintAdapter.apply(image, colors[i])
                         }
                     }
             }
@@ -1196,6 +1196,7 @@ class Engine(root: View) {
                 val image = images.next()
                 if (!live.contains(image)) {
                     image!!.setColorFilter(originals.get(image))
+                    NotificationIconTintAdapter.restore(image)
                     appliedColors.remove(image)
                     images.remove()
                 }
@@ -1233,7 +1234,10 @@ class Engine(root: View) {
         fadeColors = fadePercentages
         applying = true
         try {
-            for (e in originals.entries) e.key!!.setColorFilter(e.value)
+            for (e in originals.entries) {
+                e.key!!.setColorFilter(e.value)
+                NotificationIconTintAdapter.restore(e.key!!)
+            }
             originals.clear()
             appliedColors.clear()
             for (view in networkSpeeds!!) NetworkSpeedTintAdapter.restore(view!!)
