@@ -11,8 +11,8 @@ android {
         applicationId 'dev.ryuya.galaxybar'
         minSdk 35
         targetSdk 37
-        versionCode 46
-        versionName '0.6.25-experimental'
+        versionCode 47
+        versionName '0.7.0-experimental'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 
@@ -27,6 +27,7 @@ android {
 }
 
 dependencies {
+    implementation("org.luckypray:dexkit:2.3.0")
     implementation 'io.github.libxposed:service:102.0.0'
 
     compileOnly 'io.github.libxposed:api:102.0.0'

@@ -6,6 +6,9 @@ import android.graphics.Color
 import android.os.Build
 import android.view.View
 import android.widget.TextView
+import dev.ryuya.galaxybar.compat.compatibleDeclaredField
+import dev.ryuya.galaxybar.compat.compatibleDeclaredMethod
+import dev.ryuya.galaxybar.compat.compatibleName
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.Reflect
@@ -29,7 +32,7 @@ object NetworkSpeedTintAdapter {
     internal fun nativeContainers(): List<View> =
         applied.keys
             .mapNotNull { text -> text?.parent as? View }
-            .filter { it.javaClass.name == OWNER }
+            .filter { it.javaClass.compatibleName() == OWNER }
 
     @JvmStatic
     fun setSpacing(value: Int) {
@@ -68,7 +71,7 @@ object NetworkSpeedTintAdapter {
     fun install(loader: ClassLoader?) {
         if (Build.VERSION.SDK_INT != 37) return
         val owner = Reflect.findClass(NetworkSpeedTintAdapter.OWNER, loader)
-        owner!!.getDeclaredMethod(
+        owner!!.compatibleDeclaredMethod(
             "onDarkChanged",
             ArrayList::class.java,
             Float::class.javaPrimitiveType,
@@ -77,7 +80,7 @@ object NetworkSpeedTintAdapter {
         if (
             !TextView::class
                 .java
-                .isAssignableFrom(owner!!.getDeclaredField("mContentView").getType())
+                .isAssignableFrom(owner!!.compatibleDeclaredField("mContentView").getType())
         )
             throw NoSuchFieldException("Netspeed content contract")
         HookRegistry.hook(
@@ -111,8 +114,8 @@ object NetworkSpeedTintAdapter {
         }
         return StatusBarElements.isNetworkSpeedText(
             Build.VERSION.SDK_INT,
-            view.javaClass.getName(),
-            parent.javaClass.getName(),
+            view.javaClass.compatibleName(),
+            parent.javaClass.compatibleName(),
             resource,
         )
     }

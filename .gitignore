@@ -12,3 +12,4 @@ build-runtime-dependencies.txt
 .signing/
 __pycache__/
 .kotlin/
+.signing

@@ -1,5 +1,6 @@
 package dev.ryuya.galaxybar.hook
 
+import dev.ryuya.galaxybar.compat.compatibleName
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Executable
 import java.util.concurrent.atomic.AtomicLong
@@ -38,7 +39,7 @@ object Hooks {
     ): MutableSet<HookCallback.Unhook> {
         val installed = linkedSetOf<HookCallback.Unhook>()
         try {
-            for (method in type.declaredMethods) if (method.name == name)
+            for (method in type.declaredMethods) if (method.compatibleName() == name)
                 installed += hook(method, callback)
             return installed
         } catch (error: Throwable) {

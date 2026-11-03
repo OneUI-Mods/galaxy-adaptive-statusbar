@@ -28,6 +28,7 @@ import android.view.WindowManager
 import android.view.WindowManager.LayoutParams
 import android.widget.ImageView
 import android.widget.TextView
+import dev.ryuya.galaxybar.compat.compatibleName
 import dev.ryuya.galaxybar.hook.Hooks
 import dev.ryuya.galaxybar.hook.Reflect
 import java.util.ArrayList
@@ -316,7 +317,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
             !view.isShown() || view.getAlpha() <= 0 || view.getWidth() <= 0 || view.getHeight() <= 0
         )
             return
-        val name = view.javaClass.getName()
+        val name = view.javaClass.compatibleName()
         var resource: String = ""
         try {
             resource = view.getResources().getResourceEntryName(view.getId())

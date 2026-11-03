@@ -25,3 +25,5 @@ Android SDKのコンパイル対象は37です。JDK・Gradle・依存関係の�
 - [Android 17の互換性](compatibility/android17.md)
 
 - [Kotlin移行の設計と検証範囲](kotlin-migration.md)
+
+- [探索・保存・更新時の互換性](dexkit-compatibility.md)

@@ -12,6 +12,11 @@ import android.view.View
 import android.view.View.OnAttachStateChangeListener
 import android.view.ViewGroup
 import android.view.ViewTreeObserver.OnPreDrawListener
+import dev.ryuya.galaxybar.compat.compatibleDeclaredField
+import dev.ryuya.galaxybar.compat.compatibleDeclaredMethod
+import dev.ryuya.galaxybar.compat.compatibleField
+import dev.ryuya.galaxybar.compat.compatibleMethod
+import dev.ryuya.galaxybar.compat.compatibleName
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.Hooks
@@ -97,58 +102,71 @@ internal object ChargingMotion {
                         "events.SamsungBatteryStatusChip\$getSystemIconAnimator\$alphaAnimator\$1\$1",
                     loader,
                 )
-            val alphaOwner = alpha.getDeclaredField("this\$0").apply { isAccessible = true }
-            val alphaEntering = alpha.getDeclaredField("\$isIn").apply { isAccessible = true }
-            val alphaAnimator = alpha.getDeclaredField("\$this_apply").apply { isAccessible = true }
-            val alphaValue = alphaAnimator.type.getMethod("getAnimatedValue")
+            val alphaOwner = alpha.compatibleDeclaredField("this\$0").apply { isAccessible = true }
+            val alphaEntering =
+                alpha.compatibleDeclaredField("\$isIn").apply { isAccessible = true }
+            val alphaAnimator =
+                alpha.compatibleDeclaredField("\$this_apply").apply { isAccessible = true }
+            val alphaValue = alphaAnimator.type.compatibleMethod("getAnimatedValue")
             val cleanup =
                 Reflect.findClass(
                     BASE + "pipeline.shared.ui.composable.ChargingVIKt\$ChargingVI\$1\$1",
                     loader,
                 )
-            val cleanupLabel = cleanup.getDeclaredField("label").apply { isAccessible = true }
+            val cleanupLabel =
+                cleanup.compatibleDeclaredField("label").apply { isAccessible = true }
             val cleanupChip =
-                cleanup.getDeclaredField("\$chipView\$delegate").apply { isAccessible = true }
-            val cleanupHidden =
-                cleanup.getDeclaredField("\$shouldHideStatusBarForChargingVI\$delegate").apply {
+                cleanup.compatibleDeclaredField("\$chipView\$delegate").apply {
                     isAccessible = true
                 }
+            val cleanupHidden =
+                cleanup
+                    .compatibleDeclaredField("\$shouldHideStatusBarForChargingVI\$delegate")
+                    .apply {
+                        isAccessible = true
+                    }
             val stateValue =
-                Reflect.findClass("androidx.compose.runtime.State", loader).getMethod("getValue")
+                Reflect.findClass("androidx.compose.runtime.State", loader)
+                    .compatibleMethod("getValue")
             val continuation = Reflect.findClass("kotlin.coroutines.Continuation", loader)
             val delay =
                 Reflect.findClass("kotlinx.coroutines.DelayKt", loader)
-                    .getMethod("delay", Long::class.javaPrimitiveType, continuation)
-            val unit = Reflect.findClass("kotlin.Unit", loader).getField("INSTANCE").get(null)
-            cleanup.getDeclaredMethod("invokeSuspend", Any::class.java)
+                    .compatibleMethod("delay", Long::class.javaPrimitiveType, continuation)
+            val unit =
+                Reflect.findClass("kotlin.Unit", loader).compatibleField("INSTANCE").get(null)
+            cleanup.compatibleDeclaredMethod("invokeSuspend", Any::class.java)
             check(alphaOwner.type == chip)
             check(alphaEntering.type == Boolean::class.javaPrimitiveType)
-            alpha.getDeclaredMethod("onAnimationUpdate", animator)
-            chip.getDeclaredMethod(
+            alpha.compatibleDeclaredMethod("onAnimationUpdate", animator)
+            chip.compatibleDeclaredMethod(
                 "getAnimatorOut",
                 Rect::class.java,
                 Float::class.javaPrimitiveType,
                 Boolean::class.javaPrimitiveType,
             )
             val args = Array<Class<*>>(6) { Any::class.java }
-            visibility.getDeclaredMethod("invoke", *args)
-            val viewModel = visibility.getDeclaredField("this\$0").apply { isAccessible = true }
+            visibility.compatibleDeclaredMethod("invoke", *args)
+            val viewModel =
+                visibility.compatibleDeclaredField("this\$0").apply { isAccessible = true }
             val displayId =
-                viewModel.type.getDeclaredField("thisDisplayId").apply { isAccessible = true }
+                viewModel.type.compatibleDeclaredField("thisDisplayId").apply {
+                    isAccessible = true
+                }
             check(displayId.type == Int::class.javaPrimitiveType)
-            chip.getDeclaredMethod(
+            chip.compatibleDeclaredMethod(
                 "getSystemIconAnimator",
                 View::class.java,
                 Boolean::class.javaPrimitiveType,
                 Boolean::class.javaPrimitiveType,
             )
-            chip.getDeclaredMethod("resetSystemIconState")
-            meter = chip.getDeclaredMethod("getBatteryMeterView")
-            background = chip.getDeclaredField("background")
-            batteryLabel = chip.getDeclaredField("batteryLevelText").apply { isAccessible = true }
+            chip.compatibleDeclaredMethod("resetSystemIconState")
+            meter = chip.compatibleDeclaredMethod("getBatteryMeterView")
+            background = chip.compatibleDeclaredField("background")
+            batteryLabel =
+                chip.compatibleDeclaredField("batteryLevelText").apply { isAccessible = true }
             check(View::class.java.isAssignableFrom(batteryLabel!!.type))
-            translatedView = update.getDeclaredField("\$v")
-            update.getDeclaredMethod("onAnimationUpdate", animator)
+            translatedView = update.compatibleDeclaredField("\$v")
+            update.compatibleDeclaredMethod("onAnimationUpdate", animator)
             check(View::class.java.isAssignableFrom(meter!!.returnType))
             check(View::class.java.isAssignableFrom(background!!.type))
             check(translatedView!!.type == View::class.java)
@@ -502,7 +520,10 @@ internal object ChargingMotion {
                 if (ancestor === icons) return
                 ancestor = ancestor.parent
             }
-            if (view.javaClass.name == "com.android.systemui.statusbar.policy.NetspeedView") {
+            if (
+                view.javaClass.compatibleName() ==
+                    "com.android.systemui.statusbar.policy.NetspeedView"
+            ) {
                 addSpeed(view)
                 return
             }

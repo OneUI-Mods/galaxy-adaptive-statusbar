@@ -23,6 +23,7 @@ import android.os.PowerManager
 import android.os.RemoteException
 import android.os.SystemClock
 import android.os.UserManager
+import dev.ryuya.galaxybar.compat.compatibleName
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.HookCallback.Unhook
@@ -236,7 +237,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                         val s = begin(p.thisObject)
                         s.input = p!!.args!![0]
                         s.opening = Reflect.getBooleanField(p!!.args!![0]!!, "isForward")
-                        s.spring = p.method!!.getName() == "startSpring"
+                        s.spring = p.method!!.compatibleName() == "startSpring"
                     } catch (error: Throwable) {
                         fail(error)
                     }

@@ -6,6 +6,9 @@ import android.graphics.Rect
 import android.hardware.HardwareBuffer
 import android.os.SystemClock
 import android.view.SurfaceControl
+import dev.ryuya.galaxybar.compat.DexSymbols
+import dev.ryuya.galaxybar.compat.compatibleMethod
+import dev.ryuya.galaxybar.compat.compatibleName
 import kotlin.jvm.JvmStatic
 
 /* Existing WMS/SurfaceFlinger APIs only; no process injection or policy changes. Worker-only. */
@@ -16,8 +19,8 @@ class LayerCapture : AutoCloseable {
     private var display: Int = -1
 
     init {
-        cap = Class.forName("android.window.ScreenCaptureInternal")
-        builder = Class.forName(cap.getName() + "\$LayerCaptureArgs\$Builder")
+        cap = DexSymbols.findClass("android.window.ScreenCaptureInternal")
+        builder = DexSymbols.findClass(cap.compatibleName() + "\$LayerCaptureArgs\$Builder")
     }
 
     @Throws(Exception::class)
@@ -36,12 +39,12 @@ class LayerCapture : AutoCloseable {
             close()
             mirror = SurfaceControl::class.java.getConstructor().newInstance()
             val wm =
-                Class.forName("android.view.WindowManagerGlobal")
-                    .getMethod("getWindowManagerService")
+                DexSymbols.findClass("android.view.WindowManagerGlobal")
+                    .compatibleMethod("getWindowManagerService")
                     .invoke(null)
             val ok: Boolean =
-                Class.forName("android.view.IWindowManager")
-                    .getMethod(
+                DexSymbols.findClass("android.view.IWindowManager")
+                    .compatibleMethod(
                         "mirrorDisplay",
                         Int::class.javaPrimitiveType,
                         SurfaceControl::class.java,
@@ -54,16 +57,22 @@ class LayerCapture : AutoCloseable {
             SystemClock.sleep(50)
         }
         val b = builder.getConstructor(SurfaceControl::class.java).newInstance(mirror)
-        builder.getMethod("setChildrenOnly", Boolean::class.javaPrimitiveType).invoke(b, false)
-        builder.getMethod("setSourceCrop", Rect::class.java).invoke(b, crop)
-        builder.getMethod("setFrameScale", Float::class.javaPrimitiveType).invoke(b, .5f)
         builder
-            .getMethod("setExcludeLayers", Array<SurfaceControl>::class.java)
+            .compatibleMethod("setChildrenOnly", Boolean::class.javaPrimitiveType)
+            .invoke(b, false)
+        builder.compatibleMethod("setSourceCrop", Rect::class.java).invoke(b, crop)
+        builder.compatibleMethod("setFrameScale", Float::class.javaPrimitiveType).invoke(b, .5f)
+        builder
+            .compatibleMethod("setExcludeLayers", Array<SurfaceControl>::class.java)
             .invoke(b, excludes as Any?)
-        builder.getMethod("setSecureContentPolicy", Int::class.javaPrimitiveType).invoke(b, 2)
-        builder.getMethod("setProtectedContentPolicy", Int::class.javaPrimitiveType).invoke(b, 2)
-        val args = builder.getMethod("build").invoke(b)
-        val shot = cap.getMethod("captureLayers", args.javaClass).invoke(null, args)
+        builder
+            .compatibleMethod("setSecureContentPolicy", Int::class.javaPrimitiveType)
+            .invoke(b, 2)
+        builder
+            .compatibleMethod("setProtectedContentPolicy", Int::class.javaPrimitiveType)
+            .invoke(b, 2)
+        val args = builder.compatibleMethod("build").invoke(b)
+        val shot = cap.compatibleMethod("captureLayers", args.javaClass).invoke(null, args)
         return LayerCapture.copyCapture(shot, crop)
     }
 
@@ -86,15 +95,16 @@ class LayerCapture : AutoCloseable {
         fun copyCapture(shot: Any?, crop: Rect): Bitmap? {
             if (shot == null) throw LayerCapture.UnavailableException()
             val buffer: HardwareBuffer? =
-                shot.javaClass.getMethod("getHardwareBuffer").invoke(shot) as HardwareBuffer?
+                shot.javaClass.compatibleMethod("getHardwareBuffer").invoke(shot) as HardwareBuffer?
             // A capture result can exist without pixels while a task's surfaces are being replaced.
             // Do not dereference or close a missing buffer, and do not count this as a hook
             // failure.
             if (buffer == null) throw LayerCapture.UnavailableException()
             try {
-                if (shot.javaClass.getMethod("containsSecureLayers").invoke(shot) as Boolean)
+                if (shot.javaClass.compatibleMethod("containsSecureLayers").invoke(shot) as Boolean)
                     throw LayerCapture.ProtectedContentException()
-                val hw: Bitmap? = shot.javaClass.getMethod("asBitmap").invoke(shot) as Bitmap?
+                val hw: Bitmap? =
+                    shot.javaClass.compatibleMethod("asBitmap").invoke(shot) as Bitmap?
                 if (hw == null) throw LayerCapture.UnavailableException()
                 try {
                     // SurfaceFlinger truncates scaled output dimensions, including odd moving

@@ -33,6 +33,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import dev.ryuya.galaxybar.compat.compatibleName
 import dev.ryuya.galaxybar.hook.Hooks
 import dev.ryuya.galaxybar.hook.Reflect
 import java.io.File
@@ -258,7 +259,7 @@ class Engine(root: View) {
         context.registerReceiver(screenState, filter, Context.RECEIVER_NOT_EXPORTED)
         Hooks.log(
             ("GalaxyBar: engine root=" +
-                root.javaClass.getName() +
+                root.javaClass.compatibleName() +
                 " " +
                 root.getWidth() +
                 "x" +
@@ -807,7 +808,7 @@ class Engine(root: View) {
     private fun collect(view: View, out: MutableList<Engine.Target?>) {
         val virtual: Boolean = motion.active() && motion.nativeArea(view) != null
         if (!virtual && (!view.isShown() || view.getAlpha() <= 0)) return
-        val name = view.javaClass.getName()
+        val name = view.javaClass.compatibleName()
         val id = Engine.id(view)
         if (StatusBarElements.isCompoundIndicator(name, id!!)) return
         if (NativeBatteryView.supports(view)) {
@@ -1342,7 +1343,7 @@ class Engine(root: View) {
 
         @JvmStatic
         private fun isClock(view: View): Boolean {
-            val name = view.javaClass.getName()
+            val name = view.javaClass.compatibleName()
             return name.endsWith(".Clock") ||
                 name.contains("QSClock") ||
                 Engine.id(view)!!.contains("clock")

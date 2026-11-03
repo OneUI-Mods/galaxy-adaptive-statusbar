@@ -13,6 +13,7 @@ import android.graphics.drawable.BitmapDrawable
 import android.graphics.drawable.Drawable
 import android.graphics.drawable.VectorDrawable
 import android.widget.ImageView
+import dev.ryuya.galaxybar.compat.compatibleDeclaredMethod
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.Hooks
@@ -49,7 +50,7 @@ object BatteryAdapter {
         val candidate =
             Reflect.findClass("com.android.systemui.battery.SamsungBatteryMeterDrawable", loader)
         // Boot-framework Canvas calls may have been inlined into Samsung's precompiled renderer.
-        Hooks.deoptimize(candidate!!.getDeclaredMethod("draw", Canvas::class.java))
+        Hooks.deoptimize(candidate!!.compatibleDeclaredMethod("draw", Canvas::class.java))
         HookRegistry.hook(
             candidate,
             "draw",

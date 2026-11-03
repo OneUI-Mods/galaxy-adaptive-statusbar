@@ -15,6 +15,8 @@ import android.os.UserManager
 import android.provider.Settings.Global
 import android.system.Os
 import android.system.OsConstants
+import dev.ryuya.galaxybar.compat.compatibleDeclaredField
+import dev.ryuya.galaxybar.compat.compatibleDeclaredMethod
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.HookCallback.Unhook
@@ -59,7 +61,7 @@ object ReloadSession {
             val owner = Reflect.findClass(ownerName!!, loader)
             if (
                 owner!!
-                    .getDeclaredMethod(
+                    .compatibleDeclaredMethod(
                         "doKeyguardLocked",
                         Bundle::class.java,
                         Boolean::class.javaPrimitiveType,
@@ -68,27 +70,27 @@ object ReloadSession {
                     .getReturnType() != Boolean::class.javaPrimitiveType
             )
                 throw NoSuchMethodException("Keyguard return type")
-            owner!!.getDeclaredMethod("onSystemReady")
-            owner!!.getDeclaredMethod("onStartedGoingToSleep", Int::class.javaPrimitiveType)
-            owner!!.getDeclaredMethod("onKeyguardExitFinished", String::class.java)
-            owner!!.getDeclaredMethod("showKeyguard$1", Bundle::class.java)
-            owner!!.getDeclaredField("mKeyguardViewControllerLazy")
-            owner!!.getDeclaredField("mSystemReady")
-            owner!!.getDeclaredField("mKeyguardInteractor")
+            owner!!.compatibleDeclaredMethod("onSystemReady")
+            owner!!.compatibleDeclaredMethod("onStartedGoingToSleep", Int::class.javaPrimitiveType)
+            owner!!.compatibleDeclaredMethod("onKeyguardExitFinished", String::class.java)
+            owner!!.compatibleDeclaredMethod("showKeyguard$1", Bundle::class.java)
+            owner!!.compatibleDeclaredField("mKeyguardViewControllerLazy")
+            owner!!.compatibleDeclaredField("mSystemReady")
+            owner!!.compatibleDeclaredField("mKeyguardInteractor")
             val interactor =
                 Reflect.findClass(
                     "com.android.systemui.keyguard.domain.interactor.KeyguardInteractor",
                     loader,
                 )
-            interactor!!.getDeclaredMethod("dismissKeyguard")
-            interactor!!.getDeclaredField("keyguardTransitionInteractor")
+            interactor!!.compatibleDeclaredMethod("dismissKeyguard")
+            interactor!!.compatibleDeclaredField("keyguardTransitionInteractor")
             Reflect.findClass(
                     "com.android.systemui.keyguard.domain.interactor.KeyguardTransitionInteractor",
                     loader,
                 )!!
-                .getDeclaredField("currentKeyguardState")
+                .compatibleDeclaredField("currentKeyguardState")
             Reflect.findClass("com.android.keyguard.KeyguardViewController", loader)!!
-                .getDeclaredMethod(
+                .compatibleDeclaredMethod(
                     "hide",
                     Long::class.javaPrimitiveType,
                     Long::class.javaPrimitiveType,
@@ -99,16 +101,16 @@ object ReloadSession {
                     "mPM",
                     "mSelectedUserInteractor",
                     "mUpdateMonitor",
-                )) owner!!.getDeclaredField(field)
+                )) owner!!.compatibleDeclaredField(field)
             val monitor = Reflect.findClass("com.android.keyguard.KeyguardUpdateMonitor", loader)
-            monitor!!.getDeclaredMethod("isForcedLock")
-            monitor!!.getDeclaredMethod("isSimPinSecure")
-            monitor!!.getDeclaredMethod("isUserInLockdown", Int::class.javaPrimitiveType)
+            monitor!!.compatibleDeclaredMethod("isForcedLock")
+            monitor!!.compatibleDeclaredMethod("isSimPinSecure")
+            monitor!!.compatibleDeclaredMethod("isUserInLockdown", Int::class.javaPrimitiveType)
             Reflect.findClass(
                     "com.android.systemui.user.domain.interactor.SelectedUserInteractor",
                     loader,
                 )!!
-                .getDeclaredMethod("getSelectedUserId")
+                .compatibleDeclaredMethod("getSelectedUserId")
             ReloadSession.context = host
             ReloadSession.files = host.createDeviceProtectedStorageContext().getFilesDir().toPath()
             ReloadSession.boot = Global.getInt(host.getContentResolver(), Global.BOOT_COUNT, -1)

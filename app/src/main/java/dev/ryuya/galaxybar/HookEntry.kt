@@ -10,6 +10,7 @@ import android.view.View
 import android.view.View.OnAttachStateChangeListener
 import android.view.ViewTreeObserver.OnGlobalLayoutListener
 import android.widget.ImageView
+import dev.ryuya.galaxybar.compat.DexSymbols
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.HookCallback.Unhook
@@ -70,6 +71,10 @@ class HookEntry : XposedModule() {
         private fun initialize(context: Context, loader: ClassLoader?) {
             if (HookEntry.initialized) return
             HookEntry.initialized = true
+            DexSymbols.whenPrepared(context) { installPrepared(context, loader) }
+        }
+
+        private fun installPrepared(context: Context, loader: ClassLoader?) {
             if (context.getPackageName() == "com.sec.android.app.launcher") {
                 try {
                     HookEntry.protection = CrashGuard.open(context, false)

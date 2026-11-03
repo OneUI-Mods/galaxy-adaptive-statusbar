@@ -44,5 +44,9 @@
         <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
       </intent-filter>
     </receiver>
-  </application>
+          <provider android:name="dev.ryuya.galaxybar.compat.DexKitProvider" android:authorities="${applicationId}.dexkit" android:exported="true" />
+        <receiver android:name="dev.ryuya.galaxybar.compat.DexKitPackageReceiver" android:exported="false">
+            <intent-filter><action android:name="android.intent.action.PACKAGE_REPLACED"/><action android:name="android.intent.action.PACKAGE_ADDED"/><data android:scheme="package"/></intent-filter>
+        </receiver>
+    </application>
 </manifest>

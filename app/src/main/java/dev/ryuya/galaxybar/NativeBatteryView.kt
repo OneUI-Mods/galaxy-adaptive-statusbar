@@ -13,6 +13,9 @@ import android.graphics.RenderNode
 import android.os.Build
 import android.view.View
 import android.view.ViewGroup
+import dev.ryuya.galaxybar.compat.compatibleDeclaredField
+import dev.ryuya.galaxybar.compat.compatibleDeclaredMethod
+import dev.ryuya.galaxybar.compat.compatibleName
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.Reflect
@@ -91,21 +94,22 @@ object NativeBatteryView {
     fun supports(view: View): Boolean {
         val patternPrefix0 =
             Build.VERSION.SDK_INT != 37 ||
-                view.javaClass.getName() != "androidx.compose.ui.platform.ComposeView"
+                view.javaClass.compatibleName() != "androidx.compose.ui.platform.ComposeView"
         val parent = if (!patternPrefix0) view.getParent() as? ViewGroup else null
         if (patternPrefix0 || parent == null) return false
         var nativeSibling: Boolean = false
         for (i in 0 until parent.getChildCount()) {
             val sibling = parent.getChildAt(i)
             if (
-                sibling.javaClass.getName() == "com.android.systemui.battery.BatteryMeterView" &&
+                sibling.javaClass.compatibleName() ==
+                    "com.android.systemui.battery.BatteryMeterView" &&
                     NativeBatteryView.resource(sibling) == "battery"
             )
                 nativeSibling = true
         }
         return StatusBarElements.isDedicatedComposeBattery(
             Build.VERSION.SDK_INT,
-            view.javaClass.getName(),
+            view.javaClass.compatibleName(),
             NativeBatteryView.resource(parent)!!,
             nativeSibling,
         )
@@ -142,13 +146,13 @@ object NativeBatteryView {
                 loader,
             )
         // Validate the read-only contracts before installing either callback.
-        owner!!.getDeclaredMethod("dispatchDraw", Canvas::class.java)
-        draw!!.getDeclaredMethod("invoke", Any::class.java)
-        draw!!.getDeclaredField("f$1")
-        draw!!.getDeclaredField("f$4")
+        owner!!.compatibleDeclaredMethod("dispatchDraw", Canvas::class.java)
+        draw!!.compatibleDeclaredMethod("invoke", Any::class.java)
+        draw!!.compatibleDeclaredField("f$1")
+        draw!!.compatibleDeclaredField("f$4")
         val scope = Reflect.findClass("androidx.compose.ui.graphics.drawscope.DrawScope", loader)
         for (method in scope!!.getMethods()) if (
-            method.getName().startsWith("getSize-") &&
+            method.compatibleName().startsWith("getSize-") &&
                 method.getParameterCount() == 0 &&
                 method.getReturnType() == Long::class.javaPrimitiveType
         )

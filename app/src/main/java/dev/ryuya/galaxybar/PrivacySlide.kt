@@ -17,6 +17,9 @@ import android.view.ViewGroup
 import android.view.ViewTreeObserver.OnPreDrawListener
 import android.view.WindowInsets.Type
 import android.view.animation.PathInterpolator
+import dev.ryuya.galaxybar.compat.compatibleDeclaredField
+import dev.ryuya.galaxybar.compat.compatibleDeclaredMethod
+import dev.ryuya.galaxybar.compat.compatibleName
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.Hooks
@@ -140,7 +143,7 @@ object PrivacySlide {
                         0,
                     )
                     .javaClass
-            attributes!!.getDeclaredMethod(
+            attributes!!.compatibleDeclaredMethod(
                 "onSystemBarAttributesChanged",
                 Int::class.javaPrimitiveType,
                 Int::class.javaPrimitiveType,
@@ -155,7 +158,7 @@ object PrivacySlide {
                     "com.android.systemui.privacy.ui.view.ComposeOngoingPrivacyChip",
                     loader,
                 )!!
-                .getDeclaredField("launchableView")
+                .compatibleDeclaredField("launchableView")
             val visibilityType =
                 Reflect.findClass(
                     PrivacySlide.BASE + "pipeline.shared.ui.model.VisibilityModel",
@@ -185,26 +188,31 @@ object PrivacySlide {
                     loader,
                 )
             // Verify every contract before registering any optional hook.
-            scheduler!!.getDeclaredMethod("onStatusEvent", event)
-            controller!!.getDeclaredMethod(
+            scheduler!!.compatibleDeclaredMethod("onStatusEvent", event)
+            controller!!.compatibleDeclaredMethod(
                 "prepareChipAnimation",
                 function,
                 Boolean::class.javaPrimitiveType,
             )
-            controller!!.getDeclaredMethod(
+            controller!!.compatibleDeclaredMethod(
                 "onSystemEventAnimationBegin",
                 Boolean::class.javaPrimitiveType,
             )
-            controller!!.getDeclaredMethod(
+            controller!!.compatibleDeclaredMethod(
                 "onSystemEventAnimationFinish",
                 Boolean::class.javaPrimitiveType,
                 Boolean::class.javaPrimitiveType,
             )
-            controller!!.getDeclaredField("currentAnimatedView")
-            controller!!.getDeclaredField("animationWindowView")
-            controller!!.getDeclaredField("animRect")
-            flags!!.getDeclaredMethod("invoke", Any::class.java, Any::class.java, Any::class.java)
-            home!!.getDeclaredMethod(
+            controller!!.compatibleDeclaredField("currentAnimatedView")
+            controller!!.compatibleDeclaredField("animationWindowView")
+            controller!!.compatibleDeclaredField("animRect")
+            flags!!.compatibleDeclaredMethod(
+                "invoke",
+                Any::class.java,
+                Any::class.java,
+                Any::class.java,
+            )
+            home!!.compatibleDeclaredMethod(
                 "invoke",
                 Any::class.java,
                 Any::class.java,
@@ -213,14 +221,23 @@ object PrivacySlide {
                 Any::class.java,
                 Any::class.java,
             )
-            samsung!!.getDeclaredMethod("invoke", Any::class.java, Any::class.java, Any::class.java)
+            samsung!!.compatibleDeclaredMethod(
+                "invoke",
+                Any::class.java,
+                Any::class.java,
+                Any::class.java,
+            )
             PrivacySlide.visibility =
                 visibilityType!!.getDeclaredConstructor(
                     Int::class.javaPrimitiveType,
                     Boolean::class.javaPrimitiveType,
                 )
             PrivacySlide.applyVisibility =
-                binder!!.getDeclaredMethod("adjustVisibility", View::class.java, visibilityType)
+                binder!!.compatibleDeclaredMethod(
+                    "adjustVisibility",
+                    View::class.java,
+                    visibilityType,
+                )
 
             HookRegistry.hook(
                 attributes,
@@ -370,7 +387,7 @@ object PrivacySlide {
                             val group = PrivacySlide.rightGroup()
                             if (
                                 (view !is View) ||
-                                    (view.javaClass.getName() !=
+                                    (view.javaClass.compatibleName() !=
                                         "com.android.systemui.privacy.ui.view.ComposeOngoingPrivacyChip") ||
                                     !PrivacySlide.scene(group)
                             )
@@ -439,7 +456,8 @@ object PrivacySlide {
 
     @JvmStatic
     private fun privacyEvent(event: Any): Boolean {
-        if (event.javaClass.getName() != PrivacySlide.BASE + "events.PrivacyEvent") return false
+        if (event.javaClass.compatibleName() != PrivacySlide.BASE + "events.PrivacyEvent")
+            return false
         if (
             !Reflect.getBooleanField(event, "forceVisible") ||
                 !Reflect.getBooleanField(event, "showAnimation")

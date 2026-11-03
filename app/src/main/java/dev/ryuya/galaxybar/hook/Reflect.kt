@@ -1,5 +1,9 @@
 package dev.ryuya.galaxybar.hook
 
+import dev.ryuya.galaxybar.compat.DexSymbols
+import dev.ryuya.galaxybar.compat.compatibleDeclaredField
+import dev.ryuya.galaxybar.compat.compatibleDeclaredMethod
+import dev.ryuya.galaxybar.compat.compatibleName
 import java.lang.reflect.Constructor
 import java.lang.reflect.Executable
 import java.lang.reflect.Field
@@ -28,7 +32,7 @@ object Reflect {
     @JvmStatic
     fun findClass(name: String, loader: ClassLoader?): Class<*> =
         try {
-            Class.forName(name, false, loader)
+            DexSymbols.findClass(name, false, loader)
         } catch (error: ClassNotFoundException) {
             throw IllegalStateException("Class not found: $name", error)
         }
@@ -51,7 +55,7 @@ object Reflect {
         var type: Class<*>? = owner
         while (type != null) {
             try {
-                val method = type.getDeclaredMethod(name, *types)
+                val method = type.compatibleDeclaredMethod(name, *types)
                 method.isAccessible = true
                 return Hooks.hook(method, callback)
             } catch (_: NoSuchMethodException) {}
@@ -68,7 +72,7 @@ object Reflect {
             var type: Class<*>? = owner
             while (type != null) {
                 try {
-                    return@computeIfAbsent type.getDeclaredField(name).also {
+                    return@computeIfAbsent type.compatibleDeclaredField(name).also {
                         it.isAccessible = true
                     }
                 } catch (_: NoSuchFieldException) {}
@@ -176,7 +180,10 @@ object Reflect {
                 var type: Class<*>? = owner
                 while (type != null) {
                     for (method in type.declaredMethods) {
-                        if (method.name == name && Modifier.isStatic(method.modifiers) == statik)
+                        if (
+                            method.compatibleName() == name &&
+                                Modifier.isStatic(method.modifiers) == statik
+                        )
                             consider(method)
                     }
                     type = type.superclass
@@ -184,7 +191,10 @@ object Reflect {
             }
             if (selected == null && name != "<init>") {
                 for (method in owner.methods) {
-                    if (method.name == name && Modifier.isStatic(method.modifiers) == statik)
+                    if (
+                        method.compatibleName() == name &&
+                            Modifier.isStatic(method.modifiers) == statik
+                    )
                         consider(method)
                 }
             }

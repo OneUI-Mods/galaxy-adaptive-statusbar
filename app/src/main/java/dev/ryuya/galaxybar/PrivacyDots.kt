@@ -10,6 +10,8 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.ViewTreeObserver.OnPreDrawListener
 import android.widget.ImageView
+import dev.ryuya.galaxybar.compat.compatibleDeclaredField
+import dev.ryuya.galaxybar.compat.compatibleDeclaredMethod
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.Hooks
@@ -90,19 +92,19 @@ object PrivacyDots {
                     loader,
                 )
             val state = Reflect.findClass("com.android.systemui.statusbar.events.ViewState", loader)
-            owner.getDeclaredMethod(
+            owner.compatibleDeclaredMethod(
                 "initialize",
                 View::class.java,
                 View::class.java,
                 View::class.java,
                 View::class.java,
             )
-            owner.getDeclaredMethod("showDotView", View::class.java)
-            owner.getDeclaredField("currentViewState")
-            owner.getDeclaredField("displayId")
-            state.getDeclaredField("systemPrivacyEventLocationOnlyIsActive")
-            state.getDeclaredField("designatedCorner")
-            ImageView::class.java.getDeclaredMethod("onDraw", Canvas::class.java)
+            owner.compatibleDeclaredMethod("showDotView", View::class.java)
+            owner.compatibleDeclaredField("currentViewState")
+            owner.compatibleDeclaredField("displayId")
+            state.compatibleDeclaredField("systemPrivacyEventLocationOnlyIsActive")
+            state.compatibleDeclaredField("designatedCorner")
+            ImageView::class.java.compatibleDeclaredMethod("onDraw", Canvas::class.java)
             val remember =
                 object : HookCallback() {
                     override fun afterHookedMethod(p: MethodHookParam) {
