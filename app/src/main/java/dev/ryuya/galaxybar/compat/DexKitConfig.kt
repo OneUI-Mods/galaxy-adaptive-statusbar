@@ -1,12 +1,13 @@
 package dev.ryuya.galaxybar.compat
 
 internal object DexKitConfig {
-    const val SCHEMA = 1
+    const val SCHEMA = 2
     const val MODULE_ID = "dev.ryuya.galaxybar"
     val MODULE_VERSION
         get() = dev.ryuya.galaxybar.BuildConfig.VERSION_CODE
 
     const val PROFILE_HASH = "872560b2008b7cd63520f6b95bb5ab84caba07b3d3a7ade22b20f2e0efd25c8a"
+    val FEATURE_PREFIXES = setOf<String>()
     val TARGETS = setOf("com.android.systemui", "com.sec.android.app.launcher")
     val HOSTS = setOf("com.sec.android.app.launcher", "com.android.systemui")
     val CLASSES_BY_TARGET =
