@@ -64,7 +64,8 @@ class ColorGroupingTest {
         prefs.edit().remove(ColorGrouping.KEY).commit()
         try {
             ActivityScenario.launch(MainActivity::class.java).use { screen ->
-                for (mode in listOf(ColorGrouping.PARTS, ColorGrouping.CHARACTERS)) {
+                for (mode in
+                    listOf(ColorGrouping.PARTS, ColorGrouping.AUTO, ColorGrouping.CHARACTERS)) {
                     screen.onActivity { activity ->
                         val control =
                             activity.findViewById<MaterialAutoCompleteTextView>(R.id.color_grouping)
@@ -88,8 +89,11 @@ class ColorGroupingTest {
                         val control =
                             activity.findViewById<MaterialAutoCompleteTextView>(R.id.color_grouping)
                         val label =
-                            if (mode == ColorGrouping.PARTS) R.string.color_grouping_parts
-                            else R.string.color_grouping_characters
+                            when (mode) {
+                                ColorGrouping.PARTS -> R.string.color_grouping_parts
+                                ColorGrouping.AUTO -> R.string.color_grouping_auto
+                                ColorGrouping.CHARACTERS -> R.string.color_grouping_characters
+                            }
                         assertEquals(activity.getString(label), control.text.toString())
                     }
                 }

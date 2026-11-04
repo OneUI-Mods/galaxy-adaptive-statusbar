@@ -96,5 +96,6 @@
   <string name="color_grouping">配色する単位</string>
   <string name="color_grouping_characters">文字ごと</string>
   <string name="color_grouping_parts">パーツごと</string>
-  <string name="color_grouping_note">「文字ごと」は時計の文字を個別に配色します。「パーツごと」は日付と時刻を、それぞれ1色に揃えます。同じ表示欄でも日付と時刻を分けて判定し、通知・通信アイコンはどちらのモードでも1個ずつ配色します。変更はすぐに反映されます。</string>
+  <string name="color_grouping_note">「自動」は、日付・時刻を1色で読みやすく表示できる間はパーツごとに配色します。文字ごとの方が読みやすくなる部分だけ切り替え、背景が落ち着いてから1色に戻します。通知・通信アイコンは常に1個ずつ配色します。</string>
+  <string name="color_grouping_auto">自動</string>
 </resources>

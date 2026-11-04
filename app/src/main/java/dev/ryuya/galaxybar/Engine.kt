@@ -137,6 +137,9 @@ class Engine(root: View) {
     private val texts: MutableSet<TextView?>? =
         Collections.newSetFromMap<TextView?>(IdentityHashMap<TextView?, Boolean?>())
     private val previous: MutableMap<String?, Int?> = ConcurrentHashMap<String?, Int?>()
+    // Accessed only by the capture worker; reset with the analysis generation.
+    private val automaticStates = HashMap<String, AutomaticColorGrouping.State>()
+    private val automaticPartColors = HashMap<String, Int>()
     private val fades: MutableMap<String?, ColorFade?> = HashMap<String?, ColorFade?>()
     private val choreographer: Choreographer? = Choreographer.getInstance()
     private val fadeFrame: FrameCallback = FrameCallback { ignored: Long ->
@@ -182,6 +185,13 @@ class Engine(root: View) {
 
     private class BarSpan(c: Int) : ForegroundColorSpan(c)
 
+    private data class AutoPart(val area: Rect, val start: Int, val end: Int, val key: String)
+
+    private data class AutoPlan(
+        val targets: MutableList<Target?>,
+        val colors: Map<String, Int>,
+    )
+
     @JvmRecord
     private data class Target(
         val view: View?,
@@ -192,6 +202,7 @@ class Engine(root: View) {
         val key: String?,
         val battery: BatteryAdapter.Geometry?,
         val nativeBattery: NativeBatteryView.Geometry?,
+        val autoPart: AutoPart? = null,
     ) {
         constructor(
             view: View?,
@@ -348,6 +359,12 @@ class Engine(root: View) {
                                         target!!.key,
                                         target!!.battery,
                                         target!!.nativeBattery,
+                                        target.autoPart?.let { part ->
+                                            val mappedPart =
+                                                if (sampleWindow) motion.mappedArea(part.area)
+                                                else Rect(part.area)
+                                            mappedPart?.let { part.copy(area = it) }
+                                        },
                                     ),
                                 )
                         }
@@ -552,6 +569,8 @@ class Engine(root: View) {
             if (run && !targets.isEmpty()) {
                 if (analysisEpoch != paletteGeneration) {
                     previous.clear()
+                    automaticStates.clear()
+                    automaticPartColors.clear()
                     analysisEpoch = paletteGeneration
                 }
                 if (capturedRotation != rotation) {
@@ -579,12 +598,14 @@ class Engine(root: View) {
                     val hash = framePixels.contentHashCode()
                     unchangedFrames = if (hash == frameHash) unchangedFrames + 1 else 0
                     frameHash = hash
-                    val colors = IntArray(targets.size)
-                    val percentageColors = IntArray(targets.size)
+                    val plan = automaticPlan(targets, bmp.width, bmp.height, crop, settings, now)
+                    val activeTargets = plan.targets
+                    val colors = IntArray(activeTargets.size)
+                    val percentageColors = IntArray(activeTargets.size)
                     val details = StringBuilder()
                     val nextPrevious = HashMap<String?, Int?>()
-                    for (i in targets.indices) {
-                        val t = targets.get(i)
+                    for (i in activeTargets.indices) {
+                        val t = activeTargets.get(i)
                         val values =
                             Engine.samples(
                                 framePixels,
@@ -594,12 +615,13 @@ class Engine(root: View) {
                                 crop,
                             )
                         var color =
-                            Contrast.choose(
-                                values!!,
-                                previous.getOrDefault(t!!.key, 0)!!,
-                                settings.getString("algorithm", "robust"),
-                                settings.getDouble("hysteresis", .15),
-                            )
+                            plan.colors[t!!.key]
+                                ?: Contrast.choose(
+                                    values!!,
+                                    previous.getOrDefault(t!!.key, 0)!!,
+                                    settings.getString("algorithm", "robust"),
+                                    settings.getDouble("hysteresis", .15),
+                                )
                         if (
                             settings.getBoolean("fixed") &&
                                 t!!.start >= 0 &&
@@ -664,7 +686,7 @@ class Engine(root: View) {
                             "×" +
                             bmp!!.getHeight() +
                             "; targets=" +
-                            targets.size)
+                            activeTargets.size)
                     main.post(
                         Runnable {
                             val current = Rect()
@@ -694,7 +716,7 @@ class Engine(root: View) {
                                         motion.configure(config.getBoolean("motion", true))
                                     }
                                     transition(
-                                        targets,
+                                        activeTargets,
                                         colors,
                                         percentageColors,
                                         crop,
@@ -920,14 +942,34 @@ class Engine(root: View) {
         val grouping = ColorGrouping.fromPreference(config.getString(ColorGrouping.KEY))
         val x = xy[0] + text.totalPaddingLeft - text.scrollX
         val y = xy[1] + text.totalPaddingTop - text.scrollY
-        for (range in TextColorUnits.ranges(value, grouping, dateAndTime, text.textLocale)) {
+        val automatic = grouping == ColorGrouping.AUTO && dateAndTime
+        val parts =
+            if (automatic)
+                TextColorUnits.ranges(value, ColorGrouping.PARTS, true, text.textLocale).map { range
+                    ->
+                    val bounds = TextUnitBounds.measure(value, range, layout, text.paint)
+                    bounds.offset(x, y)
+                    bounds.intersect(visible)
+                    AutoPart(bounds, range.start, range.end, "${key(text)}:part:${range.start}")
+                }
+            else emptyList()
+        val units =
+            TextColorUnits.ranges(
+                value,
+                if (automatic) ColorGrouping.CHARACTERS else grouping,
+                dateAndTime,
+                text.textLocale,
+            )
+        for (range in units) {
             val bounds = TextUnitBounds.measure(value, range, layout, text.paint)
             bounds.offset(x, y)
             if (bounds.intersect(visible) && !bounds.isEmpty) {
-                // A ticking clock keeps the same part's hysteresis and fade history.
                 val unitKey =
                     if (grouping == ColorGrouping.PARTS) "part:${range.start}"
                     else "character:${range.start}:${value.substring(range.start, range.end)}"
+                val part = parts.firstOrNull {
+                    range.start >= it.start && range.end <= it.end && !it.area.isEmpty
+                }
                 out.add(
                     Target(
                         text,
@@ -936,10 +978,77 @@ class Engine(root: View) {
                         range.end,
                         value,
                         "${key(text)}:$unitKey",
+                        null,
+                        null,
+                        part,
                     ),
                 )
             }
         }
+    }
+
+    private fun automaticPlan(
+        targets: MutableList<Target?>,
+        width: Int,
+        height: Int,
+        crop: Rect,
+        settings: Bundle,
+        now: Long,
+    ): AutoPlan {
+        if (
+            ColorGrouping.fromPreference(settings.getString(ColorGrouping.KEY)) !=
+                ColorGrouping.AUTO
+        )
+            return AutoPlan(targets, emptyMap())
+        val selected = ArrayList<Target?>()
+        val palette = HashMap<String, Int>()
+        val groups =
+            targets.filterNotNull().filter { it.autoPart != null }.groupBy { it.autoPart!!.key }
+        val emitted = HashSet<String>()
+        for (target in targets) {
+            val part = target?.autoPart
+            if (part == null) {
+                selected.add(target)
+                continue
+            }
+            if (!emitted.add(part.key)) continue
+            val glyphs = groups.getValue(part.key)
+            val backgrounds = glyphs.map { samples(framePixels, width, height, it.area, crop)!! }
+            val analysis =
+                AutomaticColorGrouping.analyze(
+                    backgrounds,
+                    automaticPartColors[part.key] ?: previous[part.key] ?: 0,
+                    IntArray(glyphs.size) {
+                        previous[glyphs[it].key] ?: automaticPartColors[part.key] ?: 0
+                    },
+                    settings.getString("algorithm", "robust")!!,
+                    settings.getDouble("hysteresis", .15),
+                )
+            automaticPartColors[part.key] = analysis.partColor
+            val split =
+                automaticStates
+                    .getOrPut(part.key) { AutomaticColorGrouping.State() }
+                    .select(analysis, now)
+            if (split) {
+                for ((i, glyph) in glyphs.withIndex()) {
+                    selected.add(glyph)
+                    palette[glyph.key!!] = analysis.characterColors[i]
+                }
+            } else {
+                selected.add(
+                    target.copy(
+                        area = part.area,
+                        start = part.start,
+                        end = part.end,
+                        key = part.key,
+                    ),
+                )
+                palette[part.key] = analysis.partColor
+            }
+        }
+        automaticStates.keys.retainAll(emitted)
+        automaticPartColors.keys.retainAll(emitted)
+        return AutoPlan(selected, palette)
     }
 
     private fun area(view: View, result: Rect): Boolean {
@@ -964,6 +1073,14 @@ class Engine(root: View) {
         val live = HashSet<String?>()
         for (i in targets.indices) {
             val target = targets.get(i)
+            if (target?.autoPart != null && !fades.containsKey(target.key)) {
+                val old =
+                    fadeTargets!!.filterNotNull().firstOrNull {
+                        it.view === target.view && it.start < target.end && it.end > target.start
+                    }
+                val seed = old?.let { fades[it.key]?.color(now) }
+                if (seed != null) fades[target.key] = ColorFade(seed)
+            }
             retarget(target!!.key, colors[i], now, live)
             if (target!!.hasBattery())
                 retarget(target!!.key + ":percentage", percentages[i], now, live)

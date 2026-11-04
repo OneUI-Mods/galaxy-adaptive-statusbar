@@ -43,16 +43,36 @@ class ColorPreview(context: Context?) : View(context) {
         paint.textSize = 22 * d
         val value = "11/04 12:34"
         val textX = w * .48f - paint.measureText("11/04 12")
-        for (range in TextColorUnits.ranges(value, grouping, dateAndTime = true)) {
+        fun samples(range: TextColorUnits.Range): DoubleArray {
             val left = textX + paint.measureText(value, 0, range.start)
             val right = textX + paint.measureText(value, 0, range.end)
-            val samples =
-                DoubleArray(16) { i ->
-                    if (left + (right - left) * (i + .5f) / 16 < w * .48f) 1.0 else 0.0
-                }
-            paint.color = Contrast.choose(samples, 0, "robust", .15)
+            return DoubleArray(16) { i ->
+                if (left + (right - left) * (i + .5f) / 16 < w * .48f) 1.0 else 0.0
+            }
+        }
+        fun draw(range: TextColorUnits.Range, color: Int) {
+            val left = textX + paint.measureText(value, 0, range.start)
+            paint.color = color
             paint.style = Style.FILL
             canvas.drawText(value, range.start, range.end, left, h / 2 + 8 * d, paint)
+        }
+        val ranges = TextColorUnits.ranges(value, grouping, dateAndTime = true)
+        val characters = TextColorUnits.ranges(value, ColorGrouping.CHARACTERS, true)
+        for (range in ranges) {
+            if (grouping == ColorGrouping.AUTO) {
+                val glyphs = characters.filter { it.start >= range.start && it.end <= range.end }
+                val analysis =
+                    AutomaticColorGrouping.analyze(
+                        glyphs.map { samples(it) },
+                        0,
+                        IntArray(glyphs.size),
+                        "robust",
+                        .15,
+                    )
+                if (analysis.preferCharacters)
+                    glyphs.forEachIndexed { i, glyph -> draw(glyph, analysis.characterColors[i]) }
+                else draw(range, analysis.partColor)
+            } else draw(range, Contrast.choose(samples(range), 0, "robust", .15))
         }
         for (half in 0..1) {
             canvas.save()

@@ -147,6 +147,7 @@ class MainActivity : AppCompatActivity() {
             arrayOf<String?>(
                 getString(R.string.color_grouping_characters),
                 getString(R.string.color_grouping_parts),
+                getString(R.string.color_grouping_auto),
             )
         dropdown(
             groupingCard,

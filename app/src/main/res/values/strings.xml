@@ -97,5 +97,6 @@
   <string name="color_grouping">Color grouping</string>
   <string name="color_grouping_characters">By character</string>
   <string name="color_grouping_parts">By part</string>
-  <string name="color_grouping_note">By character adjusts clock text one character at a time. By part keeps the date and time in one color each, even when shown together. Notification and status icons are always colored individually. Changes apply immediately.</string>
+  <string name="color_grouping_note">Automatic keeps each date or time part in one color when it remains readable. It switches only parts that become easier to read with individual character colors, and waits for the background to settle before joining them again. Icons are always colored individually.</string>
+  <string name="color_grouping_auto">Automatic</string>
 </resources>

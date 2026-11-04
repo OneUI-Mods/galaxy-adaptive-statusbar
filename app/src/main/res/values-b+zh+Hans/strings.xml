@@ -96,5 +96,6 @@
   <string name="color_grouping">配色单位</string>
   <string name="color_grouping_characters">逐字符</string>
   <string name="color_grouping_parts">逐部件</string>
-  <string name="color_grouping_note">逐字符模式分别调整时钟的每个字符。逐部件模式分别为日期和时间使用一种颜色，即使两者显示在同一区域也会分别判断。通知和状态图标在两种模式下均单独配色。更改立即生效。</string>
+  <string name="color_grouping_note">自动模式在清晰可读时为日期和时间分别使用一种颜色；仅在逐字符配色能改善可读性时切换，并在背景稳定后恢复单色。通知和状态图标始终单独配色。</string>
+  <string name="color_grouping_auto">自动</string>
 </resources>

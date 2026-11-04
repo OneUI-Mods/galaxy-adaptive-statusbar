@@ -96,5 +96,6 @@
   <string name="color_grouping">Unidad de color</string>
   <string name="color_grouping_characters">Por carácter</string>
   <string name="color_grouping_parts">Por elemento</string>
-  <string name="color_grouping_note">Por carácter colorea cada carácter del reloj. Por elemento usa un color para la fecha y otro para la hora, aunque aparezcan juntas. Los iconos se colorean individualmente en ambos modos. Los cambios se aplican al instante.</string>
+  <string name="color_grouping_note">Automático mantiene un color por fecha u hora mientras sea legible. Solo cambia a colores por carácter cuando mejora la lectura, y espera a que el fondo se estabilice para volver a un solo color. Los iconos siempre se colorean individualmente.</string>
+  <string name="color_grouping_auto">Automático</string>
 </resources>
