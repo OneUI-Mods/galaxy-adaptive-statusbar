@@ -101,6 +101,30 @@ class AutomaticColorGroupingTest {
         assertFalse(time.select(decision(false), 0))
     }
 
+    @Test
+    fun charactersConvergeBeforeSpansMergeEvenAtTheLongestFadeDuration() {
+        val mixed = analyze(.01, .9, .02, .85, .01)
+        val readable = analyze(.16, .18, .20, .17, .19)
+        assertFalse(readable.preferCharacters)
+        val state = AutomaticColorGrouping.State()
+        assertTrue(state.select(mixed, 0))
+        val fades = mixed.characterColors.map { ColorFade(it) }
+        for (now in listOf(0L, 100L, 350L, 500L, 650L)) {
+            val individual = state.select(readable, now)
+            if (individual) {
+                val target = readable.characterPhaseColors()
+                fades.forEachIndexed { index, fade ->
+                    fade.setDuration(ColorFade.MAX_DURATION_MS, now)
+                    fade.setTarget(target[index], now)
+                }
+            } else {
+                assertEquals(650L, now)
+                fades.forEach { assertEquals(readable.partColor, it.color(now)) }
+            }
+        }
+        assertFalse(state.characters)
+    }
+
     @Test(expected = IllegalArgumentException::class)
     fun unavailableBackgroundSamplesCannotBecomeAGroupingDecision() {
         AutomaticColorGrouping.analyze(listOf(doubleArrayOf()), 0, intArrayOf(0), "robust", .15)

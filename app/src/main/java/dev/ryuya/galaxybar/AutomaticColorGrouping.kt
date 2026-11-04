@@ -16,7 +16,11 @@ internal object AutomaticColorGrouping {
         val preferCharacters: Boolean,
         val urgent: Boolean,
         val gain: Double,
-    )
+    ) {
+        // During the settle interval, converge the existing glyph fades before merging spans.
+        fun characterPhaseColors(): IntArray =
+            if (preferCharacters) characterColors else IntArray(characterColors.size) { partColor }
+    }
 
     fun analyze(
         glyphs: List<DoubleArray>,

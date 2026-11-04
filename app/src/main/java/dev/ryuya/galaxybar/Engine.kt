@@ -1030,9 +1030,10 @@ class Engine(root: View) {
                     .getOrPut(part.key) { AutomaticColorGrouping.State() }
                     .select(analysis, now)
             if (split) {
+                val characterColors = analysis.characterPhaseColors()
                 for ((i, glyph) in glyphs.withIndex()) {
                     selected.add(glyph)
-                    palette[glyph.key!!] = analysis.characterColors[i]
+                    palette[glyph.key!!] = characterColors[i]
                 }
             } else {
                 selected.add(
