@@ -2,7 +2,7 @@
   <string name="screen_title">自動ステータスバー</string>
   <string name="enabled">自動配色を使う</string>
   <string name="color_targets">配色する項目</string>
-  <string name="clock">時計の文字</string>
+  <string name="clock">日付・時刻</string>
   <string name="notifications">通知アイコン</string>
   <string name="signals">通信・状態アイコン</string>
   <string name="battery_note">残量の文字色は、バッテリー内部の塗りも考慮して判定します。</string>
@@ -93,4 +93,8 @@
   <string name="privacy_fallback_note">OFFでも移動を続けます。時計や通知が多い場合は、表示が重なることがあります。</string>
     <string name="charging_motion">充電演出中もステータスバーを表示</string>
     <string name="charging_motion_note">純正の充電アニメーションに合わせて、周囲のアイコンを左へ移動します。変更は次の充電アニメーションから適用されます。</string>
+  <string name="color_grouping">配色する単位</string>
+  <string name="color_grouping_characters">文字ごと</string>
+  <string name="color_grouping_parts">パーツごと</string>
+  <string name="color_grouping_note">「文字ごと」は時計の文字を個別に配色します。「パーツごと」は日付と時刻を、それぞれ1色に揃えます。同じ表示欄でも日付と時刻を分けて判定し、通知・通信アイコンはどちらのモードでも1個ずつ配色します。変更はすぐに反映されます。</string>
 </resources>

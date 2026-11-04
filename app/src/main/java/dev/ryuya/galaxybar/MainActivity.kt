@@ -62,7 +62,7 @@ class MainActivity : AppCompatActivity() {
                 enabledControl!!.setEnabled(!blocked)
                 enabledControl!!.setChecked(!blocked && prefs!!.getBoolean("enabled", false))
                 guardSummary!!.setText(
-                    getString(if (blocked) R.string.guard_blocked else R.string.guard_note)
+                    getString(if (blocked) R.string.guard_blocked else R.string.guard_note),
                 )
                 if (!blocked) guardResetting = false
                 guardResetControl!!.setEnabled(blocked && !guardResetting)
@@ -72,7 +72,7 @@ class MainActivity : AppCompatActivity() {
                         (latest.getString("text", "") +
                             "\n" +
                             getString(R.string.updated_seconds, age))
-                    else getString(R.string.waiting_hook)
+                    else getString(R.string.waiting_hook),
                 )
                 handler.postDelayed(this, 2000)
             }
@@ -111,7 +111,7 @@ class MainActivity : AppCompatActivity() {
             MaterialColors.getColor(
                 hero,
                 com.google.android.material.R.attr.colorPrimaryContainer,
-            )
+            ),
         )
         val enabled = toggle(hero, getString(R.string.enabled), "enabled", false)
         enabledControl = enabled
@@ -122,9 +122,14 @@ class MainActivity : AppCompatActivity() {
         preview.setClickable(true)
         preview.setFocusable(true)
         preview.setContentDescription(getString(R.string.open_pattern))
-        preview.addView(ColorPreview(this), android.view.ViewGroup.LayoutParams(-1, dp(88)))
+        val colorPreview = ColorPreview(this)
+        colorPreview.grouping =
+            ColorGrouping.fromPreference(prefs!!.getString(ColorGrouping.KEY, null))
+        preview.addView(colorPreview, android.view.ViewGroup.LayoutParams(-1, dp(88)))
         preview.setOnClickListener(
-            OnClickListener { v: View? -> startActivity(Intent(this, PatternActivity::class.java)) }
+            OnClickListener { v: View? ->
+                startActivity(Intent(this, PatternActivity::class.java))
+            },
         )
         val previewPosition = android.widget.LinearLayout.LayoutParams(-1, dp(88))
         previewPosition.topMargin = dp(12)
@@ -135,6 +140,29 @@ class MainActivity : AppCompatActivity() {
         text(
             motionCard,
             getString(R.string.motion_note),
+            com.google.android.material.R.style.TextAppearance_Material3_BodySmall,
+        )
+        val groupingCard = card(body)
+        val groupingLabels =
+            arrayOf<String?>(
+                getString(R.string.color_grouping_characters),
+                getString(R.string.color_grouping_parts),
+            )
+        dropdown(
+            groupingCard,
+            getString(R.string.color_grouping),
+            groupingLabels,
+            colorPreview.grouping.ordinal,
+            MainActivity.Selection { index ->
+                val grouping = ColorGrouping.entries[index]
+                prefs!!.edit().putString(ColorGrouping.KEY, grouping.preference).apply()
+                colorPreview.grouping = grouping
+            },
+            R.id.color_grouping,
+        )
+        text(
+            groupingCard,
+            getString(R.string.color_grouping_note),
             com.google.android.material.R.style.TextAppearance_Material3_BodySmall,
         )
         val targets = card(body)
@@ -183,22 +211,22 @@ class MainActivity : AppCompatActivity() {
         fadeSlider.setStepSize(ColorFade.STEP_MS.toFloat())
         fadeSlider.setValue(
             ColorFade.clampDuration(prefs!!.getInt("fade_ms", ColorFade.DEFAULT_DURATION_MS))
-                .toFloat()
+                .toFloat(),
         )
         fadeSlider.setLabelFormatter(
             LabelFormatter { value: Float ->
                 getString(R.string.fade_milliseconds, Math.round(value))
-            }
+            },
         )
         fadeLabel.setText(
-            getString(R.string.fade_duration_value, Math.round(fadeSlider.getValue()))
+            getString(R.string.fade_duration_value, Math.round(fadeSlider.getValue())),
         )
         fadeSlider.addOnChangeListener(
             OnChangeListener { control: Slider?, value: Float, fromUser: Boolean ->
                 val duration = Math.round(value)
                 fadeLabel.setText(getString(R.string.fade_duration_value, duration))
                 if (fromUser) prefs!!.edit().putInt("fade_ms", duration).apply()
-            }
+            },
         )
         fade.addView(fadeSlider)
         text(
@@ -271,7 +299,7 @@ class MainActivity : AppCompatActivity() {
             OnChangeListener { control: Slider?, value: Float, fromUser: Boolean ->
                 suppression.setText(getString(R.string.hysteresis_value, Math.round(value)))
                 if (fromUser) prefs!!.edit().putFloat("hysteresis", value / 100f).apply()
-            }
+            },
         )
         analysis.addView(slider)
         button(
@@ -354,7 +382,7 @@ class MainActivity : AppCompatActivity() {
             languageIndex,
             MainActivity.Selection { index: Int ->
                 AppCompatDelegate.setApplicationLocales(
-                    LocaleListCompat.forLanguageTags(languageTags[index])
+                    LocaleListCompat.forLanguageTags(languageTags[index]),
                 )
             },
         )
@@ -419,7 +447,7 @@ class MainActivity : AppCompatActivity() {
             MaterialColors.getColor(
                 card,
                 com.google.android.material.R.attr.colorSurfaceContainerLow,
-            )
+            ),
         )
         parent.addView(card, params)
         val content = column(20)
@@ -437,7 +465,7 @@ class MainActivity : AppCompatActivity() {
                 MaterialColors.getColor(
                     text,
                     com.google.android.material.R.attr.colorOnSurfaceVariant,
-                )
+                ),
             )
         val params = android.widget.LinearLayout.LayoutParams(-1, -2)
         params.setMargins(0, dp(8), 0, dp(8))
@@ -455,7 +483,7 @@ class MainActivity : AppCompatActivity() {
         control.setText(label)
         control.setMinHeight(dp(60))
         control.setTextAppearance(
-            com.google.android.material.R.style.TextAppearance_Material3_BodyLarge
+            com.google.android.material.R.style.TextAppearance_Material3_BodyLarge,
         )
         val protectedMaster: Boolean = key == "enabled" && protectionBlocked()
         control.setChecked(!protectedMaster && prefs!!.getBoolean(key, defaultValue))
@@ -467,7 +495,7 @@ class MainActivity : AppCompatActivity() {
                     return@OnCheckedChangeListener
                 }
                 prefs!!.edit().putBoolean(key, checked).apply()
-            }
+            },
         )
         parent.addView(control, android.widget.LinearLayout.LayoutParams(-1, -2))
         return control
@@ -483,6 +511,7 @@ class MainActivity : AppCompatActivity() {
         labels: Array<String?>,
         selected: Int,
         selection: MainActivity.Selection,
+        inputId: Int = View.NO_ID,
     ) {
         val field =
             TextInputLayout(
@@ -492,15 +521,19 @@ class MainActivity : AppCompatActivity() {
             )
         field.setHint(hint)
         val input = MaterialAutoCompleteTextView(field.getContext())
+        input.id = inputId
+        // Preferences own the selection; do not restore an older editable-text snapshot.
+        input.isSaveEnabled = false
         input.setInputType(InputType.TYPE_NULL)
         input.setAdapter<ArrayAdapter<String?>?>(
-            ArrayAdapter<String?>(this, R.layout.dropdown_item, labels)
+            ArrayAdapter<String?>(this, R.layout.dropdown_item, labels),
         )
         input.setText(labels[selected], false)
         input.setOnItemClickListener(
             OnItemClickListener { adapter: AdapterView<*>?, view: View?, index: Int, itemId: Long ->
+                input.setText(labels[index], false)
                 selection.choose(index)
-            }
+            },
         )
         field.addView(input, android.widget.LinearLayout.LayoutParams(-1, -2))
         val params = android.widget.LinearLayout.LayoutParams(-1, -2)
@@ -542,7 +575,7 @@ class MainActivity : AppCompatActivity() {
             MaterialColors.getColor(
                 sample,
                 com.google.android.material.R.attr.colorSurfaceContainerHigh,
-            )
+            ),
         )
         val preview = MaterialTextView(this)
         preview.setText("12.3\nK/s")
@@ -563,10 +596,10 @@ class MainActivity : AppCompatActivity() {
         slider.setValueTo(NetworkSpeedSpacing.MAX_DP.toFloat())
         slider.setStepSize(1f)
         slider.setValue(
-            NetworkSpeedSpacing.clamp(prefs!!.getInt(NetworkSpeedSpacing.KEY, 0)).toFloat()
+            NetworkSpeedSpacing.clamp(prefs!!.getInt(NetworkSpeedSpacing.KEY, 0)).toFloat(),
         )
         slider.setLabelFormatter(
-            LabelFormatter { value: Float -> spacingLabel(Math.round(value), false)!! }
+            LabelFormatter { value: Float -> spacingLabel(Math.round(value), false)!! },
         )
         val update = IntConsumer { value: Int ->
             label.setText(spacingLabel(value, true))
@@ -578,7 +611,7 @@ class MainActivity : AppCompatActivity() {
                 val spacing = Math.round(value)
                 update.accept(spacing)
                 if (fromUser) prefs!!.edit().putInt(NetworkSpeedSpacing.KEY, spacing).apply()
-            }
+            },
         )
         container.addView(slider)
         text(
@@ -643,12 +676,12 @@ class MainActivity : AppCompatActivity() {
                                 .setMessage(
                                     getString(
                                         if (completed) R.string.guard_reloaded
-                                        else R.string.guard_reload_failed
-                                    )
+                                        else R.string.guard_reload_failed,
+                                    ),
                                 )
                                 .setPositiveButton(getString(R.string.close), null)
                                 .show()
-                        }
+                        },
                     )
                 },
                 "GalaxyBarGuardReset",
@@ -687,7 +720,7 @@ class MainActivity : AppCompatActivity() {
                                     .setMessage(message)
                                     .setPositiveButton(getString(R.string.close), null)
                                     .show()
-                        }
+                        },
                     )
                 },
                 "GalaxyBarRootCheck",

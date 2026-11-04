@@ -2,7 +2,7 @@
   <string name="screen_title">자동 상태 표시줄</string>
   <string name="enabled">자동 색상 사용</string>
   <string name="color_targets">색상을 조정할 항목</string>
-  <string name="clock">시계 문자</string>
+  <string name="clock">날짜 및 시간</string>
   <string name="notifications">알림 아이콘</string>
   <string name="signals">네트워크 및 상태 아이콘</string>
   <string name="battery_note">잔량 문자 색상은 배터리 내부의 채움 색상도 고려합니다.</string>
@@ -93,4 +93,8 @@
   <string name="privacy_fallback_note">끄면 공간이 부족해도 이동합니다. 시계나 알림과 겹칠 수 있습니다.</string>
     <string name="charging_motion">충전 애니메이션 중에도 상태 표시줄 표시</string>
     <string name="charging_motion_note">기본 충전 애니메이션을 유지하며 커지는 배터리에 맞춰 주변 아이콘을 왼쪽으로 이동합니다. 변경 사항은 다음 충전 애니메이션부터 적용됩니다.</string>
+  <string name="color_grouping">색상 적용 단위</string>
+  <string name="color_grouping_characters">글자별</string>
+  <string name="color_grouping_parts">요소별</string>
+  <string name="color_grouping_note">글자별은 시계의 각 글자에 색상을 적용합니다. 요소별은 날짜와 시간을 각각 한 가지 색상으로 표시하며, 함께 표시되어도 따로 판단합니다. 알림 및 상태 아이콘은 두 모드 모두 개별 적용됩니다. 변경 사항은 즉시 적용됩니다.</string>
 </resources>

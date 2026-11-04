@@ -15,6 +15,13 @@ import android.view.View
 class ColorPreview(context: Context?) : View(context) {
     private val paint: Paint = Paint(Paint.ANTI_ALIAS_FLAG)
     private val clip: Path = Path()
+    internal var grouping: ColorGrouping = ColorGrouping.CHARACTERS
+        set(value) {
+            if (field != value) {
+                field = value
+                invalidate()
+            }
+        }
 
     init {
         setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO)
@@ -32,6 +39,21 @@ class ColorPreview(context: Context?) : View(context) {
         canvas.drawColor(Color.WHITE)
         paint.setColor(Color.BLACK)
         canvas.drawRect(w * .48f, 0f, w, h, paint)
+        paint.typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
+        paint.textSize = 22 * d
+        val value = "11/04 12:34"
+        val textX = w * .48f - paint.measureText("11/04 12")
+        for (range in TextColorUnits.ranges(value, grouping, dateAndTime = true)) {
+            val left = textX + paint.measureText(value, 0, range.start)
+            val right = textX + paint.measureText(value, 0, range.end)
+            val samples =
+                DoubleArray(16) { i ->
+                    if (left + (right - left) * (i + .5f) / 16 < w * .48f) 1.0 else 0.0
+                }
+            paint.color = Contrast.choose(samples, 0, "robust", .15)
+            paint.style = Style.FILL
+            canvas.drawText(value, range.start, range.end, left, h / 2 + 8 * d, paint)
+        }
         for (half in 0..1) {
             canvas.save()
             canvas.clipRect(if (half == 0) 0f else w * .48f, 0f, if (half == 0) w * .48f else w, h)
@@ -39,7 +61,6 @@ class ColorPreview(context: Context?) : View(context) {
             paint.setTypeface(Typeface.create("sans-serif-medium", Typeface.NORMAL))
             paint.setTextSize(27 * d)
             paint.setStyle(Style.FILL)
-            canvas.drawText("12:34", 22 * d, h / 2 + 9 * d, paint)
             val right: Float = w - 22 * d
             paint.setStrokeWidth(2 * d)
             paint.setStyle(Style.STROKE)

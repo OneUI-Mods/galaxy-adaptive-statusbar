@@ -3,7 +3,7 @@
   <string name="screen_title">Adaptive status bar</string>
   <string name="enabled">Use adaptive colors</string>
   <string name="color_targets">Items to adjust</string>
-  <string name="clock">Clock characters</string>
+  <string name="clock">Date and time</string>
   <string name="notifications">Notification icons</string>
   <string name="signals">Network and status icons</string>
   <string name="battery_note">Percentage colors also account for the battery fill beneath the digits.</string>
@@ -94,4 +94,8 @@
   <string name="privacy_fallback_note">When off, icons keep moving even in a crowded status bar. They may overlap the clock or notifications.</string>
     <string name="charging_motion">Keep status bar visible while charging</string>
     <string name="charging_motion_note">Keep the native charging animation and move nearby icons with the growing battery. Changes apply to the next charging animation.</string>
+  <string name="color_grouping">Color grouping</string>
+  <string name="color_grouping_characters">By character</string>
+  <string name="color_grouping_parts">By part</string>
+  <string name="color_grouping_note">By character adjusts clock text one character at a time. By part keeps the date and time in one color each, even when shown together. Notification and status icons are always colored individually. Changes apply immediately.</string>
 </resources>

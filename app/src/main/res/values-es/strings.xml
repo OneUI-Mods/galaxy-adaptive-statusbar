@@ -2,7 +2,7 @@
   <string name="screen_title">Barra de estado adaptable</string>
   <string name="enabled">Usar colores adaptables</string>
   <string name="color_targets">Elementos que se ajustan</string>
-  <string name="clock">Caracteres del reloj</string>
+  <string name="clock">Fecha y hora</string>
   <string name="notifications">Iconos de notificación</string>
   <string name="signals">Iconos de red y estado</string>
   <string name="battery_note">El color del porcentaje también tiene en cuenta el relleno de la batería.</string>
@@ -93,4 +93,8 @@
   <string name="privacy_fallback_note">Si se desactiva, los iconos siguen moviéndose aunque haya poco espacio. Pueden superponerse al reloj o a las notificaciones.</string>
     <string name="charging_motion">Mostrar la barra de estado durante la carga</string>
     <string name="charging_motion_note">Conserva la animación de carga y desplaza los iconos junto a la batería. Los cambios se aplican a la próxima animación.</string>
+  <string name="color_grouping">Unidad de color</string>
+  <string name="color_grouping_characters">Por carácter</string>
+  <string name="color_grouping_parts">Por elemento</string>
+  <string name="color_grouping_note">Por carácter colorea cada carácter del reloj. Por elemento usa un color para la fecha y otro para la hora, aunque aparezcan juntas. Los iconos se colorean individualmente en ambos modos. Los cambios se aplican al instante.</string>
 </resources>

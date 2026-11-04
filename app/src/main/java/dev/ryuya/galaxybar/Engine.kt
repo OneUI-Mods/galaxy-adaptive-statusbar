@@ -38,7 +38,6 @@ import dev.ryuya.galaxybar.hook.Hooks
 import dev.ryuya.galaxybar.hook.Reflect
 import java.io.File
 import java.io.FileOutputStream
-import java.text.BreakIterator
 import java.util.ArrayList
 import java.util.Collections
 import java.util.HashMap
@@ -53,8 +52,6 @@ import java.util.function.Consumer
 import kotlin.concurrent.Volatile
 import kotlin.jvm.JvmRecord
 import kotlin.jvm.JvmStatic
-import kotlin.math.ceil
-import kotlin.math.floor
 import kotlin.math.log
 import kotlin.math.max
 import kotlin.math.min
@@ -90,6 +87,7 @@ class Engine(root: View) {
                                 "signals",
                                 "battery",
                                 "fixed",
+                                ColorGrouping.KEY,
                             )
                             .contains(key)
                     )
@@ -122,7 +120,7 @@ class Engine(root: View) {
                 val t = Thread(r, "GalaxyBarCapture")
                 t.setPriority(Thread.MIN_PRIORITY)
                 t
-            }
+            },
         )
     private val originals: IdentityHashMap<ImageView?, ColorFilter?> =
         IdentityHashMap<ImageView?, ColorFilter?>()
@@ -263,7 +261,7 @@ class Engine(root: View) {
                 " " +
                 root.getWidth() +
                 "x" +
-                root.getHeight())
+                root.getHeight()),
         )
         main.post(ticker)
     }
@@ -350,7 +348,7 @@ class Engine(root: View) {
                                         target!!.key,
                                         target!!.battery,
                                         target!!.nativeBattery,
-                                    )
+                                    ),
                                 )
                         }
                         targets = mapped
@@ -390,7 +388,7 @@ class Engine(root: View) {
                             settings,
                             revision,
                         )
-                    }
+                    },
                 )
             }
         } catch (t: Throwable) {
@@ -431,15 +429,19 @@ class Engine(root: View) {
                         // retries.
                         state = "Waiting for settings"
                     }
-                }
+                },
             )
         }
     }
 
     private fun acceptConfig(fresh: Bundle, revision: Int) {
         if (closed || revision != configRevision) return
+        val groupingChanged =
+            ColorGrouping.fromPreference(config.getString(ColorGrouping.KEY)) !=
+                ColorGrouping.fromPreference(fresh.getString(ColorGrouping.KEY))
         config = fresh
-        if (pendingTargetReset) {
+        if (pendingTargetReset || groupingChanged) {
+            paletteEpoch++
             epoch++
             restore()
             pendingTargetReset = false
@@ -469,7 +471,7 @@ class Engine(root: View) {
         ChargingMotion.configure(enabled && fresh.getBoolean("charging_motion", true))
         NetworkSpeedTintAdapter.setSpacing(fresh.getInt(NetworkSpeedSpacing.KEY, 0))
         motion.configure(
-            enabled && fresh.getBoolean("motion", true) && !stopped && !protectedContent
+            enabled && fresh.getBoolean("motion", true) && !stopped && !protectedContent,
         )
         updateRenderState()
         main.removeCallbacks(ticker)
@@ -637,7 +639,7 @@ class Engine(root: View) {
                                     .append(percentKey)
                                     .append(
                                         if (percentageColors[i] == Color.BLACK) " black\n"
-                                        else " white\n"
+                                        else " white\n",
                                     )
                         }
                         if (settings.getBoolean("debug")) {
@@ -682,7 +684,7 @@ class Engine(root: View) {
                                         .isInteractive() &&
                                     !context
                                         .getSystemService<KeyguardManager?>(
-                                            KeyguardManager::class.java
+                                            KeyguardManager::class.java,
                                         )
                                         .isKeyguardLocked()
                             )
@@ -702,7 +704,7 @@ class Engine(root: View) {
                                 } catch (e: Throwable) {
                                     fail(e)
                                 }
-                        }
+                        },
                     )
                     if (settings.getBoolean("debug") && now - lastDebug > 3000) {
                         val sample = File(context.getCacheDir(), "galaxybar-background.png")
@@ -733,7 +735,7 @@ class Engine(root: View) {
                             motion.configure(false)
                             restore("protected content")
                         }
-                    }
+                    },
                 )
             } else if (t is BackgroundSamples.Unavailable) {
                 errors = 0
@@ -742,7 +744,7 @@ class Engine(root: View) {
                 main.post(
                     Runnable {
                         if (!closed && epoch == generation) restore("background not yet opaque")
-                    }
+                    },
                 )
             } else if (t is LayerCapture.UnavailableException) {
                 errors = 0
@@ -750,7 +752,7 @@ class Engine(root: View) {
                 main.post(
                     Runnable {
                         if (!closed && epoch == generation) restore("capture unavailable")
-                    }
+                    },
                 )
             } else main.post(Runnable { fail(t) })
             if (
@@ -832,7 +834,7 @@ class Engine(root: View) {
                         Engine.key(view) + ":native-battery",
                         null,
                         geometry,
-                    )
+                    ),
                 )
             }
             return
@@ -867,7 +869,7 @@ class Engine(root: View) {
                         "",
                         Engine.key(view) + ":battery",
                         BatteryAdapter.geometry(view),
-                    )
+                    ),
                 )
             return
         }
@@ -905,65 +907,38 @@ class Engine(root: View) {
             for (i in 0 until view.getChildCount()) collect(view.getChildAt(i), out)
     }
 
-    private fun addText(text: TextView, out: MutableList<Engine.Target?>, characters: Boolean) {
-        val value = text.getText().toString()
-        val layout = text.getLayout()
-        val xy = IntArray(2)
+    private fun addText(text: TextView, out: MutableList<Engine.Target?>, dateAndTime: Boolean) {
+        val value = text.text.toString()
+        val layout = text.layout ?: return
         val visible = Rect()
         if (!area(text, visible)) return
+        val xy = IntArray(2)
         if (motion.active()) {
             xy[0] = visible.left
             xy[1] = visible.top
         } else text.getLocationOnScreen(xy)
-        val iterator = BreakIterator.getCharacterInstance(Locale.ROOT)
-        iterator.setText(value)
-        var start = iterator.first()
-        var end = iterator.next()
-        while (end != BreakIterator.DONE) {
-            if (!characters) {
-                start = 0
-                end = value.length
-            }
-            if (TextCompatibility.isBlank(value.substring(start, end))) {
-                if (!characters) break
-                start = end
-                end = iterator.next()
-                continue
-            }
-            val line = layout.getLineForOffset(start)
-            if (layout.getLineForOffset(end - 1) != line) {
-                start = end
-                end = iterator.next()
-                continue
-            }
-            val left = layout.getPrimaryHorizontal(start)
-            val right = layout.getPrimaryHorizontal(end)
-            val glyph = Rect()
-            text.getPaint().getTextBounds(value, start, end, glyph)
-            val x: Int = xy[0] + text.getTotalPaddingLeft() - text.getScrollX()
-            val y: Int =
-                xy[1] + text.getTotalPaddingTop() - text.getScrollY() + layout.getLineBaseline(line)
-            val r =
-                Rect(
-                    x + (floor(min(left, right))).toInt(),
-                    y + glyph.top,
-                    x + (ceil(max(left, right))).toInt(),
-                    y + glyph.bottom,
-                )
-            if (r.intersect(visible) && !r.isEmpty())
+        val grouping = ColorGrouping.fromPreference(config.getString(ColorGrouping.KEY))
+        val x = xy[0] + text.totalPaddingLeft - text.scrollX
+        val y = xy[1] + text.totalPaddingTop - text.scrollY
+        for (range in TextColorUnits.ranges(value, grouping, dateAndTime, text.textLocale)) {
+            val bounds = TextUnitBounds.measure(value, range, layout, text.paint)
+            bounds.offset(x, y)
+            if (bounds.intersect(visible) && !bounds.isEmpty) {
+                // A ticking clock keeps the same part's hysteresis and fade history.
+                val unitKey =
+                    if (grouping == ColorGrouping.PARTS) "part:${range.start}"
+                    else "character:${range.start}:${value.substring(range.start, range.end)}"
                 out.add(
-                    Engine.Target(
+                    Target(
                         text,
-                        r,
-                        start,
-                        end,
+                        bounds,
+                        range.start,
+                        range.end,
                         value,
-                        Engine.key(text) + ":" + start + ":" + value.substring(start, end),
-                    )
+                        "${key(text)}:$unitKey",
+                    ),
                 )
-            if (!characters) break
-            start = end
-            end = iterator.next()
+            }
         }
     }
 
@@ -1347,10 +1322,7 @@ class Engine(root: View) {
 
         @JvmStatic
         private fun isClock(view: View): Boolean {
-            val name = view.javaClass.compatibleName()
-            return name.endsWith(".Clock") ||
-                name.contains("QSClock") ||
-                Engine.id(view)!!.contains("clock")
+            return TextColorUnits.isDateAndTime(view.javaClass.compatibleName(), id(view).orEmpty())
         }
 
         @JvmStatic

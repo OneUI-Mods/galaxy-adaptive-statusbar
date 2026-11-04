@@ -10,4 +10,5 @@
   <item type="id" name="license_text" />
   <item type="id" name="network_speed_spacing_slider" />
   <item type="id" name="network_speed_spacing_value" />
+  <item type="id" name="color_grouping" />
 </resources>

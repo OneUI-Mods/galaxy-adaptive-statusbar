@@ -72,6 +72,10 @@ class ConfigProvider : ContentProvider() {
                 NetworkSpeedSpacing.KEY,
                 NetworkSpeedSpacing.clamp(p.getInt(NetworkSpeedSpacing.KEY, 0)),
             )
+            b.putString(
+                ColorGrouping.KEY,
+                ColorGrouping.fromPreference(p.getString(ColorGrouping.KEY, null)).preference,
+            )
             b.putString("algorithm", p.getString("algorithm", "robust"))
             b.putDouble("hysteresis", p.getFloat("hysteresis", .15f).toDouble())
             b.putString("guard_reset_token", p.getString("guard_reset_token", ""))
