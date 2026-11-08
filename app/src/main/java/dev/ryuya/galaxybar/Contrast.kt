@@ -61,16 +61,13 @@ object Contrast {
             }
         } else {
             // Lower decile contrast: more robust to mixed backgrounds than a mean.
-            val w = DoubleArray(values.size)
-            val b = DoubleArray(values.size)
-            for (i in values.indices) {
-                w[i] = 1.05 / (values[i] + .05)
-                b[i] = (values[i] + .05) / .05
-            }
-            Arrays.sort(w)
-            Arrays.sort(b)
-            white = w[values.size / 10]
-            black = b[values.size / 10]
+            // Black contrast increases with luminance; white contrast decreases. One ordered
+            // luminance copy gives both original deciles without two contrast arrays/sorts.
+            val ordered = values.copyOf()
+            Arrays.sort(ordered)
+            val decile = values.size / 10
+            white = 1.05 / (ordered[values.lastIndex - decile] + .05)
+            black = (ordered[decile] + .05) / .05
         }
         val ratio: Double = black / white
         if (previous == -0x1000000 && ratio >= 1 / (1 + hysteresis)) return previous

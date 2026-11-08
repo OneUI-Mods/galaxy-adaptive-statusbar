@@ -23,9 +23,13 @@ object BackgroundSamples {
             "Invalid sample bounds"
         }
         if (left >= right || top >= bottom) throw BackgroundSamples.Unavailable("Empty background")
-        val values = DoubleArray((right - left) * (bottom - top))
-        var count: Int = 0
-        val step = max(1, (sqrt(values.size / 256.0)).toInt())
+        val area = (right - left) * (bottom - top)
+        val step = max(1, (sqrt(area / 256.0)).toInt())
+        // Allocate exactly the sampled grid, not the full region followed by a second copy.
+        val columns = (right - left - 1) / step + 1
+        val rows = (bottom - top - 1) / step + 1
+        val values = DoubleArray(columns * rows)
+        var count = 0
         var y: Int = top
         while (y < bottom) {
             var x: Int = left
@@ -38,7 +42,7 @@ object BackgroundSamples {
             }
             y += step
         }
-        return values.copyOf(count)
+        return values
     }
 
     class Unavailable(reason: String?) : IllegalStateException(reason)

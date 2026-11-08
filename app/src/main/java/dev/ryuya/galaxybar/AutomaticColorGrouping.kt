@@ -39,7 +39,8 @@ internal object AutomaticColorGrouping {
             }
         val colors =
             IntArray(glyphs.size) { i ->
-                Contrast.choose(glyphs[i].clone(), previousCharacters[i], algorithm, hysteresis)
+                val samples = if (algorithm == "median") glyphs[i].clone() else glyphs[i]
+                Contrast.choose(samples, previousCharacters[i], algorithm, hysteresis)
             }
         var part = Contrast.choose(pooled, previousPart, algorithm, hysteresis)
         val consensus = colors.first()
@@ -49,7 +50,10 @@ internal object AutomaticColorGrouping {
             if (newScore > oldScore * (1 + hysteresis)) part = consensus
         }
         val commonQuality = DoubleArray(glyphs.size) { quality(glyphs[it], part) }
-        val individualQuality = DoubleArray(glyphs.size) { quality(glyphs[it], colors[it]) }
+        val individualQuality =
+            DoubleArray(glyphs.size) {
+                if (colors[it] == part) commonQuality[it] else quality(glyphs[it], colors[it])
+            }
         var improved = 0
         var urgent = false
         var logGain = 0.0
