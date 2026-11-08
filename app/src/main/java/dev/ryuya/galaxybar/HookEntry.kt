@@ -143,6 +143,7 @@ class HookEntry : XposedModule() {
                                     HookEntry.engine = null
                                 }
                                 if (HookEntry.engine == null) HookEntry.engine = Engine(root)
+                                HookEntry.engine?.availabilityChanged()
                             }
                         } catch (error: Throwable) {
                             HookEntry.stopHooks(error)
@@ -279,7 +280,7 @@ class HookEntry : XposedModule() {
                                         }
                                         v!!.removeOnAttachStateChangeListener(this)
                                     }
-                                }
+                                },
                             )
                         } catch (e: Throwable) {
                             HookEntry.stopHooks(e)

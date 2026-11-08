@@ -62,12 +62,17 @@ class Engine(root: View) {
     private val context: Context
     private val motion: StatusBarMotion
     private val main: Handler = Handler(Looper.getMainLooper())
-    private val ticker: Runnable = Runnable { this.tick() }
+    private val wakeups =
+        CaptureWakeups(
+            { callback, delay -> main.postDelayed(callback, delay) },
+            { main.removeCallbacks(it) },
+            { tick() },
+        )
     private val capturePacing = CapturePacing()
     private val settingsObserver: ContentObserver =
         object : ContentObserver(main) {
             override fun onChange(selfChange: Boolean, uri: Uri?) {
-                if (closed) return
+                if (closed || uri?.lastPathSegment == "motion_endpoint") return
                 try {
                     configRevision++
                     if (uri != null && "motion" == uri.getLastPathSegment()) motion.configure(false)
@@ -111,8 +116,7 @@ class Engine(root: View) {
                     restore()
                     worker!!.execute(Runnable { releaseCapture() })
                 }
-                main.removeCallbacks(ticker)
-                main.post(ticker)
+                wakeups.request()
             }
         }
     private val worker: ExecutorService? =
@@ -163,6 +167,8 @@ class Engine(root: View) {
     private var frameHash: Int = 0
     private var capturedRotation: Int = -1
     private var lastConfig: Long = 0
+    @Volatile private var configurationLoaded = false
+    private var configReads = 0
     private var lastStatus: Long = 0
     private var lastDebug: Long = 0
     private var errors: Int = 0
@@ -170,10 +176,11 @@ class Engine(root: View) {
     private var configRevision: Int = 0
     private var paletteEpoch: Int = 0
     private var analysisEpoch: Int = -1
-    private var immediateCapture: Boolean = false
+    @Volatile private var immediateCapture: Boolean = false
     @Volatile private var renderState: String = "Color hooks: 0; fade callbacks: 0; fade targets: 0"
     private var stopped: Boolean = false
     private var wasEnabled: Boolean = false
+    private var waitingForAvailability = false
     private var closed: Boolean = false
     private var applying: Boolean = false
     private var pendingTargetReset: Boolean = false
@@ -254,8 +261,7 @@ class Engine(root: View) {
                     }
                     immediateCapture = true
                     if (!closed) {
-                        main.removeCallbacks(ticker)
-                        main.post(ticker)
+                        wakeups.request()
                     }
                 },
             )
@@ -275,7 +281,7 @@ class Engine(root: View) {
                 "x" +
                 root.getHeight()),
         )
-        main.post(ticker)
+        wakeups.request()
     }
 
     private fun tick() {
@@ -284,6 +290,7 @@ class Engine(root: View) {
         val asleep =
             !power.isInteractive ||
                 context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
+        waitingForAvailability = asleep
         var hz = config.getInt("hz", 10)
         if (hz != 5 && hz != 10 && hz != 15 && hz != 30) hz = 10
         if (power.isPowerSaveMode || unchangedFrames >= 20 || protectedContent) hz = 5
@@ -293,14 +300,12 @@ class Engine(root: View) {
         if (!busy && !asleep && config.getBoolean("enabled") && !stopped) {
             val wait = capturePacing.delayMs(SystemClock.elapsedRealtime(), requestedIntervalMs)
             if (wait > 0L) {
-                main.removeCallbacks(ticker)
-                main.postDelayed(ticker, wait)
+                wakeups.schedule(wait)
                 return
             }
         }
         if (busy && immediateCapture) {
-            main.removeCallbacks(ticker)
-            main.postDelayed(ticker, 16)
+            wakeups.awaitWorker()
             return
         }
         try {
@@ -431,30 +436,39 @@ class Engine(root: View) {
             busy = false
             fail(t)
         }
-        main.postDelayed(
-            ticker,
-            (if (asleep) 5000
-                else if (!config.getBoolean("enabled") || stopped) 500 else requestedIntervalMs)
-                .toLong(),
+        // Screen/unlock broadcasts and settings notifications resume a suspended loop.
+        // Retry unreadable settings only while the screen is available, never on a sleep timer.
+        wakeups.afterTurn(
+            !asleep,
+            configurationLoaded,
+            config.getBoolean("enabled"),
+            stopped,
+            requestedIntervalMs,
         )
     }
 
     private fun refreshConfig(revision: Int) {
         if (!context.getSystemService<UserManager?>(UserManager::class.java).isUserUnlocked())
             return
+        lastConfig = SystemClock.elapsedRealtime()
         try {
+            configReads++
             val fresh =
-                context.getContentResolver().call(ConfigProvider.URI!!, "config", null, null)
-            lastConfig = SystemClock.elapsedRealtime()
-            if (fresh != null) main.post(Runnable { acceptConfig(fresh, revision) })
+                checkNotNull(
+                    context.getContentResolver().call(ConfigProvider.URI!!, "config", null, null),
+                ) {
+                    "Settings unavailable"
+                }
+            main.post(Runnable { acceptConfig(fresh, revision) })
         } catch (error: Throwable) {
             main.post(
                 Runnable {
                     if (!closed && revision == configRevision) {
+                        configurationLoaded = false
                         suspendColors()
-                        // Provider startup/unlock is not a capture or hook failure. The ticker
-                        // retries.
+                        // A transient provider failure gets the normal visible-screen retry.
                         state = "Waiting for settings"
+                        wakeups.request()
                     }
                 },
             )
@@ -467,6 +481,7 @@ class Engine(root: View) {
             ColorGrouping.fromPreference(config.getString(ColorGrouping.KEY)) !=
                 ColorGrouping.fromPreference(fresh.getString(ColorGrouping.KEY))
         config = fresh
+        configurationLoaded = true
         if (pendingTargetReset || groupingChanged) {
             paletteEpoch++
             epoch++
@@ -501,8 +516,7 @@ class Engine(root: View) {
             enabled && fresh.getBoolean("motion", true) && !stopped && !protectedContent,
         )
         updateRenderState()
-        main.removeCallbacks(ticker)
-        main.post(ticker)
+        wakeups.request()
     }
 
     private fun suspendColors() {
@@ -555,7 +569,7 @@ class Engine(root: View) {
         var run: Boolean = run
         var holdCapture: Boolean = holdCapture
         try {
-            if (now - lastConfig > 750) {
+            if (!configurationLoaded && now - lastConfig > 750) {
                 refreshConfig(revision)
             }
             run =
@@ -810,17 +824,19 @@ class Engine(root: View) {
             }
         } finally {
             try {
-                publishStatus(now)
+                publishStatus(now, force = !run && !holdCapture)
             } catch (error: Throwable) {
                 main.post(Runnable { fail(error) })
             }
             busy = false
+            // A palette request during capture waits for completion instead of polling at 16ms.
+            if (immediateCapture) main.post { wakeups.workerFinished() }
         }
     }
 
-    private fun publishStatus(now: Long) {
+    private fun publishStatus(now: Long, force: Boolean = false) {
         if (closed) return
-        if (now - lastStatus > 2000) {
+        if (force || now - lastStatus > 2000) {
             val text: String =
                 (state +
                     "\nFrame " +
@@ -830,6 +846,8 @@ class Engine(root: View) {
                     " ms\nSession rate " +
                     String.format(Locale.US, "%.1f", frames * 1000.0 / max(1L, now - started)) +
                     " Hz" +
+                    "\nConfiguration reads: " +
+                    configReads +
                     "\nCapture rest: " +
                     capturePacing.minimumRestMs() +
                     " ms" +
@@ -1415,6 +1433,18 @@ class Engine(root: View) {
         Hooks.log("GalaxyBar: " + lastError)
     }
 
+    /** Existing status-bar layout events also cover native unlock handovers without a broadcast. */
+    fun availabilityChanged() {
+        if (closed || !waitingForAvailability) return
+        if (
+            context.getSystemService(PowerManager::class.java).isInteractive &&
+                !context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
+        ) {
+            waitingForAvailability = false
+            wakeups.request()
+        }
+    }
+
     fun isAttached(): Boolean {
         return root.isAttachedToWindow()
     }
@@ -1429,7 +1459,7 @@ class Engine(root: View) {
     fun close() {
         closed = true
         motion.close()
-        main.removeCallbacks(ticker)
+        wakeups.close()
         context.unregisterReceiver(screenState)
         context.getContentResolver().unregisterContentObserver(settingsObserver)
         epoch++

@@ -83,3 +83,7 @@ Android 16/17のキャプチャAPIと既存フックは変更しない。Surface
 ## CPU・メモリ効率
 
 [変更内容と検証範囲](efficiency.md)を参照してください。
+
+## 待機処理の省電力化
+
+[変更点と検証方針](battery-efficiency.md)を参照してください。
