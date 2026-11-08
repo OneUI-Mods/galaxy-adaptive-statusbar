@@ -7,7 +7,7 @@
   <string name="notifications">Notification icons</string>
   <string name="signals">Network and status icons</string>
   <string name="battery_note">Percentage colors also account for the battery fill beneath the digits.</string>
-  <string name="frequency">Update frequency</string>
+  <string name="frequency">Maximum update rate</string>
   <string name="rate_30">30 Hz (experimental, higher load)</string>
   <string name="algorithm">Background analysis</string>
   <string name="robust">Prioritize low-contrast areas</string>
@@ -50,7 +50,7 @@
   <string name="back">Back</string>
   <string name="license_error">Could not load license text.</string>
   <string name="battery">Battery icon and percentage</string>
-  <string name="power_note">Screen off or locked: capture stops and the mirror is released. Capture resumes after unlocking. Unchanged backgrounds and battery saver use at most 5 Hz.</string>
+  <string name="power_note">Screen off or locked: capture stops and the mirror is released. Capture resumes after unlocking. Unchanged backgrounds and battery saver use at most 5 Hz. Expensive captures temporarily reduce updates further to keep the display responsive.</string>
   <string name="fade_duration">Fade duration</string>
   <string name="fade_duration_value">Fade duration: %1$d ms</string>
   <string name="fade_milliseconds">%1$d ms</string>

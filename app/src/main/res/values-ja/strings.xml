@@ -6,7 +6,7 @@
   <string name="notifications">通知アイコン</string>
   <string name="signals">通信・状態アイコン</string>
   <string name="battery_note">残量の文字色は、バッテリー内部の塗りも考慮して判定します。</string>
-  <string name="frequency">更新頻度</string>
+  <string name="frequency">更新頻度の上限</string>
   <string name="rate_30">30 Hz（実験的・負荷増）</string>
   <string name="algorithm">背景の判定方法</string>
   <string name="robust">低コントラスト領域を優先</string>
@@ -49,7 +49,7 @@
   <string name="back">戻る</string>
   <string name="license_error">ライセンス文書を読み込めませんでした。</string>
   <string name="battery">バッテリーと残量</string>
-  <string name="power_note">消灯・ロック中はキャプチャを停止し、ミラーを解放します。ロック解除後に再開します。背景が変わらないときと省電力モードでは最大5 Hzに抑えます。</string>
+  <string name="power_note">消灯・ロック中はキャプチャを停止し、ミラーを解放します。ロック解除後に再開します。背景が変わらないときと省電力モードでは最大5 Hzに抑えます。 キャプチャが重い場合は、操作の滑らかさを優先して更新頻度をさらに抑えます。</string>
   <string name="fade_duration">フェード時間</string>
   <string name="fade_duration_value">フェード時間: %1$d ms</string>
   <string name="fade_milliseconds">%1$d ms</string>

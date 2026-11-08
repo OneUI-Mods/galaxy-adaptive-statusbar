@@ -6,7 +6,7 @@
   <string name="notifications">Iconos de notificación</string>
   <string name="signals">Iconos de red y estado</string>
   <string name="battery_note">El color del porcentaje también tiene en cuenta el relleno de la batería.</string>
-  <string name="frequency">Frecuencia de actualización</string>
+  <string name="frequency">Frecuencia máxima de actualización</string>
   <string name="rate_30">30 Hz (experimental, mayor carga)</string>
   <string name="algorithm">Análisis del fondo</string>
   <string name="robust">Priorizar zonas de bajo contraste</string>
@@ -49,7 +49,7 @@
   <string name="back">Volver</string>
   <string name="license_error">No se pudo cargar la licencia.</string>
   <string name="battery">Batería y porcentaje</string>
-  <string name="power_note">Con la pantalla apagada o bloqueada, la captura se detiene y se libera el espejo. Se reanuda al desbloquear. Con un fondo estático o ahorro de batería se limita a 5 Hz.</string>
+  <string name="power_note">Con la pantalla apagada o bloqueada, la captura se detiene y se libera el espejo. Se reanuda al desbloquear. Con un fondo estático o ahorro de batería se limita a 5 Hz. Si la captura tarda demasiado, se reduce más la frecuencia para mantener la fluidez de la pantalla.</string>
   <string name="fade_duration">Duración del fundido</string>
   <string name="fade_duration_value">Duración del fundido: %1$d ms</string>
   <string name="fade_milliseconds">%1$d ms</string>

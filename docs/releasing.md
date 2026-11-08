@@ -16,7 +16,7 @@ python3 tools/package_release.py --source-ref v0.4.4-experimental
 
 鍵とパスワードは配布物・ソースZIP・GitHubへ含めません。今後の更新に同じ署名鍵が必要なので、アクセスを制限した場所へ別途バックアップしてください。対応端末で既存アプリを削除せず更新できることを確認してから公開します。新しい鍵を毎回生成しません。
 
-CIは署名鍵を保持せず、署名前のrelease APKを`galaxy-adaptive-bar-release-unsigned`という開発用artifactへ保存します。このAPKはそのままインストール・配布するものではありません。GitHub Releaseには上記手順で検証した署名済みAPKを添付します。
+CIは署名鍵を保持せず、ビルド・検査のみを行います。署名前のAPKをartifactとして公開しません。GitHub Releaseには上記手順で検証した署名済みAPKを添付します。
 
 リリース文は利用者向けに、改善点・対応環境・必要な更新手順・既知の制限を記載します。個人設定や内部実装、テストの途中経過は含めません。
 

@@ -63,6 +63,7 @@ class Engine(root: View) {
     private val motion: StatusBarMotion
     private val main: Handler = Handler(Looper.getMainLooper())
     private val ticker: Runnable = Runnable { this.tick() }
+    private val capturePacing = CapturePacing()
     private val settingsObserver: ContentObserver =
         object : ContentObserver(main) {
             override fun onChange(selfChange: Boolean, uri: Uri?) {
@@ -279,6 +280,24 @@ class Engine(root: View) {
 
     private fun tick() {
         if (closed) return
+        val power = context.getSystemService(PowerManager::class.java)
+        val asleep =
+            !power.isInteractive ||
+                context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
+        var hz = config.getInt("hz", 10)
+        if (hz != 5 && hz != 10 && hz != 15 && hz != 30) hz = 10
+        if (power.isPowerSaveMode || unchangedFrames >= 20 || protectedContent) hz = 5
+        val requestedIntervalMs = max(33, 1000 / hz).toLong()
+        // OFF/sleep still reach normal teardown immediately. New palettes and fast Home Up
+        // callbacks do not bypass the capture budget while the compositor is under pressure.
+        if (!busy && !asleep && config.getBoolean("enabled") && !stopped) {
+            val wait = capturePacing.delayMs(SystemClock.elapsedRealtime(), requestedIntervalMs)
+            if (wait > 0L) {
+                main.removeCallbacks(ticker)
+                main.postDelayed(ticker, wait)
+                return
+            }
+        }
         if (busy && immediateCapture) {
             main.removeCallbacks(ticker)
             main.postDelayed(ticker, 16)
@@ -412,19 +431,10 @@ class Engine(root: View) {
             busy = false
             fail(t)
         }
-        var hz = config.getInt("hz", 10)
-        if (hz != 5 && hz != 10 && hz != 15 && hz != 30) hz = 10
-        val p: PowerManager? = context.getSystemService(Context.POWER_SERVICE) as PowerManager?
-        if (p!!.isPowerSaveMode() || unchangedFrames >= 20 || protectedContent) hz = 5
-        val asleep: Boolean =
-            !p!!.isInteractive() ||
-                context
-                    .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                    .isKeyguardLocked()
         main.postDelayed(
             ticker,
             (if (asleep) 5000
-                else if (!config.getBoolean("enabled") || stopped) 500 else max(33, 1000 / hz))
+                else if (!config.getBoolean("enabled") || stopped) 500 else requestedIntervalMs)
                 .toLong(),
         )
     }
@@ -582,7 +592,20 @@ class Engine(root: View) {
                 }
                 if (capture == null) capture = LayerCapture()
                 val start = SystemClock.elapsedRealtimeNanos()
-                val bmp = capture!!.capture(display, crop, excluded!!)
+                val currentCapture = capture!!
+                var captureSucceeded = false
+                val bmp =
+                    try {
+                        currentCapture.capture(display, crop, excluded!!).also {
+                            captureSucceeded = it != null
+                        }
+                    } finally {
+                        capturePacing.completed(
+                            SystemClock.elapsedRealtime(),
+                            currentCapture.lastCaptureCostMs,
+                            captureSucceeded,
+                        )
+                    }
                 try {
                     val size: Int = bmp!!.getWidth() * bmp!!.getHeight()
                     if (framePixels.size != size) framePixels = IntArray(size)
@@ -807,6 +830,9 @@ class Engine(root: View) {
                     " ms\nSession rate " +
                     String.format(Locale.US, "%.1f", frames * 1000.0 / max(1L, now - started)) +
                     " Hz" +
+                    "\nCapture rest: " +
+                    capturePacing.minimumRestMs() +
+                    " ms" +
                     (if (Build.VERSION.SDK_INT == 37) NativeBatteryView.health()
                     else "\nBattery: " + BatteryAdapter.health()) +
                     "\nFade: " +

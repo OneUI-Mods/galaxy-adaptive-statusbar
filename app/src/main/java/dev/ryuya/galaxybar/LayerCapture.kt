@@ -17,6 +17,8 @@ class LayerCapture : AutoCloseable {
     private val builder: Class<*>
     private var mirror: SurfaceControl? = null
     private var display: Int = -1
+    var lastCaptureCostMs: Double = 0.0
+        private set
 
     init {
         cap = DexSymbols.findClass("android.window.ScreenCaptureInternal")
@@ -72,8 +74,14 @@ class LayerCapture : AutoCloseable {
             .compatibleMethod("setProtectedContentPolicy", Int::class.javaPrimitiveType)
             .invoke(b, 2)
         val args = builder.compatibleMethod("build").invoke(b)
-        val shot = cap.compatibleMethod("captureLayers", args.javaClass).invoke(null, args)
-        return LayerCapture.copyCapture(shot, crop)
+        // Exclude the one-time mirror readiness wait from the compositor-work estimate.
+        val start = SystemClock.elapsedRealtimeNanos()
+        try {
+            val shot = cap.compatibleMethod("captureLayers", args.javaClass).invoke(null, args)
+            return LayerCapture.copyCapture(shot, crop)
+        } finally {
+            lastCaptureCostMs = (SystemClock.elapsedRealtimeNanos() - start) / 1e6
+        }
     }
 
     class UnavailableException :
@@ -111,7 +119,7 @@ class LayerCapture : AutoCloseable {
                     // crops.
                     check(
                         !(hw.getWidth() != (crop.width() * .5f).toInt() ||
-                            hw.getHeight() != (crop.height() * .5f).toInt())
+                            hw.getHeight() != (crop.height() * .5f).toInt()),
                     ) {
                         "Crop was ignored"
                     }
