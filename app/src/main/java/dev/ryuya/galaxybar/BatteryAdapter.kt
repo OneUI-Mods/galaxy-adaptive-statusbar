@@ -345,7 +345,6 @@ object BatteryAdapter {
     }
 
     private class State(drawable: Drawable) {
-        @JvmField val drawable: Drawable
         @JvmField val text: Paint
         @JvmField val warning: Paint
         @JvmField val fill: Paint
@@ -358,7 +357,6 @@ object BatteryAdapter {
         @JvmField var backgroundOff: Boolean = false
 
         init {
-            this.drawable = drawable
             text = BatteryAdapter.paint(drawable, "textPaint")
             warning = BatteryAdapter.paint(drawable, "warningTextPaint")
             fill = BatteryAdapter.paint(drawable, "batteryLevelPaint")
