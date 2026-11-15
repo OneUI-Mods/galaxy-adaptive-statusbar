@@ -1,5 +1,7 @@
 # Galaxy Adaptive Bar
 
+[日本語](README.md) · [English](README.en.md)
+
 Galaxyのステータスバーを、背景に合わせて読みやすくするVectorモジュールです。文字ごと・パーツごと・背景に合わせる自動モードで配色し、通常のステータスバー表示へ戻すこともできます。
 
 ## 主な機能
