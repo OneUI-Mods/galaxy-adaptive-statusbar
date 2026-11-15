@@ -16,6 +16,7 @@ import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.HookCallback.Unhook
 import dev.ryuya.galaxybar.hook.Hooks
 import dev.ryuya.galaxybar.hook.Reflect
+import dev.ryuya.galaxybar.startup.FirstUnlockGate
 import io.github.libxposed.api.XposedModule
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
@@ -64,6 +65,7 @@ class HookEntry : XposedModule() {
         private var engine: Engine? = null
         private var protection: CrashGuard? = null
         private var initialized: Boolean = false
+        private val firstUnlock = FirstUnlockGate()
         private var systemLoader: ClassLoader? = null
         private var launcherMotion: LauncherMotion? = null
 
@@ -71,7 +73,9 @@ class HookEntry : XposedModule() {
         private fun initialize(context: Context, loader: ClassLoader?) {
             if (HookEntry.initialized) return
             HookEntry.initialized = true
-            DexSymbols.whenPrepared(context) { installPrepared(context, loader) }
+            firstUnlock.run(context) {
+                DexSymbols.whenPrepared(context) { installPrepared(context, loader) }
+            }
         }
 
         private fun installPrepared(context: Context, loader: ClassLoader?) {

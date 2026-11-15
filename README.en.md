@@ -4,6 +4,10 @@
 
 A Vector module that keeps the Galaxy status bar readable against its background. Choose per-character coloring, per-part coloring, or automatic selection, or return to the normal status-bar appearance.
 
+## First unlock after boot
+
+Hook initialization that needs settings or cached discovery results waits for the first user unlock after boot. A later ordinary screen lock does not repeat initialization. Existing screen-off power-saving and security behavior is preserved. Unlock delivery is event-driven, with no polling or new resident service.
+
 ## Features
 
 - Choose **Per character**, **Per part**, or **Automatic** under coloring granularity. Per-part mode gives the date and time their own uniform colors, even when they share one display area. Automatic mode normally keeps each part uniform and switches only portions that become more readable with per-character coloring. It waits for the background to settle before returning to whole parts, reducing repeated changes while moving a map or photo. The default remains per-character coloring; setting changes apply immediately.
