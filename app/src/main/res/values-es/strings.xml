@@ -98,4 +98,6 @@
   <string name="color_grouping_parts">Por elemento</string>
   <string name="color_grouping_note">Automático mantiene un color por fecha u hora mientras sea legible. Solo cambia a colores por carácter cuando mejora la lectura, y espera a que el fondo se estabilice para volver a un solo color. Los iconos siempre se colorean individualmente.</string>
   <string name="color_grouping_auto">Automático</string>
+    <string name="start_on_boot">Iniciar al encender el dispositivo</string>
+    <string name="start_on_boot_detail">Prepara los ajustes tras el primer desbloqueo. Si se desactiva, los ajustes siguen disponibles al abrir una aplicación compatible.</string>
 </resources>

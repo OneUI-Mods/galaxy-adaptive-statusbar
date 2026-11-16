@@ -98,4 +98,6 @@
   <string name="color_grouping_parts">逐部件</string>
   <string name="color_grouping_note">自动模式在清晰可读时为日期和时间分别使用一种颜色；仅在逐字符配色能改善可读性时切换，并在背景稳定后恢复单色。通知和状态图标始终单独配色。</string>
   <string name="color_grouping_auto">自动</string>
+    <string name="start_on_boot">设备启动时自动启动</string>
+    <string name="start_on_boot_detail">首次解锁后准备设置。关闭后，仍可在打开受支持的应用时读取设置。</string>
 </resources>
