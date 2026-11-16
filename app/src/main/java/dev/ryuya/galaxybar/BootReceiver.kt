@@ -14,6 +14,6 @@ class BootReceiver : BroadcastReceiver() {
                 Intent.ACTION_LOCKED_BOOT_COMPLETED == action ||
                 Intent.ACTION_MY_PACKAGE_REPLACED == action
         )
-            Startup.restore(context!!)
+            Startup.restore(context!!, action != Intent.ACTION_MY_PACKAGE_REPLACED)
     }
 }

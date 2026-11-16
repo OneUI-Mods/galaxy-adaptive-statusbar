@@ -106,6 +106,22 @@ class MainActivity : AppCompatActivity() {
         val adjustments = pages!!.page(R.string.tab_adjustments)
         val operation = pages!!.page(R.string.tab_status)
         val information = pages!!.page(R.string.tab_about)
+        val startup = card(information)
+        startup.addView(
+            MaterialSwitch(this).apply {
+                setText(R.string.start_on_boot)
+                minHeight = (56 * resources.displayMetrics.density).toInt()
+                isChecked = BootSettings.enabled(this@MainActivity)
+                setOnCheckedChangeListener { _, checked ->
+                    BootSettings.setEnabled(this@MainActivity, checked)
+                }
+            },
+        )
+        text(
+            startup,
+            getString(R.string.start_on_boot_detail),
+            com.google.android.material.R.style.TextAppearance_Material3_BodySmall,
+        )
         val hero = card(body)
         (hero.getParent() as MaterialCardView).setCardBackgroundColor(
             MaterialColors.getColor(

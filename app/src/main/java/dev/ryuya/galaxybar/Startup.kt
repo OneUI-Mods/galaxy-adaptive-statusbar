@@ -7,9 +7,10 @@ import kotlin.jvm.JvmStatic
 /* CE settings stay untouched until unlock; reboot never overrides OFF or crash protection. */
 object Startup {
     @JvmStatic
-    fun restore(context: Context) {
+    fun restore(context: Context, fromBoot: Boolean = true) {
         if (!context.getSystemService<UserManager?>(UserManager::class.java).isUserUnlocked())
             return
+        if (fromBoot && !BootSettings.enabled(context)) return
         context.getSharedPreferences("config", Context.MODE_PRIVATE) // Start the settings process.
         GalaxyBarApplication.applyTheme(context)
         context.getContentResolver().notifyChange(ConfigProvider.URI!!, null)
