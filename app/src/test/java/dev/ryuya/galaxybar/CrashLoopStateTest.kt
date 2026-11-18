@@ -29,7 +29,7 @@ open class CrashLoopStateTest {
                 1,
                 "",
                 List.of<CrashLoopState.Exit?>(
-                    CrashLoopState.Exit(10 + i, (1500 + i * 1000).toLong(), reasons[i], 0)
+                    CrashLoopState.Exit(10 + i, (1500 + i * 1000).toLong(), reasons[i], 0),
                 ),
             )
             assertEquals(i == 2, state.blocked)
@@ -54,7 +54,7 @@ open class CrashLoopStateTest {
                         (1050 + i * 100).toLong(),
                         ApplicationExitInfo.REASON_SIGNALED,
                         15,
-                    )
+                    ),
                 ),
             )
         }
@@ -102,7 +102,7 @@ open class CrashLoopStateTest {
             1,
             "",
             List.of<CrashLoopState.Exit?>(
-                CrashLoopState.Exit(1, 999900, ApplicationExitInfo.REASON_CRASH, 0)
+                CrashLoopState.Exit(1, 999900, ApplicationExitInfo.REASON_CRASH, 0),
             ),
         )
         assertEquals(1, s.crashes.size)
@@ -139,7 +139,7 @@ open class CrashLoopStateTest {
             1,
             "user-reset",
             List.of<CrashLoopState.Exit?>(
-                CrashLoopState.Exit(2, 2500, ApplicationExitInfo.REASON_CRASH, 0)
+                CrashLoopState.Exit(2, 2500, ApplicationExitInfo.REASON_CRASH, 0),
             ),
         )
         assertEquals(1, s.crashes.size)
@@ -191,7 +191,7 @@ open class CrashLoopStateTest {
                     (1000 * i + 50).toLong(),
                     ApplicationExitInfo.REASON_SIGNALED,
                     15,
-                )
+                ),
             )
         }
         s.observe(8000, 1, "", history)
@@ -214,7 +214,7 @@ open class CrashLoopStateTest {
                     (1000 * i + 50).toLong(),
                     ApplicationExitInfo.REASON_CRASH,
                     0,
-                )
+                ),
             )
         }
         s.observe(5000, 1, "", history)
@@ -240,7 +240,7 @@ open class CrashLoopStateTest {
                         (1000 * i + 50).toLong(),
                         ApplicationExitInfo.REASON_CRASH,
                         0,
-                    )
+                    ),
                 ),
             )
         }
@@ -252,7 +252,7 @@ open class CrashLoopStateTest {
             1,
             "",
             List.of<CrashLoopState.Exit?>(
-                CrashLoopState.Exit(99, 10500, ApplicationExitInfo.REASON_CRASH, 0)
+                CrashLoopState.Exit(99, 10500, ApplicationExitInfo.REASON_CRASH, 0),
             ),
         )
         assertEquals(1, s.crashes.size)
@@ -310,7 +310,7 @@ open class CrashLoopStateTest {
     open fun hostProcessesKeepIndependentCrashBudgets() {
         val system = CrashLoopStateTest.fresh()
         var launcher = CrashLoopStateTest.fresh()
-        for (host in List.of<CrashLoopState?>(system, launcher)) {
+        for (host in List.of<CrashLoopState>(system, launcher)) {
             for (i in 0..1) {
                 host.arm(10 + i, (1000 + i * 1000).toLong())
                 host.observe(
@@ -323,7 +323,7 @@ open class CrashLoopStateTest {
                             (1500 + i * 1000).toLong(),
                             ApplicationExitInfo.REASON_CRASH,
                             0,
-                        )
+                        ),
                     ),
                 )
             }
@@ -335,7 +335,7 @@ open class CrashLoopStateTest {
             1,
             "",
             List.of<CrashLoopState.Exit?>(
-                CrashLoopState.Exit(12, 3500, ApplicationExitInfo.REASON_CRASH_NATIVE, 0)
+                CrashLoopState.Exit(12, 3500, ApplicationExitInfo.REASON_CRASH_NATIVE, 0),
             ),
         )
         assertTrue(launcher.blocked)

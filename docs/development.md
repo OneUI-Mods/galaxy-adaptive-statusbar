@@ -87,3 +87,5 @@ Android 16/17のキャプチャAPIと既存フックは変更しない。Surface
 ## 待機処理の省電力化
 
 [変更点と検証方針](battery-efficiency.md)を参照してください。
+
+[Build environment / ビルド環境](build-environment.md)

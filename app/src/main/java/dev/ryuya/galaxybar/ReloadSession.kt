@@ -136,7 +136,7 @@ object ReloadSession {
                             ReloadSession.main.post(Runnable { ReloadSession.resumeWhenReady() })
                         }
                     },
-                )
+                ),
             )
             ReloadSession.hooks.add(
                 Reflect.findAndHookMethod(
@@ -162,7 +162,7 @@ object ReloadSession {
                             }
                         }
                     },
-                )
+                ),
             )
             ReloadSession.hooks.add(
                 Reflect.findAndHookMethod(
@@ -174,7 +174,7 @@ object ReloadSession {
                             if (ReloadSession.active) ReloadSession.finish(true)
                         }
                     },
-                )
+                ),
             )
             val support = Properties()
             support.setProperty("protocol", ReloadTicket.PROTOCOL.toString())
@@ -222,8 +222,8 @@ object ReloadSession {
                     user,
                     SystemClock.uptimeMillis(),
                     power!!.isInteractive(),
-                    ReloadSession.context!!.getSystemService<UserManager?>(UserManager::class.java)
-                        .isUserUnlocked(),
+                    (ReloadSession.context!!.getSystemService<UserManager?>(UserManager::class.java)
+                        ?.isUserUnlocked() == true),
                 )
         )
             return
@@ -235,7 +235,7 @@ object ReloadSession {
                     LocalSocketAddress(
                         "galaxy-reload-" + candidate.nonce,
                         Namespace.ABSTRACT,
-                    )
+                    ),
                 )
                 socket.setSoTimeout(1000)
                 if (socket.getPeerCredentials().getUid() != 0) return
@@ -421,7 +421,7 @@ object ReloadSession {
                     } catch (error: Throwable) {
                         Hooks.log(error)
                     }
-                }
+                },
             )
     }
 

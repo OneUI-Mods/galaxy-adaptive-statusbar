@@ -18,12 +18,16 @@ class GalaxyBarApplication : Application() {
     companion object {
         @JvmStatic
         fun applyTheme(context: Context) {
-            if (!context.getSystemService<UserManager?>(UserManager::class.java).isUserUnlocked())
+            if (
+                (context
+                    .getSystemService<UserManager?>(UserManager::class.java)
+                    ?.isUserUnlocked() != true)
+            )
                 return
             AppCompatDelegate.setDefaultNightMode(
                 context
                     .getSharedPreferences("config", Context.MODE_PRIVATE)
-                    .getInt("ui_theme", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM)
+                    .getInt("ui_theme", AppCompatDelegate.MODE_NIGHT_FOLLOW_SYSTEM),
             )
         }
     }

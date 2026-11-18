@@ -64,3 +64,5 @@ Handling of certain whitespace and empty strings in per-character color analysis
 After a target-app update, open this module once to finish preparation, then reopen the target app. Discovery results are stored in each module's own app data and are not rescanned when nothing changes. No other OneUI Mods app is required. Features stop applying when a unique compatible target cannot be confirmed. Compatibility with every future OS or app update is not guaranteed.
 
 Version 0.7.7 removed an unnecessary owning reference from the battery drawing cache. See its [validation scope (Japanese)](docs/memory-0.7.7.md).
+
+[Build environment / ビルド環境](docs/build-environment.md)

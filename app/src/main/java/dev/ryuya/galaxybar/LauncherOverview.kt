@@ -95,11 +95,11 @@ class LauncherOverview(
                                         .toInt()
                                 overview = true
                                 Hooks.log("GalaxyBar: overview entering task=" + taskId)
-                            }
+                            },
                         )
                     }
                 },
-            )
+            ),
         )
         hooks.add(
             Reflect.findAndHookMethod(
@@ -110,7 +110,7 @@ class LauncherOverview(
                         protect(Runnable { this@LauncherOverview.stop() })
                     }
                 },
-            )
+            ),
         )
         val scene =
             Reflect.findClass(HookCompatibility.taskSceneView(Build.VERSION.SDK_INT)!!, loader)
@@ -151,17 +151,17 @@ class LauncherOverview(
                                         ("GalaxyBar: overview card connected task=" +
                                             taskId +
                                             " alpha=" +
-                                            geometry.alpha)
+                                            geometry.alpha),
                                     )
                                     publish(next, geometry)
                                 } else {
                                     refreshCard()
                                 }
-                            }
+                            },
                         )
                     }
                 },
-            )
+            ),
         )
         val transition =
             Reflect.findClass("com.honeyspace.transition.utils.TaskLaunchTransition", loader)
@@ -200,7 +200,7 @@ class LauncherOverview(
                                     1f,
                                     p!!.args!![2] as Float,
                                 )
-                            }
+                            },
                         )
                     }
 
@@ -223,20 +223,20 @@ class LauncherOverview(
                                                         launchTask = -1
                                                     }
                                                     animation.removeListener(this)
-                                                }
+                                                },
                                             )
                                         }
 
                                         override fun onAnimationCancel(ignored: Animator) {
                                             onAnimationEnd(ignored)
                                         }
-                                    }
+                                    },
                                 )
-                            }
+                            },
                         )
                     }
                 },
-            )
+            ),
         )
         hooks.addAll(
             Hooks.hookAllMethods(
@@ -271,11 +271,11 @@ class LauncherOverview(
                                     Reflect.getStaticFloatField(transition, "leashAlpha"),
                                     radius,
                                 )
-                            }
+                            },
                         )
                     }
                 },
-            )
+            ),
         )
     }
 
@@ -294,12 +294,12 @@ class LauncherOverview(
         if (
             !view.isAttachedToWindow() ||
                 !view.isShown() ||
-                !context
+                (context
                     .getSystemService<PowerManager?>(PowerManager::class.java)
-                    .isInteractive() ||
-                context
+                    ?.isInteractive() != true) ||
+                (context
                     .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                    .isKeyguardLocked()
+                    ?.isKeyguardLocked() != false)
         ) {
             stop()
             return

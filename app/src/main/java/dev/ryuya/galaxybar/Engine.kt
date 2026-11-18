@@ -211,6 +211,7 @@ class Engine(root: View) {
         val battery: BatteryAdapter.Geometry?,
         val nativeBattery: NativeBatteryView.Geometry?,
         val autoPart: AutoPart? = null,
+        val dateAndTime: Boolean = false,
     ) {
         constructor(
             view: View?,
@@ -335,9 +336,9 @@ class Engine(root: View) {
                         !stopped &&
                         visible &&
                         power!!.isInteractive() &&
-                        !context
+                        (context
                             .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                            .isKeyguardLocked() &&
+                            ?.isKeyguardLocked() == false) &&
                         (moving || crop.top == 0) &&
                         crop.height() < root.getResources().getDisplayMetrics().heightPixels / 4
                 // Other rotations retain standard colors until the capture mapping is verified.
@@ -389,6 +390,7 @@ class Engine(root: View) {
                                                 else Rect(part.area)
                                             mappedPart?.let { part.copy(area = it) }
                                         },
+                                        target.dateAndTime,
                                     ),
                                 )
                         }
@@ -448,7 +450,10 @@ class Engine(root: View) {
     }
 
     private fun refreshConfig(revision: Int) {
-        if (!context.getSystemService<UserManager?>(UserManager::class.java).isUserUnlocked())
+        if (
+            (context.getSystemService<UserManager?>(UserManager::class.java)?.isUserUnlocked() !=
+                true)
+        )
             return
         lastConfig = SystemClock.elapsedRealtime()
         try {
@@ -551,6 +556,7 @@ class Engine(root: View) {
                     networkSpeeds!!.size))
     }
 
+    @androidx.annotation.WorkerThread
     private fun process(
         now: Long,
         run: Boolean,
@@ -575,21 +581,21 @@ class Engine(root: View) {
             run =
                 run and
                     (config.getBoolean("enabled") &&
-                        context
+                        (context
                             .getSystemService<PowerManager?>(PowerManager::class.java)
-                            .isInteractive() &&
-                        !context
+                            ?.isInteractive() == true) &&
+                        (context
                             .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                            .isKeyguardLocked())
+                            ?.isKeyguardLocked() == false))
             holdCapture =
                 holdCapture and
                     (config.getBoolean("enabled") &&
-                        context
+                        (context
                             .getSystemService<PowerManager?>(PowerManager::class.java)
-                            .isInteractive() &&
-                        !context
+                            ?.isInteractive() == true) &&
+                        (context
                             .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                            .isKeyguardLocked())
+                            ?.isKeyguardLocked() == false))
             if (run && !targets.isEmpty()) {
                 if (analysisEpoch != paletteGeneration) {
                     previous.clear()
@@ -659,11 +665,7 @@ class Engine(root: View) {
                                     settings.getString("algorithm", "robust"),
                                     settings.getDouble("hysteresis", .15),
                                 )
-                        if (
-                            settings.getBoolean("fixed") &&
-                                t!!.start >= 0 &&
-                                Engine.isClock(t!!.view!!)
-                        )
+                        if (settings.getBoolean("fixed") && t!!.start >= 0 && t!!.dateAndTime)
                             color = if (t!!.start % 2 === 0) Color.WHITE else Color.BLACK
                         nextPrevious.put(t!!.key, color)
                         colors[i] = color
@@ -738,14 +740,14 @@ class Engine(root: View) {
                                             root.getGlobalVisibleRect(current) &&
                                             current == crop)) &&
                                     root.getDisplay().getRotation() == rotation &&
-                                    context
+                                    (context
                                         .getSystemService<PowerManager?>(PowerManager::class.java)
-                                        .isInteractive() &&
-                                    !context
+                                        ?.isInteractive() == true) &&
+                                    (context
                                         .getSystemService<KeyguardManager?>(
                                             KeyguardManager::class.java,
                                         )
-                                        .isKeyguardLocked()
+                                        ?.isKeyguardLocked() == false)
                             )
                                 try {
                                     if (protectedContent) {
@@ -1025,6 +1027,7 @@ class Engine(root: View) {
                         null,
                         null,
                         part,
+                        dateAndTime,
                     ),
                 )
             }
@@ -1166,12 +1169,12 @@ class Engine(root: View) {
                         (current != fadeCrop))) ||
                 root.getDisplay() == null ||
                 root.getDisplay().getRotation() != fadeRotation ||
-                !context
+                (context
                     .getSystemService<PowerManager?>(PowerManager::class.java)
-                    .isInteractive() ||
-                context
+                    ?.isInteractive() != true) ||
+                (context
                     .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                    .isKeyguardLocked()
+                    ?.isKeyguardLocked() != false)
         ) {
             restore("fade state invalid")
             return
@@ -1528,7 +1531,7 @@ class Engine(root: View) {
             val y = b.getSpans<Engine.BarSpan?>(0, b.length, Engine.BarSpan::class.java)
             if (x.size != y.size) return false
             for (i in x.indices) if (
-                x[i].getForegroundColor() != y[i].getForegroundColor() ||
+                x[i]?.getForegroundColor() != y[i]?.getForegroundColor() ||
                     a.getSpanStart(x[i]) != b.getSpanStart(y[i]) ||
                     a.getSpanEnd(x[i]) != b.getSpanEnd(y[i])
             )

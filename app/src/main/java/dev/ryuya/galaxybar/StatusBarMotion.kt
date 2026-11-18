@@ -117,7 +117,10 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
             Reflect.getStaticIntField(LayoutParams::class.java, "TYPE_STATUS_BAR_SUB_PANEL")
         context = root.getContext().createWindowContext(root.getDisplay(), windowType, null)
         launcherUid = context.getPackageManager().getPackageUid("com.sec.android.app.launcher", 0)
-        windows = context.getSystemService<WindowManager?>(WindowManager::class.java)
+        windows =
+            checkNotNull(context.getSystemService<WindowManager?>(WindowManager::class.java)) {
+                "WindowManager unavailable"
+            }
     }
 
     fun registration(): Bundle {
@@ -174,12 +177,12 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
             !enabled ||
                 failed ||
                 !ValueAnimator.areAnimatorsEnabled() ||
-                !context
+                (context
                     .getSystemService<PowerManager?>(PowerManager::class.java)
-                    .isInteractive() ||
-                context
+                    ?.isInteractive() != true) ||
+                (context
                     .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                    .isKeyguardLocked() ||
+                    ?.isKeyguardLocked() != false) ||
                 !root.isAttachedToWindow() ||
                 (!root.isShown() && leaves!!.isEmpty()) ||
                 root.getDisplay() == null ||
@@ -253,7 +256,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
             windows.addView(overlay, p)
             handoffs++
             Hooks.log(
-                "GalaxyBar: motion handoff x=" + frame.x + " y=" + frame.y + " w=" + frame.width
+                "GalaxyBar: motion handoff x=" + frame.x + " y=" + frame.y + " w=" + frame.width,
             )
         }
         applyOpacity(opacity!!, frame)
@@ -402,7 +405,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
                     origin[1],
                     origin[0] + root.getWidth(),
                     origin[1] + root.getHeight(),
-                )
+                ),
             )
         val f = track.current()
         val window =
@@ -466,7 +469,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
                 ("GalaxyBar: motion restore " +
                     reason +
                     " overview=" +
-                    (track.current() != null && track.current()!!.overview))
+                    (track.current() != null && track.current()!!.overview)),
             )
         main.removeCallbacks(watchdog)
         main.removeCallbacks(terminal)
@@ -545,7 +548,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
                     Runnable {
                         cancel("drawing unavailable")
                         HookEntry.stopHooks(error)
-                    }
+                    },
                 )
                 Hooks.log("GalaxyBar: motion draw: " + error)
             }

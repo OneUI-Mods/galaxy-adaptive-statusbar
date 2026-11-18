@@ -8,7 +8,10 @@ import kotlin.jvm.JvmStatic
 object Startup {
     @JvmStatic
     fun restore(context: Context, fromBoot: Boolean = true) {
-        if (!context.getSystemService<UserManager?>(UserManager::class.java).isUserUnlocked())
+        if (
+            (context.getSystemService<UserManager?>(UserManager::class.java)?.isUserUnlocked() !=
+                true)
+        )
             return
         if (fromBoot && !BootSettings.enabled(context)) return
         context.getSharedPreferences("config", Context.MODE_PRIVATE) // Start the settings process.

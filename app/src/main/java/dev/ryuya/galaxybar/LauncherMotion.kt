@@ -53,7 +53,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                 val t = Thread(r, "GalaxyBarMotionConfig")
                 t.setDaemon(true)
                 t
-            }
+            },
         )
     private val sessions: MutableMap<Any?, LauncherMotion.Session?> =
         WeakHashMap<Any?, LauncherMotion.Session?>()
@@ -165,7 +165,10 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
     }
 
     private fun refresh() {
-        if (!context.getSystemService<UserManager?>(UserManager::class.java).isUserUnlocked())
+        if (
+            (context.getSystemService<UserManager?>(UserManager::class.java)?.isUserUnlocked() !=
+                true)
+        )
             return
         val request: Int = ++revision
         io!!.execute(
@@ -201,16 +204,16 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                                     fail(error)
                                 }
                             }
-                        }
+                        },
                     )
                 } catch (error: Throwable) {
                     main.post(
                         Runnable {
                             if (request == revision) disable()
-                        }
+                        },
                     )
                 }
-            }
+            },
         )
     }
 
@@ -268,7 +271,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                                 override fun onAnimationCancel(ignored: Animator) {
                                     end(s)
                                 }
-                            }
+                            },
                         )
                     } catch (error: Throwable) {
                         fail(error)
@@ -282,7 +285,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                 input,
                 Boolean::class.javaPrimitiveType,
                 start,
-            )
+            ),
         )
         hooks.add(Reflect.findAndHookMethod(player, "startSpring", input, desktop, start))
         hooks.add(
@@ -350,7 +353,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                         }
                     }
                 },
-            )
+            ),
         )
         val finish: HookCallback =
             object : HookCallback() {
@@ -360,7 +363,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                 }
             }
         for (method in HookCompatibility.playerFinishMethods(Build.VERSION.SDK_INT)!!) hooks.add(
-            Reflect.findAndHookMethod(player, method!!, finish)
+            Reflect.findAndHookMethod(player, method!!, finish),
         )
         // Catch/moving can run with the old AnimatorSet paused, before any start/startSpring call.
         val gesture: HookCallback =
@@ -387,7 +390,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                 RectF::class.java,
                 Boolean::class.javaPrimitiveType,
                 gesture,
-            )
+            ),
         )
         hooks.add(
             Reflect.findAndHookMethod(
@@ -398,7 +401,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                 Float::class.javaPrimitiveType,
                 Float::class.javaPrimitiveType,
                 gesture,
-            )
+            ),
         )
         val valuePlayer =
             Reflect.findClass(
@@ -426,7 +429,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                         }
                     }
                 },
-            )
+            ),
         )
         overview.install(loader, hooks)
         Hooks.log("GalaxyBar: One UI Home window motion hooks installed")
@@ -487,7 +490,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                 -1f,
                 0f,
                 true,
-            )
+            ),
         )
     }
 
@@ -505,10 +508,11 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
     private fun heartbeat() {
         if (!enabled) return
         if (
-            !context.getSystemService<PowerManager?>(PowerManager::class.java).isInteractive() ||
-                context
+            (context.getSystemService<PowerManager?>(PowerManager::class.java)?.isInteractive() !=
+                true) ||
+                (context
                     .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                    .isKeyguardLocked()
+                    ?.isKeyguardLocked() != false)
         ) {
             for (s in sessions.values) if (s!!.interactive) end(s!!)
             return
@@ -536,7 +540,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                     -1f,
                     f!!.radius,
                     false,
-                )
+                ),
             )
             s!!.lastSent = now
         }

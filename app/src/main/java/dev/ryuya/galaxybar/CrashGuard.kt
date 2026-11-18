@@ -32,7 +32,7 @@ class CrashGuard private constructor(context: Context) {
     private val file: AtomicFile
     private val reports: ExecutorService? =
         Executors.newSingleThreadExecutor(
-            ThreadFactory { r: Runnable? -> Thread(r, "GalaxyBarGuardReport") }
+            ThreadFactory { r: Runnable? -> Thread(r, "GalaxyBarGuardReport") },
         )
     private var state: CrashLoopState = CrashLoopState()
     private var armed: Boolean = false
@@ -95,7 +95,10 @@ class CrashGuard private constructor(context: Context) {
     }
 
     private fun publishWhenUnlocked() {
-        if (context.getSystemService<UserManager?>(UserManager::class.java).isUserUnlocked()) {
+        if (
+            (context.getSystemService<UserManager?>(UserManager::class.java)?.isUserUnlocked() ==
+                true)
+        ) {
             publish()
             return
         }
@@ -142,7 +145,7 @@ class CrashGuard private constructor(context: Context) {
                         else SystemClock.sleep(1000)
                     }
                 }
-            }
+            },
         )
     }
 
@@ -166,7 +169,9 @@ class CrashGuard private constructor(context: Context) {
                 }
                 var reset: String = ""
                 if (
-                    context.getSystemService<UserManager?>(UserManager::class.java).isUserUnlocked()
+                    (context
+                        .getSystemService<UserManager?>(UserManager::class.java)
+                        ?.isUserUnlocked() == true)
                 ) {
                     try {
                         val config =
@@ -183,7 +188,8 @@ class CrashGuard private constructor(context: Context) {
                 for (exit in
                     context
                         .getSystemService<ActivityManager?>(ActivityManager::class.java)
-                        .getHistoricalProcessExitReasons(context.getPackageName(), 0, 32)) {
+                        ?.getHistoricalProcessExitReasons(context.getPackageName(), 0, 32)
+                        .orEmpty()) {
                     if (context.getPackageName() == exit.getProcessName())
                         exits.add(
                             CrashLoopState.Exit(
@@ -191,7 +197,7 @@ class CrashGuard private constructor(context: Context) {
                                 exit.getTimestamp(),
                                 exit.getReason(),
                                 exit.getStatus(),
-                            )
+                            ),
                         )
                 }
                 val now = System.currentTimeMillis()
@@ -214,7 +220,7 @@ class CrashGuard private constructor(context: Context) {
                     (if (guard.state.blocked) "BLOCKED " + guard.state.cause
                     else if (guard.armed) "armed" else "idle") +
                     "; recent crashes=" +
-                    guard.state.crashes.size)
+                    guard.state.crashes.size),
             )
             return guard
         }
