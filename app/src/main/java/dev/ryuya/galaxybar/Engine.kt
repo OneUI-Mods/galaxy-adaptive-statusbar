@@ -288,9 +288,7 @@ class Engine(root: View) {
     private fun tick() {
         if (closed) return
         val power = context.getSystemService(PowerManager::class.java)
-        val asleep =
-            !power.isInteractive ||
-                context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
+        val asleep = !canSampleDisplay(power)
         waitingForAvailability = asleep
         var hz = config.getInt("hz", 10)
         if (hz != 5 && hz != 10 && hz != 15 && hz != 30) hz = 10
@@ -315,8 +313,6 @@ class Engine(root: View) {
                 busy = true
                 val now = SystemClock.elapsedRealtime()
                 val enabled = config.getBoolean("enabled")
-                val power: PowerManager? =
-                    context.getSystemService(Context.POWER_SERVICE) as PowerManager?
                 val crop = Rect()
                 val moving = motion.active()
                 val source = motion.colorSource()
@@ -335,21 +331,16 @@ class Engine(root: View) {
                     enabled &&
                         !stopped &&
                         visible &&
-                        power!!.isInteractive() &&
-                        (context
-                            .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                            ?.isKeyguardLocked() == false) &&
+                        !asleep &&
                         (moving || crop.top == 0) &&
                         crop.height() < root.getResources().getDisplayMetrics().heightPixels / 4
                 // Other rotations retain standard colors until the capture mapping is verified.
-                allowed =
-                    allowed and
-                        (root.getDisplay() != null &&
-                            root.getDisplay().getDisplayId() == 0 &&
-                            root.getDisplay().getRotation() == Surface.ROTATION_0)
+                val currentDisplay = root.display
+                allowed = allowed && currentDisplay != null &&
+                    currentDisplay.displayId == 0 && currentDisplay.rotation == Surface.ROTATION_0
                 val holdCapture: Boolean =
                     allowed && moving && source == MotionPalette.Source.FROZEN
-                allowed = allowed and !holdCapture
+                allowed = allowed && !holdCapture
                 if (allowed) motion.prepare(now)
                 if (closed) return
                 if (
@@ -410,8 +401,8 @@ class Engine(root: View) {
                 val generation: Int = epoch
                 val paletteGeneration: Int = paletteEpoch
                 val run: Boolean = allowed
-                val display: Int = if (run) root.getDisplay().getDisplayId() else 0
-                val rotation: Int = if (run) root.getDisplay().getRotation() else 0
+                val display = if (run) checkNotNull(currentDisplay).displayId else 0
+                val rotation = if (run) checkNotNull(currentDisplay).rotation else 0
                 val settings = Bundle(config)
                 val revision: Int = configRevision
                 worker!!.execute(
@@ -556,6 +547,10 @@ class Engine(root: View) {
                     networkSpeeds!!.size))
     }
 
+    private fun canSampleDisplay(power: PowerManager?): Boolean =
+        power?.isInteractive == true &&
+            context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == false
+
     @androidx.annotation.WorkerThread
     private fun process(
         now: Long,
@@ -578,24 +573,11 @@ class Engine(root: View) {
             if (!configurationLoaded && now - lastConfig > 750) {
                 refreshConfig(revision)
             }
-            run =
-                run and
-                    (config.getBoolean("enabled") &&
-                        (context
-                            .getSystemService<PowerManager?>(PowerManager::class.java)
-                            ?.isInteractive() == true) &&
-                        (context
-                            .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                            ?.isKeyguardLocked() == false))
-            holdCapture =
-                holdCapture and
-                    (config.getBoolean("enabled") &&
-                        (context
-                            .getSystemService<PowerManager?>(PowerManager::class.java)
-                            ?.isInteractive() == true) &&
-                        (context
-                            .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                            ?.isKeyguardLocked() == false))
+            // This is a fresh check on the worker, immediately before using display content.
+            val canUseDisplay = (run || holdCapture) && config.getBoolean("enabled") &&
+                canSampleDisplay(context.getSystemService(PowerManager::class.java))
+            run = run && canUseDisplay
+            holdCapture = holdCapture && canUseDisplay
             if (run && !targets.isEmpty()) {
                 if (analysisEpoch != paletteGeneration) {
                     previous.clear()

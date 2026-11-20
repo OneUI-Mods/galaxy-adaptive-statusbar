@@ -9,12 +9,27 @@ import android.view.SurfaceControl
 import dev.ryuya.galaxybar.compat.DexSymbols
 import dev.ryuya.galaxybar.compat.compatibleMethod
 import dev.ryuya.galaxybar.compat.compatibleName
+import java.lang.reflect.Constructor
+import java.lang.reflect.Method
 import kotlin.jvm.JvmStatic
 
 /* Existing WMS/SurfaceFlinger APIs only; no process injection or policy changes. Worker-only. */
 class LayerCapture : AutoCloseable {
     private val cap: Class<*>
     private val builder: Class<*>
+    private val operations by lazy {
+        BuilderOperations(
+            builder.getConstructor(SurfaceControl::class.java),
+            builder.compatibleMethod("setChildrenOnly", Boolean::class.javaPrimitiveType),
+            builder.compatibleMethod("setSourceCrop", Rect::class.java),
+            builder.compatibleMethod("setFrameScale", Float::class.javaPrimitiveType),
+            builder.compatibleMethod("setExcludeLayers", Array<SurfaceControl>::class.java),
+            builder.compatibleMethod("setSecureContentPolicy", Int::class.javaPrimitiveType),
+            builder.compatibleMethod("setProtectedContentPolicy", Int::class.javaPrimitiveType),
+            builder.compatibleMethod("build"),
+        )
+    }
+    private var captureLayers: Method? = null
     private var mirror: SurfaceControl? = null
     private var display: Int = -1
     var lastCaptureCostMs: Double = 0.0
@@ -58,31 +73,37 @@ class LayerCapture : AutoCloseable {
             // This one-time wait is worker-only. Subsequent transient failures retain the mirror.
             SystemClock.sleep(50)
         }
-        val b = builder.getConstructor(SurfaceControl::class.java).newInstance(mirror)
-        builder
-            .compatibleMethod("setChildrenOnly", Boolean::class.javaPrimitiveType)
-            .invoke(b, false)
-        builder.compatibleMethod("setSourceCrop", Rect::class.java).invoke(b, crop)
-        builder.compatibleMethod("setFrameScale", Float::class.javaPrimitiveType).invoke(b, .5f)
-        builder
-            .compatibleMethod("setExcludeLayers", Array<SurfaceControl>::class.java)
-            .invoke(b, excludes as Any?)
-        builder
-            .compatibleMethod("setSecureContentPolicy", Int::class.javaPrimitiveType)
-            .invoke(b, 2)
-        builder
-            .compatibleMethod("setProtectedContentPolicy", Int::class.javaPrimitiveType)
-            .invoke(b, 2)
-        val args = builder.compatibleMethod("build").invoke(b)
+        val ops = operations
+        val b = ops.constructor.newInstance(mirror)
+        ops.childrenOnly.invoke(b, false)
+        ops.crop.invoke(b, crop)
+        ops.scale.invoke(b, .5f)
+        ops.excludes.invoke(b, excludes as Any?)
+        ops.secure.invoke(b, 2)
+        ops.protectedContent.invoke(b, 2)
+        val args = ops.build.invoke(b)
+        val capture = captureLayers ?: cap.compatibleMethod("captureLayers", args.javaClass)
+            .also { captureLayers = it }
         // Exclude the one-time mirror readiness wait from the compositor-work estimate.
         val start = SystemClock.elapsedRealtimeNanos()
         try {
-            val shot = cap.compatibleMethod("captureLayers", args.javaClass).invoke(null, args)
+            val shot = capture.invoke(null, args)
             return LayerCapture.copyCapture(shot, crop)
         } finally {
             lastCaptureCostMs = (SystemClock.elapsedRealtimeNanos() - start) / 1e6
         }
     }
+
+    private data class BuilderOperations(
+        val constructor: Constructor<*>,
+        val childrenOnly: Method,
+        val crop: Method,
+        val scale: Method,
+        val excludes: Method,
+        val secure: Method,
+        val protectedContent: Method,
+        val build: Method,
+    )
 
     class UnavailableException :
         IllegalStateException("Capture unavailable (secure, protected, or surface transition)")
