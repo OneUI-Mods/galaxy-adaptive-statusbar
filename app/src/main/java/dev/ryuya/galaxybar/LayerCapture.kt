@@ -30,6 +30,7 @@ class LayerCapture : AutoCloseable {
         )
     }
     private var captureLayers: Method? = null
+    private var shotAccess: ShotAccess? = null
     private var mirror: SurfaceControl? = null
     private var display: Int = -1
     var lastCaptureCostMs: Double = 0.0
@@ -87,8 +88,10 @@ class LayerCapture : AutoCloseable {
         // Exclude the one-time mirror readiness wait from the compositor-work estimate.
         val start = SystemClock.elapsedRealtimeNanos()
         try {
-            val shot = capture.invoke(null, args)
-            return LayerCapture.copyCapture(shot, crop)
+            val shot = capture.invoke(null, args) ?: throw UnavailableException()
+            val access = shotAccess?.takeIf { it.type === shot.javaClass }
+                ?: ShotAccess(shot.javaClass).also { shotAccess = it }
+            return access.copyCapture(shot, crop)
         } finally {
             lastCaptureCostMs = (SystemClock.elapsedRealtimeNanos() - start) / 1e6
         }
@@ -118,22 +121,21 @@ class LayerCapture : AutoCloseable {
         display = -1
     }
 
-    companion object {
-        @JvmStatic
-        @Throws(Exception::class)
-        fun copyCapture(shot: Any?, crop: Rect): Bitmap? {
-            if (shot == null) throw LayerCapture.UnavailableException()
-            val buffer: HardwareBuffer? =
-                shot.javaClass.compatibleMethod("getHardwareBuffer").invoke(shot) as HardwareBuffer?
+    private class ShotAccess(val type: Class<*>) {
+        private val getHardwareBuffer = type.compatibleMethod("getHardwareBuffer")
+        private val containsSecureLayers = type.compatibleMethod("containsSecureLayers")
+        private val asBitmap = type.compatibleMethod("asBitmap")
+
+        fun copyCapture(shot: Any, crop: Rect): Bitmap {
+            val buffer = getHardwareBuffer.invoke(shot) as? HardwareBuffer
             // A capture result can exist without pixels while a task's surfaces are being replaced.
             // Do not dereference or close a missing buffer, and do not count this as a hook
             // failure.
             if (buffer == null) throw LayerCapture.UnavailableException()
             try {
-                if (shot.javaClass.compatibleMethod("containsSecureLayers").invoke(shot) as Boolean)
+                if (containsSecureLayers.invoke(shot) as Boolean)
                     throw LayerCapture.ProtectedContentException()
-                val hw: Bitmap? =
-                    shot.javaClass.compatibleMethod("asBitmap").invoke(shot) as Bitmap?
+                val hw = asBitmap.invoke(shot) as? Bitmap
                 if (hw == null) throw LayerCapture.UnavailableException()
                 try {
                     // SurfaceFlinger truncates scaled output dimensions, including odd moving

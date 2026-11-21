@@ -4,6 +4,7 @@ import android.content.res.ColorStateList
 import android.content.res.Resources.NotFoundException
 import android.graphics.Color
 import android.os.Build
+import android.os.Looper
 import android.view.View
 import android.widget.TextView
 import dev.ryuya.galaxybar.compat.compatibleDeclaredField
@@ -11,8 +12,10 @@ import dev.ryuya.galaxybar.compat.compatibleDeclaredMethod
 import dev.ryuya.galaxybar.compat.compatibleName
 import dev.ryuya.galaxybar.hook.HookCallback
 import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
+import dev.ryuya.galaxybar.hook.Hooks
 import dev.ryuya.galaxybar.hook.Reflect
 import java.util.ArrayList
+import java.util.Observable
 import java.util.WeakHashMap
 import kotlin.jvm.JvmRecord
 import kotlin.jvm.JvmStatic
@@ -96,6 +99,57 @@ object NetworkSpeedTintAdapter {
                     NetworkSpeedTintAdapter.standard.put(content, content.getTextColors())
                     val adaptive = NetworkSpeedTintAdapter.applied.get(content)
                     if (adaptive != null) NetworkSpeedTintAdapter.paint(content, adaptive)
+                }
+            },
+        )
+        // Width history and the observer were reviewed on this exact One UI build.
+        if (Build.VERSION.INCREMENTAL == "S948QOPU1BZI9") {
+            runCatching { installStableTextUpdate(owner) }
+                .onFailure { Hooks.log("GalaxyBar: native speed update left unchanged: ${it.javaClass.simpleName}") }
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun installStableTextUpdate(owner: Class<*>) {
+        val label = owner.compatibleDeclaredField("mContentView").apply { isAccessible = true }
+        val contentUpdated = owner.compatibleDeclaredField("mContentUpdated").apply { isAccessible = true }
+        val inStatusBar = owner.compatibleDeclaredField("mInStatusBar").apply { isAccessible = true }
+        val widthHistory = owner.compatibleDeclaredField("mStableWidthHelper").apply { isAccessible = true }
+        val listeners = TextView::class.java.getDeclaredField("mListeners").apply { isAccessible = true }
+        check(contentUpdated.type == Boolean::class.javaPrimitiveType &&
+            inStatusBar.type == Boolean::class.javaPrimitiveType &&
+            Collection::class.java.isAssignableFrom(widthHistory.type))
+        HookRegistry.hook(
+            owner, "update", Observable::class.java, Any::class.java,
+            object : HookCallback() {
+                private var reported = false
+
+                override fun beforeHookedMethod(p: MethodHookParam) {
+                    if (Looper.myLooper() != Looper.getMainLooper()) return
+                    val container = p.thisObject as? View ?: return
+                    val value = p.args?.get(1) as? String ?: return
+                    val view = label.get(container) as? TextView ?: return
+                    if (view.javaClass !== label.type || value != view.text ||
+                        !view.isLaidOut || view.isLayoutRequested || container.isLayoutRequested ||
+                        view.isTextSelectable || view.filters.isNotEmpty() ||
+                        (listeners.get(view) as? Collection<*>)?.isNotEmpty() == true
+                    ) return
+                    val layout = view.layout ?: return
+                    if (layout.lineCount != 2 || layout.getEllipsisCount(0) != 0 ||
+                        layout.getEllipsisCount(1) != 0
+                    ) return
+                    if (inStatusBar.getBoolean(container)) {
+                        val widths = widthHistory.get(container) as? Collection<*> ?: return
+                        val width = view.measuredWidth
+                        if (widths.size != 10 || widths.any { it != width }) return
+                    }
+                    // A later native measure still receives the same update marker.
+                    contentUpdated.setBoolean(container, true)
+                    p.setResult(null)
+                    if (!reported) {
+                        reported = true
+                        Hooks.log("GalaxyBar: reused an unchanged native speed label")
+                    }
                 }
             },
         )
