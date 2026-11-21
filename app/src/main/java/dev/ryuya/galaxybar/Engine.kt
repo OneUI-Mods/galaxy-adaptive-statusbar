@@ -624,6 +624,12 @@ class Engine(root: View) {
                     unchangedFrames = if (hash == frameHash) unchangedFrames + 1 else 0
                     frameHash = hash
                     val plan = automaticPlan(targets, bmp.width, bmp.height, crop, settings, now)
+                    val frameWidth = bmp.width
+                    val frameHeight = bmp.height
+                    val debug = settings.getBoolean("debug")
+                    val algorithm = settings.getString("algorithm", "robust")
+                    val hysteresis = settings.getDouble("hysteresis", .15)
+                    val fixed = settings.getBoolean("fixed")
                     val activeTargets = plan.targets
                     val colors = IntArray(activeTargets.size)
                     val percentageColors = IntArray(activeTargets.size)
@@ -631,24 +637,15 @@ class Engine(root: View) {
                     val nextPrevious = HashMap<String?, Int?>()
                     for (i in activeTargets.indices) {
                         val t = activeTargets.get(i)
-                        val values =
-                            Engine.samples(
-                                framePixels,
-                                bmp!!.getWidth(),
-                                bmp!!.getHeight(),
-                                t!!.area,
-                                crop,
-                            )
-                        var color =
-                            plan.colors[t!!.key]
-                                ?: Contrast.choose(
-                                    values!!,
-                                    previous.getOrDefault(t!!.key, 0)!!,
-                                    settings.getString("algorithm", "robust"),
-                                    settings.getDouble("hysteresis", .15),
-                                )
-                        if (settings.getBoolean("fixed") && t!!.start >= 0 && t!!.dateAndTime)
-                            color = if (t!!.start % 2 === 0) Color.WHITE else Color.BLACK
+                        val planned = plan.colors[t!!.key]
+                        val values = if (planned == null || debug) {
+                            Engine.samples(framePixels, frameWidth, frameHeight, t.area, crop)
+                        } else null
+                        var color = planned ?: Contrast.choose(
+                            values!!, previous.getOrDefault(t.key, 0)!!, algorithm, hysteresis,
+                        )
+                        if (fixed && t.start >= 0 && t.dateAndTime)
+                            color = if (t.start % 2 === 0) Color.WHITE else Color.BLACK
                         nextPrevious.put(t!!.key, color)
                         colors[i] = color
                         if (t!!.hasBattery()) {
@@ -656,28 +653,32 @@ class Engine(root: View) {
                             percentageColors[i] =
                                 if (t!!.nativeBattery != null)
                                     NativeBatteryView.percentageColor(
-                                        bmp!!,
+                                        framePixels,
+                                        frameWidth,
+                                        frameHeight,
                                         crop,
                                         t!!.area!!,
                                         t!!.nativeBattery,
                                         color,
                                         previous.getOrDefault(percentKey, 0)!!,
-                                        settings.getString("algorithm", "robust"),
-                                        settings.getDouble("hysteresis", .15),
+                                        algorithm,
+                                        hysteresis,
                                     )
                                 else
                                     BatteryAdapter.percentageColor(
-                                        bmp!!,
+                                        framePixels,
+                                        frameWidth,
+                                        frameHeight,
                                         crop,
                                         t!!.area!!,
                                         t!!.battery!!,
                                         color,
                                         previous.getOrDefault(percentKey, 0)!!,
-                                        settings.getString("algorithm", "robust"),
-                                        settings.getDouble("hysteresis", .15),
+                                        algorithm,
+                                        hysteresis,
                                     )
                             nextPrevious.put(percentKey, percentageColors[i])
-                            if (settings.getBoolean("debug"))
+                            if (debug)
                                 details
                                     .append(percentKey)
                                     .append(
@@ -685,7 +686,7 @@ class Engine(root: View) {
                                         else " white\n",
                                     )
                         }
-                        if (settings.getBoolean("debug")) {
+                        if (debug) {
                             var avg: Double = 0.0
                             for (value in values!!) avg += value
                             details

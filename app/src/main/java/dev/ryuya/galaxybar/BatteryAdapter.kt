@@ -265,7 +265,9 @@ object BatteryAdapter {
 
     @JvmStatic /* Worker-only: percentage contrast includes the battery fill that will be drawn beneath it. */
     fun percentageColor(
-        bitmap: Bitmap,
+        pixels: IntArray,
+        frameWidth: Int,
+        frameHeight: Int,
         crop: Rect,
         area: Rect,
         geometry: BatteryAdapter.Geometry,
@@ -275,7 +277,7 @@ object BatteryAdapter {
         hysteresis: Double,
     ): Int {
         val glyph = geometry.percent
-        val values = DoubleArray(256)
+        val values = DoubleArray(12 * 16)
         var count: Int = 0
         for (row in 0..11) for (column in 0..15) {
             val x: Float = glyph!!.left + (column + .5f) * glyph!!.width() / 16
@@ -284,7 +286,7 @@ object BatteryAdapter {
                 max(
                     0,
                     min(
-                        bitmap.getWidth() - 1,
+                        frameWidth - 1,
                         (((area.left + x / geometry.width * area.width() - crop.left) / 2)).toInt(),
                     ),
                 )
@@ -292,11 +294,11 @@ object BatteryAdapter {
                 max(
                     0,
                     min(
-                        bitmap.getHeight() - 1,
+                        frameHeight - 1,
                         (((area.top + y / geometry.height * area.height() - crop.top) / 2)).toInt(),
                     ),
                 )
-            var pixel = bitmap.getPixel(sampleX, sampleY)
+            var pixel = pixels[sampleY * frameWidth + sampleX]
             if (!geometry.backgroundOff) {
                 val filled: Boolean =
                     if (geometry.rtl) x >= geometry.width * (1 - geometry.fill)
@@ -305,7 +307,7 @@ object BatteryAdapter {
             }
             values[count++] = Contrast.luminance(pixel)
         }
-        return Contrast.choose(values.copyOf(count), previous, algorithm!!, hysteresis)
+        return Contrast.choose(values, previous, algorithm!!, hysteresis)
     }
 
     @JvmStatic

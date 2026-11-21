@@ -351,7 +351,9 @@ object NativeBatteryView {
 
     @JvmStatic
     fun percentageColor(
-        bitmap: Bitmap,
+        pixels: IntArray,
+        frameWidth: Int,
+        frameHeight: Int,
         crop: Rect,
         area: Rect,
         geometry: NativeBatteryView.Geometry,
@@ -370,7 +372,7 @@ object NativeBatteryView {
                 max(
                     0,
                     min(
-                        bitmap.getWidth() - 1,
+                        frameWidth - 1,
                         (((area.left + x / shape!!.width * area.width() - crop.left) / 2)).toInt(),
                     ),
                 )
@@ -378,11 +380,11 @@ object NativeBatteryView {
                 max(
                     0,
                     min(
-                        bitmap.getHeight() - 1,
+                        frameHeight - 1,
                         (((area.top + y / shape!!.height * area.height() - crop.top) / 2)).toInt(),
                     ),
                 )
-            var pixel = bitmap.getPixel(sx, sy)
+            var pixel = pixels[sy * frameWidth + sx]
             if (!shape!!.backgroundOff) {
                 val filled: Boolean =
                     if (shape!!.rtl) x >= shape!!.width * (1 - shape!!.fill)
