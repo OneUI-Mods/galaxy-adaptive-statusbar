@@ -1,6 +1,7 @@
 package dev.ryuya.galaxybar
 
 import android.animation.ValueAnimator
+import android.annotation.SuppressLint
 import android.app.KeyguardManager
 import android.content.Context
 import android.graphics.Canvas
@@ -19,6 +20,7 @@ import android.os.PowerManager
 import android.os.SystemClock
 import android.view.Choreographer
 import android.view.Choreographer.FrameCallback
+import android.view.Display
 import android.view.Gravity
 import android.view.Surface
 import android.view.SurfaceControl
@@ -33,6 +35,7 @@ import dev.ryuya.galaxybar.hook.Hooks
 import dev.ryuya.galaxybar.hook.Reflect
 import java.util.ArrayList
 import java.util.List
+import java.util.concurrent.Executor
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import java.util.function.BinaryOperator
@@ -64,6 +67,12 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
     }
     private val context: Context
     private val windows: WindowManager
+    private val power: PowerManager?
+    private val keyguard: KeyguardManager?
+    private var observingKeyguard = false
+    private val keyguardListener = KeyguardManager.KeyguardLockedStateListener { locked ->
+        if (locked && active) cancel("keyguard")
+    }
     private var overlay: StatusBarMotion.Overlay? = null
 
     @JvmRecord
@@ -121,6 +130,8 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         val windowType =
             Reflect.getStaticIntField(LayoutParams::class.java, "TYPE_STATUS_BAR_SUB_PANEL")
         context = root.getContext().createWindowContext(root.getDisplay(), windowType, null)
+        power = context.getSystemService(PowerManager::class.java)
+        keyguard = context.getSystemService(KeyguardManager::class.java)
         launcherUid = context.getPackageManager().getPackageUid("com.sec.android.app.launcher", 0)
         windows =
             checkNotNull(context.getSystemService<WindowManager?>(WindowManager::class.java)) {
@@ -138,11 +149,30 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         return active
     }
 
+    @SuppressLint("MissingPermission") // The listener is registered from the SystemUI process.
     fun configure(enabled: Boolean) {
         if (this.enabled == enabled) return
         this.enabled = enabled
         failed = false
-        if (!enabled) cancel("disabled") else reason = "waiting for One UI Home"
+        if (!enabled) {
+            stopObservingKeyguard()
+            cancel("disabled")
+            return
+        }
+        val manager = keyguard
+        observingKeyguard = manager != null && runCatching {
+            manager.addKeyguardLockedStateListener(Executor { main.post(it) }, keyguardListener)
+        }.isSuccess
+        if (observingKeyguard) Hooks.log("GalaxyBar: motion observing keyguard")
+        reason = "waiting for One UI Home"
+    }
+
+    @SuppressLint("MissingPermission")
+    private fun stopObservingKeyguard() {
+        if (!observingKeyguard) return
+        observingKeyguard = false
+        runCatching { keyguard?.removeKeyguardLockedStateListener(keyguardListener) }
+            .onFailure { Hooks.log("GalaxyBar: motion listener cleanup: " + it) }
     }
 
     private fun complete() {
@@ -195,27 +225,26 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
             scheduleTerminal(MotionTrack.END_GRACE_MS.toLong())
             return
         }
+        val starting = !active || change == MotionTrack.Change.START
+        val display = root.display
         if (
             !enabled ||
                 failed ||
                 !ValueAnimator.areAnimatorsEnabled() ||
-                (context
-                    .getSystemService<PowerManager?>(PowerManager::class.java)
-                    ?.isInteractive() != true) ||
-                (context
-                    .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                    ?.isKeyguardLocked() != false) ||
                 !root.isAttachedToWindow() ||
                 (!root.isShown() && leaves!!.isEmpty()) ||
-                root.getDisplay() == null ||
-                root.getDisplay().getDisplayId() != 0 ||
-                root.getDisplay().getRotation() != Surface.ROTATION_0
+                display == null ||
+                display.displayId != Display.DEFAULT_DISPLAY ||
+                display.rotation != Surface.ROTATION_0 ||
+                display.state != Display.STATE_ON ||
+                ((starting || !observingKeyguard) &&
+                    (power?.isInteractive != true || keyguard?.isKeyguardLocked != false))
         ) {
             cancel("paused")
             return
         }
         cancelTerminal()
-        if (!active || change == MotionTrack.Change.START) {
+        if (starting) {
             // A replacement for the same task preserves the drawing and fade. A different
             // task must get fresh view placements, even if its animation overlaps in time.
             if (active) releaseDrawing()
@@ -549,6 +578,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
 
     fun close() {
         closed = true
+        stopObservingKeyguard()
         cancel("closed")
         main.removeCallbacks(drain)
     }
