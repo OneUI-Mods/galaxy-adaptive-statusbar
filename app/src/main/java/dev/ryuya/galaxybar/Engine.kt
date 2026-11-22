@@ -45,8 +45,9 @@ import java.util.HashSet
 import java.util.IdentityHashMap
 import java.util.Locale
 import java.util.concurrent.ConcurrentHashMap
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.ThreadFactory
 import java.util.function.Consumer
 import kotlin.concurrent.Volatile
@@ -69,6 +70,12 @@ class Engine(root: View) {
             { tick() },
         )
     private val capturePacing = CapturePacing()
+    private val fadeGeometry = Rect()
+    private data class DisplayAvailability(val canSample: Boolean, val powerSave: Boolean)
+
+    @Volatile private var displayAvailability: DisplayAvailability? = null
+    @Volatile private var displayGeneration = 0
+    private var displayCheckPending = false
     private val settingsObserver: ContentObserver =
         object : ContentObserver(main) {
             override fun onChange(selfChange: Boolean, uri: Uri?) {
@@ -99,7 +106,7 @@ class Engine(root: View) {
                     )
                         pendingTargetReset = true
                     val revision: Int = configRevision
-                    worker!!.execute(Runnable { refreshConfig(revision) })
+                    worker.execute(Runnable { refreshConfig(revision) })
                 } catch (error: Throwable) {
                     HookEntry.stopHooks(error)
                 }
@@ -108,25 +115,23 @@ class Engine(root: View) {
     private val screenState: BroadcastReceiver =
         object : BroadcastReceiver() {
             override fun onReceive(ignored: Context?, intent: Intent) {
+                displayGeneration++
                 if (Intent.ACTION_SCREEN_OFF == intent.getAction()) {
+                    displayAvailability = DisplayAvailability(false, false)
                     motion.cancel("screen off")
                     PrivacySlide.cancel()
                     ChargingMotion.cancel()
                     epoch++
                     restore()
-                    worker!!.execute(Runnable { releaseCapture() })
-                }
+                    worker.execute(Runnable { releaseCapture() })
+                } else displayAvailability = null
                 wakeups.request()
             }
         }
-    private val worker: ExecutorService? =
-        Executors.newSingleThreadExecutor(
-            ThreadFactory { r: Runnable? ->
-                val t = Thread(r, "GalaxyBarCapture")
-                t.setPriority(Thread.MIN_PRIORITY)
-                t
-            },
-        )
+    private val worker = ThreadPoolExecutor(
+        1, 1, 15, TimeUnit.SECONDS, LinkedBlockingQueue<Runnable>(),
+        ThreadFactory { task -> Thread(task, "GalaxyBarCapture").apply { priority = Thread.MIN_PRIORITY } },
+    ).apply { allowCoreThreadTimeOut(true) }
     private val originals: IdentityHashMap<ImageView?, ColorFilter?> =
         IdentityHashMap<ImageView?, ColorFilter?>()
     private val appliedColors: IdentityHashMap<ImageView?, Int?> =
@@ -180,7 +185,6 @@ class Engine(root: View) {
     @Volatile private var renderState: String = "Color hooks: 0; fade callbacks: 0; fade targets: 0"
     private var stopped: Boolean = false
     private var wasEnabled: Boolean = false
-    private var waitingForAvailability = false
     private var closed: Boolean = false
     private var applying: Boolean = false
     private var pendingTargetReset: Boolean = false
@@ -273,6 +277,7 @@ class Engine(root: View) {
         filter.addAction(Intent.ACTION_SCREEN_OFF)
         filter.addAction(Intent.ACTION_SCREEN_ON)
         filter.addAction(Intent.ACTION_USER_PRESENT)
+        filter.addAction(PowerManager.ACTION_POWER_SAVE_MODE_CHANGED)
         context.registerReceiver(screenState, filter, Context.RECEIVER_NOT_EXPORTED)
         Hooks.log(
             ("GalaxyBar: engine root=" +
@@ -287,12 +292,15 @@ class Engine(root: View) {
 
     private fun tick() {
         if (closed) return
-        val power = context.getSystemService(PowerManager::class.java)
-        val asleep = !canSampleDisplay(power)
-        waitingForAvailability = asleep
+        val availability = displayAvailability
+        if (availability == null) {
+            checkDisplayAvailability()
+            return
+        }
+        val asleep = !availability.canSample
         var hz = config.getInt("hz", 10)
         if (hz != 5 && hz != 10 && hz != 15 && hz != 30) hz = 10
-        if (power.isPowerSaveMode || unchangedFrames >= 20 || protectedContent) hz = 5
+        if (availability.powerSave || unchangedFrames >= 20 || protectedContent) hz = 5
         val requestedIntervalMs = max(33, 1000 / hz).toLong()
         // OFF/sleep still reach normal teardown immediately. New palettes and fast Home Up
         // callbacks do not bypass the capture budget while the compositor is under pressure.
@@ -405,7 +413,7 @@ class Engine(root: View) {
                 val rotation = if (run) checkNotNull(currentDisplay).rotation else 0
                 val settings = Bundle(config)
                 val revision: Int = configRevision
-                worker!!.execute(
+                worker.execute(
                     Runnable {
                         process(
                             now,
@@ -495,7 +503,7 @@ class Engine(root: View) {
             if (enabled) {
                 try {
                     HookEntry.enableColors()
-                    worker!!.execute(Runnable { BatteryAdapter.validate(context) })
+                    worker.execute(Runnable { BatteryAdapter.validate(context) })
                 } catch (error: Throwable) {
                     HookEntry.stopHooks(error)
                     return
@@ -515,7 +523,7 @@ class Engine(root: View) {
         wakeups.request()
     }
 
-    private fun suspendColors() {
+    private fun suspendColors(deferRelease: Boolean = true) {
         epoch++
         val disabled = Bundle(config)
         disabled.putBoolean("enabled", false)
@@ -527,7 +535,7 @@ class Engine(root: View) {
         restore()
         HookEntry.disableColors()
         updateRenderState()
-        worker!!.execute(Runnable { this.releaseCapture() })
+        if (deferRelease) worker.execute(::releaseCapture) else releaseCapture()
     }
 
     private fun updateRenderState() {
@@ -551,6 +559,30 @@ class Engine(root: View) {
         power?.isInteractive == true &&
             context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == false
 
+    private fun checkDisplayAvailability() {
+        if (closed || displayCheckPending) return
+        displayCheckPending = true
+        val generation = displayGeneration
+        worker.execute {
+            val next = runCatching {
+                val power = context.getSystemService(PowerManager::class.java)
+                val canSample = canSampleDisplay(power)
+                DisplayAvailability(canSample, canSample && power?.isPowerSaveMode == true)
+            }.getOrDefault(DisplayAvailability(false, false))
+            main.post {
+                displayCheckPending = false
+                if (closed) return@post
+                if (displayGeneration != generation) {
+                    if (displayAvailability == null) checkDisplayAvailability()
+                    return@post
+                }
+                val previous = displayAvailability
+                displayAvailability = next
+                if (next != previous) wakeups.request()
+            }
+        }
+    }
+
     @androidx.annotation.WorkerThread
     private fun process(
         now: Long,
@@ -573,9 +605,24 @@ class Engine(root: View) {
             if (!configurationLoaded && now - lastConfig > 750) {
                 refreshConfig(revision)
             }
-            // This is a fresh check on the worker, immediately before using display content.
-            val canUseDisplay = (run || holdCapture) && config.getBoolean("enabled") &&
+            // A scheduling snapshot never grants access to display content. Recheck the live
+            // power and keyguard state on the worker before each capture or palette handoff.
+            val displayCheckGeneration = displayGeneration
+            val shouldCheckDisplay = displayAvailability?.canSample == true && config.getBoolean("enabled")
+            val canUseDisplay = shouldCheckDisplay &&
                 canSampleDisplay(context.getSystemService(PowerManager::class.java))
+            if (shouldCheckDisplay && !canUseDisplay) {
+                main.post {
+                    if (!closed && epoch == generation && displayGeneration == displayCheckGeneration) {
+                        displayGeneration++
+                        displayAvailability = DisplayAvailability(false, false)
+                        epoch++
+                        motion.cancel("display unavailable")
+                        restore("display unavailable")
+                        wakeups.schedule(null)
+                    }
+                }
+            }
             run = run && canUseDisplay
             holdCapture = holdCapture && canUseDisplay
             if (run && !targets.isEmpty()) {
@@ -1139,17 +1186,16 @@ class Engine(root: View) {
 
     private fun renderFade() {
         if (fadeTargets!!.isEmpty()) return
-        val current = Rect()
         if (
             closed ||
                 stopped ||
                 epoch != fadeEpoch ||
                 !config.getBoolean("enabled") ||
-                (if (motion.active()) motion.sampleCrop() == null
+                (if (motion.active()) !motion.sampleCrop(fadeGeometry)
                 else
                     (!root.isShown() ||
-                        !root.getGlobalVisibleRect(current) ||
-                        (current != fadeCrop))) ||
+                        !root.getGlobalVisibleRect(fadeGeometry) ||
+                        (fadeGeometry != fadeCrop))) ||
                 root.getDisplay() == null ||
                 root.getDisplay().getRotation() != fadeRotation ||
                 (context
@@ -1421,14 +1467,7 @@ class Engine(root: View) {
 
     /** Existing status-bar layout events also cover native unlock handovers without a broadcast. */
     fun availabilityChanged() {
-        if (closed || !waitingForAvailability) return
-        if (
-            context.getSystemService(PowerManager::class.java).isInteractive &&
-                !context.getSystemService(KeyguardManager::class.java).isKeyguardLocked
-        ) {
-            waitingForAvailability = false
-            wakeups.request()
-        }
+        if (displayAvailability?.canSample == false) checkDisplayAvailability()
     }
 
     fun isAttached(): Boolean {
@@ -1442,15 +1481,26 @@ class Engine(root: View) {
         unchangedFrames = 0
     }
 
-    fun close() {
+    internal fun readyForHotReload() =
+        !busy && !motion.active() && worker.activeCount == 0 && worker.queue.isEmpty()
+
+    internal fun liveRoot(): View? = root.takeIf(View::isAttachedToWindow)
+
+    fun close() = closeInternal(deferRelease = true)
+
+    internal fun closeForHotReload() = closeInternal(deferRelease = false)
+
+    private fun closeInternal(deferRelease: Boolean) {
+        if (closed) return
         closed = true
         motion.close()
         wakeups.close()
         context.unregisterReceiver(screenState)
         context.getContentResolver().unregisterContentObserver(settingsObserver)
         epoch++
-        suspendColors()
-        worker!!.shutdown()
+        suspendColors(deferRelease)
+        main.removeCallbacksAndMessages(null)
+        worker.shutdown()
     }
 
     companion object {

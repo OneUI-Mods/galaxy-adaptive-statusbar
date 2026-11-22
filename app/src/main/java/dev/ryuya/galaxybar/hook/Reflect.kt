@@ -66,7 +66,7 @@ object Reflect {
         )
     }
 
-    private fun field(target: Any, name: String): Field {
+    internal fun field(target: Any, name: String): Field {
         val owner = if (target is Class<*>) target else target.javaClass
         return fields.computeIfAbsent(FieldKey(owner, name)) {
             var type: Class<*>? = owner
@@ -137,6 +137,9 @@ object Reflect {
     @JvmStatic
     fun callMethod(receiver: Any, name: String, vararg args: Any?): Any? =
         invoke(best(receiver.javaClass, name, args, false), receiver, args)
+
+    internal fun noArgMethod(owner: Class<*>, name: String): Method =
+        best(owner, name, emptyArray(), false) as Method
 
     @JvmStatic
     fun callStaticMethod(owner: Class<*>, name: String, vararg args: Any?): Any? =

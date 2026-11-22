@@ -439,6 +439,9 @@ object ReloadSession {
         Hooks.log("GalaxyBar: optional reload session unavailable: " + error)
     }
 
+    internal fun readyForHotReload(): Boolean =
+        !active && files?.resolve(ReloadTicket.REQUEST)?.let { !Files.exists(it) } != false
+
     @JvmStatic
     fun reset() {
         ReloadSession.stop(IllegalStateException("Module hooks stopped"))

@@ -29,6 +29,7 @@ import dev.ryuya.galaxybar.hook.HookCallback.MethodHookParam
 import dev.ryuya.galaxybar.hook.HookCallback.Unhook
 import dev.ryuya.galaxybar.hook.Hooks
 import dev.ryuya.galaxybar.hook.Reflect
+import java.lang.reflect.Field
 import java.util.ArrayList
 import java.util.WeakHashMap
 import java.util.concurrent.ExecutorService
@@ -42,7 +43,12 @@ import kotlin.math.max
 import kotlin.math.min
 
 /* Observes One UI's final task-window transform after both standard and Home Up calculators. */
-class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGuard) {
+class LauncherMotion(
+    context: Context,
+    loader: ClassLoader,
+    protection: CrashGuard,
+    initialConfiguration: Pair<Boolean, IBinder?>? = null,
+) {
     private val context: Context
     private val loader: ClassLoader
     private val protection: CrashGuard
@@ -64,9 +70,35 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
     private var enabled: Boolean = false
     private var failed: Boolean = false
     private var revision: Int = 0
+    private var appliedRevision: Int = -1
+    private var registered = false
+    private var retired = false
+    private var wanted = false
+
+    private val unlockReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            refresh()
+        }
+    }
+    private var updateFields: UpdateFields? = null
+
+    private class UpdateFields(val playerClass: Class<*>, val infoClass: Class<*>) {
+        val point = Reflect.field(infoClass, "point")
+        val crop = Reflect.field(infoClass, "crop")
+        val scale = Reflect.field(infoClass, "scale")
+        val alpha = Reflect.field(infoClass, "alpha")
+        val cornerRadius = Reflect.field(infoClass, "cornerRadius")
+        val forward = Reflect.field(playerClass, "isForward")
+        val taskId = Reflect.noArgMethod(playerClass, "getRunningTaskId")
+
+        fun readFloat(field: Field, receiver: Any): Float =
+            if (field.type == Float::class.javaPrimitiveType) field.getFloat(receiver)
+            else (field.get(receiver) as Number).toFloat()
+    }
+    private var heartbeatDue = 0L
     private val heartbeat: Runnable = Runnable {
         try {
-            heartbeat()
+            runHeartbeat()
         } catch (error: Throwable) {
             fail(error)
         }
@@ -135,10 +167,15 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                 },
                 Consumer { error: Throwable? -> this.fail(error) },
             )
-        registerMotion()
+        try {
+            registerMotion(initialConfiguration)
+        } catch (error: Throwable) {
+            close()
+            throw error
+        }
     }
 
-    private fun registerMotion() {
+    private fun registerMotion(initialConfiguration: Pair<Boolean, IBinder?>?) {
         if (
             !HookCompatibility.matchesLauncherVersion(
                 Build.VERSION.SDK_INT,
@@ -151,20 +188,52 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
             Hooks.log("GalaxyBar: unsupported One UI Home version; motion hooks not installed")
             return
         }
-        context.getContentResolver().registerContentObserver(ConfigProvider.URI!!, true, observer)
-        context.registerReceiver(
-            object : BroadcastReceiver() {
-                override fun onReceive(c: Context?, intent: Intent?) {
-                    refresh()
-                }
-            },
-            IntentFilter(Intent.ACTION_USER_UNLOCKED),
-            Context.RECEIVER_NOT_EXPORTED,
-        )
-        refresh()
+        context.contentResolver.registerContentObserver(ConfigProvider.URI!!, true, observer)
+        registered = true
+        context.registerReceiver(unlockReceiver, IntentFilter(Intent.ACTION_USER_UNLOCKED),
+            Context.RECEIVER_NOT_EXPORTED)
+        if (initialConfiguration == null) {
+            refresh()
+        } else {
+            applyConfiguration(initialConfiguration.first, initialConfiguration.second)
+            appliedRevision = revision
+        }
+    }
+
+    fun readyForHotReload(): Boolean =
+        registered && appliedRevision == revision && !failed &&
+            sessions.values.none { it?.ended == false } && !overview.ownsCard()
+
+    fun currentConfiguration(): Pair<Boolean, IBinder?> = Pair(wanted, endpoint)
+
+    fun close() {
+        retired = true
+        if (registered) {
+            registered = false
+            runCatching { context.contentResolver.unregisterContentObserver(observer) }.onFailure(Hooks::log)
+            runCatching { context.unregisterReceiver(unlockReceiver) }.onFailure(Hooks::log)
+        }
+        main.removeCallbacksAndMessages(null)
+        io?.shutdownNow()
+        disable()
+        endpoint = null
+    }
+
+    private fun applyConfiguration(requested: Boolean, binder: IBinder?) {
+        wanted = requested
+        endpoint = binder
+        if (!wanted) {
+            disable()
+            failed = !protection.allowsHooks()
+        } else if (!enabled && !failed && protection.allowsHooks()) {
+            protection.arm()
+            install()
+            enabled = true
+        }
     }
 
     private fun refresh() {
+        if (retired) return
         if (
             (context.getSystemService<UserManager?>(UserManager::class.java)?.isUserUnlocked() !=
                 true)
@@ -186,30 +255,21 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                         if (result == null) null else result.getBinder("motion_endpoint")
                     main.post(
                         Runnable {
-                            if (request != revision) return@Runnable
-                            endpoint = binder
-                            val wanted: Boolean =
-                                config != null &&
-                                    config.getBoolean("enabled") &&
-                                    config.getBoolean("motion", true)
-                            if (!wanted) {
-                                disable()
-                                failed = !protection.allowsHooks()
-                            } else if (!enabled && !failed && protection.allowsHooks()) {
-                                try {
-                                    protection.arm()
-                                    install()
-                                    enabled = true
-                                } catch (error: Throwable) {
-                                    fail(error)
-                                }
+                            if (retired || request != revision) return@Runnable
+                            val requested = config?.getBoolean("enabled") == true &&
+                                config.getBoolean("motion", true)
+                            try {
+                                applyConfiguration(requested, binder)
+                                appliedRevision = request
+                            } catch (error: Throwable) {
+                                fail(error)
                             }
                         },
                     )
                 } catch (error: Throwable) {
                     main.post(
                         Runnable {
-                            if (request == revision) disable()
+                            if (!retired && request == revision) disable()
                         },
                     )
                 }
@@ -311,13 +371,17 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                             }
                             val now = SystemClock.uptimeMillis()
                             if (now == s.lastSent) return
-                            val info = p.getResult()
-                            val point: PointF? = Reflect.getObjectField(info!!, "point") as PointF?
-                            val crop: Rect? = Reflect.getObjectField(info!!, "crop") as Rect?
-                            val scale = Reflect.getFloatField(info!!, "scale")
-                            val width: Float = crop!!.width() * scale
+                            val receiver = checkNotNull(p.thisObject)
+                            val info = checkNotNull(p.getResult())
+                            val fields = updateFields?.takeIf {
+                                it.playerClass == receiver.javaClass && it.infoClass == info.javaClass
+                            } ?: UpdateFields(receiver.javaClass, info.javaClass).also { updateFields = it }
+                            val point = fields.point.get(info) as PointF
+                            val crop = fields.crop.get(info) as Rect
+                            val scale = fields.readFloat(fields.scale, info)
+                            val width = crop.width() * scale
                             var remaining: Float = -1f
-                            val opening = Reflect.getBooleanField(p.thisObject!!, "isForward")
+                            val opening = fields.forward.get(receiver) as Boolean
                             if (opening != s.opening) {
                                 s.opening = opening
                                 s.spring =
@@ -327,9 +391,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                             if (!s.spring && !s.interactive && s.duration > 0)
                                 remaining = max(0f, s.duration - (now - s.started))
                             s.lastSent = now
-                            val task =
-                                (Reflect.callMethod(p.thisObject!!, "getRunningTaskId") as Number)
-                                    .toInt()
+                            val task = (fields.taskId.invoke(receiver) as Number).toInt()
                             s.last =
                                 MotionFrame(
                                     s.id,
@@ -338,13 +400,13 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                                     task,
                                     s.interactive,
                                     overview.followsTask(task),
-                                    point!!.x + crop!!.left * scale,
-                                    point!!.y + crop!!.top * scale,
+                                    point.x + crop.left * scale,
+                                    point.y + crop.top * scale,
                                     width,
-                                    crop!!.height() * scale,
-                                    Reflect.getFloatField(info!!, "alpha"),
+                                    crop.height() * scale,
+                                    fields.readFloat(fields.alpha, info),
                                     remaining,
-                                    Reflect.getFloatField(info!!, "cornerRadius") * scale,
+                                    fields.readFloat(fields.cornerRadius, info) * scale,
                                     false,
                                 )
                             send(s.last!!)
@@ -376,8 +438,7 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
                         foreground = s
                         s.interactive = true
                         s.spring = true
-                        main.removeCallbacks(heartbeat)
-                        main.postDelayed(heartbeat, 75)
+                        postponeHeartbeat()
                     } catch (error: Throwable) {
                         fail(error)
                     }
@@ -505,7 +566,19 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
         return s
     }
 
-    private fun heartbeat() {
+    private fun postponeHeartbeat() {
+        val first = heartbeatDue == 0L
+        heartbeatDue = SystemClock.uptimeMillis() + HEARTBEAT_MS
+        if (first) main.postAtTime(heartbeat, heartbeatDue)
+    }
+
+    private fun runHeartbeat() {
+        if (heartbeatDue == 0L) return
+        if (SystemClock.uptimeMillis() < heartbeatDue) {
+            main.postAtTime(heartbeat, heartbeatDue)
+            return
+        }
+        heartbeatDue = 0L
         if (!enabled) return
         if (
             (context.getSystemService<PowerManager?>(PowerManager::class.java)?.isInteractive() !=
@@ -544,14 +617,17 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
             )
             s!!.lastSent = now
         }
-        if (again) main.postDelayed(heartbeat, 75)
+        if (again) postponeHeartbeat()
     }
 
     private fun disable() {
         enabled = false
         overview.stop()
-        main.removeCallbacks(heartbeat)
-        for (s in sessions.values) end(s!!)
+        if (heartbeatDue != 0L) {
+            heartbeatDue = 0L
+            main.removeCallbacks(heartbeat)
+        }
+        for (session in sessions.values) if (session != null) end(session)
         sessions.clear()
         foreground = null
         for (hook in hooks) {
@@ -588,5 +664,6 @@ class LauncherMotion(context: Context, loader: ClassLoader, protection: CrashGua
 
     companion object {
         private const val PLAYER: String = "com.honeyspace.transition.anim.floating.PlayerImpl"
+        private const val HEARTBEAT_MS = 75L
     }
 }

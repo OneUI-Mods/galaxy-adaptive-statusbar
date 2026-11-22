@@ -54,9 +54,14 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
     private val pending: AtomicReference<MotionFrame?> = AtomicReference<MotionFrame?>()
     private val posted: AtomicBoolean = AtomicBoolean()
     private val drain: Runnable = Runnable { this.drain() }
-    private val watchdog: Runnable = Runnable { finish("timeout") }
+    private var watchdogDeadline = 0L
+    private val watchdog = Runnable { checkWatchdog() }
     private val track: MotionTrack = MotionTrack()
-    private val terminal: Runnable = Runnable { this.complete() }
+    private var terminalPending = false
+    private val terminal = Runnable {
+        terminalPending = false
+        complete()
+    }
     private val context: Context
     private val windows: WindowManager
     private var overlay: StatusBarMotion.Overlay? = null
@@ -104,7 +109,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
                     frame,
                     BinaryOperator { a: MotionFrame?, b: MotionFrame -> MotionTrack.newer(a, b) },
                 )
-                if (posted.compareAndSet(false, true)) main.post(drain)
+                postDrain()
                 return true
             }
         }
@@ -143,21 +148,39 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
     private fun complete() {
         if (!track.endDue(SystemClock.uptimeMillis())) return
         if (timing != null && timing!!.running(SystemClock.uptimeMillis())) {
-            main.postDelayed(terminal, 16)
+            scheduleTerminal(16)
         } else finish("finished")
     }
 
+    private fun scheduleTerminal(delay: Long) {
+        cancelTerminal()
+        terminalPending = main.postDelayed(terminal, delay)
+    }
+
+    private fun cancelTerminal() {
+        if (!terminalPending) return
+        terminalPending = false
+        main.removeCallbacks(terminal)
+    }
+
+    private fun postDrain() {
+        if (posted.compareAndSet(false, true) && !main.post(drain)) posted.set(false)
+    }
+
     private fun drain() {
-        val frame = pending.getAndSet(null)
-        posted.set(false)
-        if (closed || frame == null) return
         try {
+            val frame = pending.getAndSet(null)
+            if (closed || frame == null) return
             update(frame)
         } catch (error: Throwable) {
             finish("unavailable")
             failed = true
             Hooks.log("GalaxyBar: motion disabled: " + error)
             HookEntry.stopHooks(error)
+        } finally {
+            // A frame arriving during update must still get a drain, including the final frame.
+            posted.set(false)
+            if (!closed && pending.get() != null) postDrain()
         }
     }
 
@@ -168,9 +191,8 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         val change = track.accept(frame, width, height, now)
         if (change == MotionTrack.Change.IGNORE) return
         if (change == MotionTrack.Change.END) {
-            main.removeCallbacks(watchdog)
-            main.removeCallbacks(terminal)
-            main.postDelayed(terminal, MotionTrack.END_GRACE_MS.toLong())
+            stopWatchdog()
+            scheduleTerminal(MotionTrack.END_GRACE_MS.toLong())
             return
         }
         if (
@@ -192,7 +214,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
             cancel("paused")
             return
         }
-        main.removeCallbacks(terminal)
+        cancelTerminal()
         if (!active || change == MotionTrack.Change.START) {
             // A replacement for the same task preserves the drawing and fade. A different
             // task must get fresh view placements, even if its animation overlaps in time.
@@ -262,8 +284,25 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         applyOpacity(opacity!!, frame)
         scheduleOpacity()
         reason = if (frame.overview) "overview" else if (frame.opening) "opening" else "closing"
+        val firstWatch = watchdogDeadline == 0L
+        watchdogDeadline = SystemClock.uptimeMillis() + WATCHDOG_MS
+        if (firstWatch) main.postAtTime(watchdog, watchdogDeadline)
+    }
+
+    private fun checkWatchdog() {
+        if (watchdogDeadline == 0L) return
+        if (SystemClock.uptimeMillis() < watchdogDeadline) {
+            main.postAtTime(watchdog, watchdogDeadline)
+        } else {
+            watchdogDeadline = 0L
+            finish("timeout")
+        }
+    }
+
+    private fun stopWatchdog() {
+        if (watchdogDeadline == 0L) return
+        watchdogDeadline = 0L
         main.removeCallbacks(watchdog)
-        main.postDelayed(watchdog, 220)
     }
 
     private fun applyOpacity(opacity: MotionTiming.Opacity, frame: MotionFrame) {
@@ -388,44 +427,27 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         return colorSource
     }
 
-    fun sampleCrop(): Rect? {
-        if (!active || track.current() == null) return null
+    fun sampleCrop(): Rect? = Rect().let { if (sampleCrop(it)) it else null }
+
+    /** The caller owns the rectangle, so capture snapshots can outlive this call. */
+    fun sampleCrop(out: Rect): Boolean {
+        val frame = track.current()
+        if (!active || frame == null) return false
+        val width = root.width
+        val height = root.height
         if (colorSource == MotionPalette.Source.SCREEN) {
-            return Rect(
-                origin[0],
-                origin[1],
-                origin[0] + root.getWidth(),
-                origin[1] + root.getHeight(),
-            )
+            out.set(origin[0], origin[1], origin[0] + width, origin[1] + height)
+            return true
         }
-        val crop =
-            mappedArea(
-                Rect(
-                    origin[0],
-                    origin[1],
-                    origin[0] + root.getWidth(),
-                    origin[1] + root.getHeight(),
-                ),
-            )
-        val f = track.current()
-        val window =
-            Rect(
-                (floor(f!!.x)).toInt(),
-                (floor(f!!.y)).toInt(),
-                (ceil(f!!.x + f!!.width)).toInt(),
-                (ceil(f!!.y + f!!.height)).toInt(),
-            )
-        if (!crop!!.intersect(window)) return null
-        if (
-            !crop!!.intersect(
-                0,
-                0,
-                root.getResources().getDisplayMetrics().widthPixels,
-                root.getResources().getDisplayMetrics().heightPixels,
-            )
-        )
-            return null
-        return crop
+        val scale = frame.width / width
+        val left = floor(frame.x).toInt()
+        val top = floor(frame.y).toInt()
+        out.set(left, top, ceil(frame.x + width * scale).toInt(), ceil(frame.y + height * scale).toInt())
+        val windowRight = ceil(frame.x + frame.width).toInt()
+        val windowBottom = ceil(frame.y + frame.height).toInt()
+        if (!out.intersect(left, top, windowRight, windowBottom)) return false
+        val display = root.resources.displayMetrics
+        return out.intersect(0, 0, display.widthPixels, display.heightPixels)
     }
 
     fun overlaySurface(): SurfaceControl? {
@@ -471,8 +493,8 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
                     " overview=" +
                     (track.current() != null && track.current()!!.overview)),
             )
-        main.removeCallbacks(watchdog)
-        main.removeCallbacks(terminal)
+        stopWatchdog()
+        cancelTerminal()
         track.clear()
         releaseDrawing()
         this.reason = reason
@@ -531,6 +553,10 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         main.removeCallbacks(drain)
     }
 
+    private companion object {
+        const val WATCHDOG_MS = 220L
+    }
+
     private inner class Overlay : View(context) {
         @JvmField var opacity: Float = 0f
         private val clip: Path = Path()
@@ -556,7 +582,8 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
 
         fun drawBar(canvas: Canvas) {
             check(canvas.isHardwareAccelerated()) { "Hardware canvas required" }
-            if (leaves!!.isEmpty() || track.current() == null || opacity <= 0) return
+            val alpha = Math.round(255 * opacity)
+            if (leaves!!.isEmpty() || track.current() == null || alpha <= 0) return
             draws++
             val f = track.current()
             val scale: Float = f!!.width / root.getWidth()
@@ -580,7 +607,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
                     0f,
                     root.getWidth().toFloat(),
                     root.getHeight().toFloat(),
-                    Math.round(255 * opacity),
+                    alpha,
                 )
             // Draw the live source content directly. Parent visibility/alpha belongs to the fixed
             // bar; glyph spans, icon tint, battery paint, and their ongoing fades remain live.

@@ -6,6 +6,12 @@ import android.content.res.ColorStateList
 import android.graphics.ColorFilter
 import android.graphics.drawable.Drawable
 import android.os.Build
+import android.os.Handler
+import android.os.IBinder
+import android.os.Looper
+import android.os.Process
+import java.lang.ref.WeakReference
+import java.util.WeakHashMap
 import android.view.View
 import android.view.View.OnAttachStateChangeListener
 import android.view.ViewTreeObserver.OnGlobalLayoutListener
@@ -18,6 +24,8 @@ import dev.ryuya.galaxybar.hook.Hooks
 import dev.ryuya.galaxybar.hook.Reflect
 import dev.ryuya.galaxybar.startup.FirstUnlockGate
 import io.github.libxposed.api.XposedModule
+import io.github.libxposed.api.XposedModuleInterface.HotReloadedParam
+import io.github.libxposed.api.XposedModuleInterface.HotReloadingParam
 import io.github.libxposed.api.XposedModuleInterface.ModuleLoadedParam
 import io.github.libxposed.api.XposedModuleInterface.PackageReadyParam
 import kotlin.jvm.JvmStatic
@@ -35,8 +43,100 @@ class HookEntry : XposedModule() {
         if (p.isFirstPackage()) loadPackage(p.getPackageName(), p.getClassLoader())
     }
 
+    override fun onHotReloading(param: HotReloadingParam): Boolean {
+        if (processName == LAUNCHER) return retireLauncher(param)
+        if (processName != SYSTEM_UI) return false
+        return MainThreadReload.run(main) handOff@{
+            val context = systemHost
+            val loader = systemLoader
+            if (context == null || loader == null) {
+                val fallback = reconnectState ?: return@handOff false
+                param.setSavedInstanceState(fallback)
+                removeSystemUiHooks()
+                reconnectState = null
+                return@handOff true
+            }
+            if (engine?.readyForHotReload() == false ||
+                protection?.readyForHotReload() == false ||
+                !ReloadSession.readyForHotReload()
+            ) return@handOff false
+            if (!Hooks.stopDispatch {
+                    param.setSavedInstanceState(arrayOf(context, loader, WeakReference(engine?.liveRoot())))
+                }) return@handOff false
+            removeSystemUiHooks()
+            true
+        }
+    }
+
+    override fun onHotReloaded(param: HotReloadedParam) {
+        if (param.processName == LAUNCHER) {
+            reloadLauncher(param)
+            return
+        }
+        check(param.processName == SYSTEM_UI)
+        val state = requireNotNull(param.savedInstanceState as? Array<*>)
+        val context = requireNotNull(state.getOrNull(0) as? Context)
+        val loader = requireNotNull(state.getOrNull(1) as? ClassLoader)
+        val root = (state.getOrNull(2) as? WeakReference<*>)?.get() as? View
+        check(context.packageName == SYSTEM_UI)
+        onModuleLoaded(param)
+        reconnectState = state
+        check(MainThreadReload.run(main) {
+            check(DexSymbols.canInstallNow(context)) { "SystemUI discovery is still preparing" }
+            check(installSystemUi(context, loader, root?.takeIf(View::isAttachedToWindow))) {
+                "Adaptive Bar startup protection is active"
+            }
+            param.oldHookHandles.forEach { it.unhook() }
+            reconnectState = null
+            Hooks.log("ONEUI_MODS_HOT_RELOAD package=${BuildConfig.APPLICATION_ID} " +
+                "version=${BuildConfig.VERSION_CODE} pid=${Process.myPid()}")
+            true
+        }) { "SystemUI main thread was unavailable" }
+    }
+
+    private fun retireLauncher(param: HotReloadingParam): Boolean =
+        MainThreadReload.run(main) {
+            val motion = launcherMotion ?: return@run false
+            val context = launcherHost ?: return@run false
+            val loader = launcherLoader ?: return@run false
+            if (!motion.readyForHotReload() || protection?.readyForHotReload() != true) {
+                return@run false
+            }
+            if (!Hooks.stopDispatch {
+                    val (wanted, endpoint) = motion.currentConfiguration()
+                    param.setSavedInstanceState(arrayOf(context, loader, wanted, endpoint))
+                }) return@run false
+            motion.close()
+            launcherMotion = null
+            launcherHost = null
+            launcherLoader = null
+            DexSymbols.detachObserver()
+            protection?.retire()
+            protection = null
+            true
+        }
+
+    private fun reloadLauncher(param: HotReloadedParam) {
+        val state = requireNotNull(param.savedInstanceState as? Array<*>)
+        val context = requireNotNull(state.getOrNull(0) as? Context)
+        val loader = requireNotNull(state.getOrNull(1) as? ClassLoader)
+        val wanted = requireNotNull(state.getOrNull(2) as? Boolean)
+        val endpoint = state.getOrNull(3) as? IBinder
+        check(context.packageName == LAUNCHER)
+        onModuleLoaded(param)
+        check(MainThreadReload.run(main) {
+            check(installLauncher(context, loader, Pair(wanted, endpoint))) {
+                "Launcher startup protection is active"
+            }
+            param.oldHookHandles.forEach { it.unhook() }
+            Hooks.log("ONEUI_MODS_HOT_RELOAD package=${BuildConfig.APPLICATION_ID} " +
+                "version=${BuildConfig.VERSION_CODE} pid=${Process.myPid()}")
+            true
+        }) { "Launcher main thread was unavailable" }
+    }
+
     private fun loadPackage(packageName: String, classLoader: ClassLoader?) {
-        val launcher: Boolean = packageName == "com.sec.android.app.launcher"
+        val launcher: Boolean = packageName == LAUNCHER
         if ((!launcher && packageName != "com.android.systemui") || processName != packageName)
             return
         // Deliberate allowlist: other firmware requires inspection before enabling hooks.
@@ -62,12 +162,20 @@ class HookEntry : XposedModule() {
     }
 
     companion object {
+        private const val LAUNCHER = "com.sec.android.app.launcher"
+        private const val SYSTEM_UI = "com.android.systemui"
+        private val main = Handler(Looper.getMainLooper())
+        private val clockWatches = WeakHashMap<View, ClockWatch>()
+        @Volatile private var reconnectState: Array<*>? = null
+        private var systemHost: Context? = null
         private var engine: Engine? = null
         private var protection: CrashGuard? = null
         private var initialized: Boolean = false
         private val firstUnlock = FirstUnlockGate()
         private var systemLoader: ClassLoader? = null
         private var launcherMotion: LauncherMotion? = null
+        private var launcherHost: Context? = null
+        private var launcherLoader: ClassLoader? = null
 
         @JvmStatic
         private fun initialize(context: Context, loader: ClassLoader?) {
@@ -79,12 +187,9 @@ class HookEntry : XposedModule() {
         }
 
         private fun installPrepared(context: Context, loader: ClassLoader?) {
-            if (context.getPackageName() == "com.sec.android.app.launcher") {
+            if (context.packageName == LAUNCHER) {
                 try {
-                    HookEntry.protection = CrashGuard.open(context, false)
-                    if (HookEntry.protection!!.allowsHooks())
-                        HookEntry.launcherMotion =
-                            LauncherMotion(context, loader!!, HookEntry.protection!!)
+                    installLauncher(context, requireNotNull(loader))
                 } catch (error: Throwable) {
                     if (HookEntry.protection != null)
                         HookEntry.protection!!.initializationFailed(error)
@@ -94,15 +199,54 @@ class HookEntry : XposedModule() {
                 return
             }
             try {
-                HookEntry.protection = CrashGuard.open(context, false)
-                if (!HookEntry.protection!!.allowsHooks()) return
-                ReloadSession.install(context, loader)
-                HookEntry.systemLoader = loader
-                HookEntry.installHooks(loader)
+                installSystemUi(context, requireNotNull(loader))
             } catch (error: Throwable) {
                 HookEntry.stopHooks(error)
                 if (HookEntry.protection == null) CrashGuard.failClosed(context, error)
             }
+        }
+
+        private fun installLauncher(
+            context: Context,
+            loader: ClassLoader,
+            configuration: Pair<Boolean, IBinder?>? = null,
+        ): Boolean {
+            val guard = CrashGuard.open(context, false)
+            protection = guard
+            if (!guard.allowsHooks()) return false
+            Hooks.enableRetirement()
+            launcherMotion = LauncherMotion(context, loader, guard, configuration)
+            launcherHost = context
+            launcherLoader = loader
+            return true
+        }
+
+        private fun installSystemUi(context: Context, loader: ClassLoader, root: View? = null): Boolean {
+            protection = CrashGuard.open(context, false)
+            if (protection?.allowsHooks() != true) return false
+            Hooks.enableRetirement()
+            systemLoader = loader
+            ReloadSession.install(context, loader)
+            installHooks(loader)
+            if (root != null) attachRoot(root)
+            systemHost = context
+            return true
+        }
+
+        private fun removeSystemUiHooks() {
+            main.removeCallbacksAndMessages(null)
+            for ((view, watch) in clockWatches.entries.toList()) watch.detach(view)
+            clockWatches.clear()
+            runCatching { engine?.closeForHotReload() }.onFailure(Hooks::log)
+            engine = null
+            disableColors()
+            HookRegistry.clear()
+            ReloadSession.reset()
+            DexSymbols.detachObserver()
+            protection?.retire()
+            protection = null
+            systemHost = null
+            systemLoader = null
         }
 
         @JvmStatic
@@ -135,20 +279,8 @@ class HookEntry : XposedModule() {
                 object : HookCallback() {
                     override fun afterHookedMethod(p: MethodHookParam) {
                         try {
-                            val view: View? = p.thisObject as View?
-                            val root = view!!.getRootView()
-                            if (
-                                root.getHeight() > 0 &&
-                                    root.getHeight() <
-                                        root.getResources().getDisplayMetrics().heightPixels / 4
-                            ) {
-                                if (HookEntry.engine != null && !HookEntry.engine!!.isAttached()) {
-                                    HookEntry.engine!!.close()
-                                    HookEntry.engine = null
-                                }
-                                if (HookEntry.engine == null) HookEntry.engine = Engine(root)
-                                HookEntry.engine?.availabilityChanged()
-                            }
+                            val view = p.thisObject as? View ?: return
+                            attachRoot(view.rootView)
                         } catch (error: Throwable) {
                             HookEntry.stopHooks(error)
                         }
@@ -221,77 +353,64 @@ class HookEntry : XposedModule() {
             if (hadHooks) Hooks.log("GalaxyBar: color hooks disabled count=0")
         }
 
-        @JvmStatic
-        private fun installAttachmentHook(clock: Class<*>?) {
-            HookRegistry.lifecycle(
-                clock,
-                "onAttachedToWindow",
-                object : HookCallback() {
-                    override fun afterHookedMethod(p: MethodHookParam) {
-                        try {
-                            val v: View? = p.thisObject as View?
-                            val listener: OnGlobalLayoutListener =
-                                object : OnGlobalLayoutListener {
-                                    override fun onGlobalLayout() {
-                                        try {
-                                            val root = v!!.getRootView()
-                                            if (root.getHeight() == 0) return
-                                            if (
-                                                root.getHeight() <
-                                                    root
-                                                        .getResources()
-                                                        .getDisplayMetrics()
-                                                        .heightPixels / 4
-                                            ) {
-                                                if (
-                                                    HookEntry.engine != null &&
-                                                        !HookEntry.engine!!.isAttached()
-                                                ) {
-                                                    HookEntry.engine!!.close()
-                                                    HookEntry.engine = null
-                                                }
-                                                if (HookEntry.engine == null)
-                                                    HookEntry.engine = Engine(root)
-                                                v!!
-                                                    .getViewTreeObserver()
-                                                    .removeOnGlobalLayoutListener(this)
-                                            }
-                                        } catch (e: Throwable) {
-                                            HookEntry.stopHooks(e)
-                                            v!!
-                                                .getViewTreeObserver()
-                                                .removeOnGlobalLayoutListener(this)
-                                        }
-                                    }
-                                }
-                            v!!.getViewTreeObserver().addOnGlobalLayoutListener(listener)
-                            v!!.post(Runnable { listener.onGlobalLayout() })
-                            v!!.addOnAttachStateChangeListener(
-                                object : OnAttachStateChangeListener {
-                                    override fun onViewAttachedToWindow(ignored: View) {}
+        private fun attachRoot(root: View): Boolean {
+            if (root.height <= 0 || root.height >= root.resources.displayMetrics.heightPixels / 4) {
+                return false
+            }
+            if (engine?.isAttached() == false) {
+                engine?.close()
+                engine = null
+            }
+            if (engine == null) engine = Engine(root)
+            engine?.availabilityChanged()
+            return true
+        }
 
-                                    override fun onViewDetachedFromWindow(ignored: View) {
-                                        if (v!!.getViewTreeObserver().isAlive())
-                                            v!!
-                                                .getViewTreeObserver()
-                                                .removeOnGlobalLayoutListener(listener)
-                                        if (
-                                            HookEntry.engine != null &&
-                                                !HookEntry.engine!!.isAttached()
-                                        ) {
-                                            HookEntry.engine!!.close()
-                                            HookEntry.engine = null
-                                        }
-                                        v!!.removeOnAttachStateChangeListener(this)
-                                    }
-                                },
-                            )
-                        } catch (e: Throwable) {
-                            HookEntry.stopHooks(e)
-                        }
-                    }
-                },
-            )
+        private fun installAttachmentHook(clock: Class<*>?) {
+            HookRegistry.lifecycle(clock, "onAttachedToWindow", object : HookCallback() {
+                override fun afterHookedMethod(p: MethodHookParam) {
+                    val view = p.thisObject as? View ?: return
+                    if (clockWatches.containsKey(view)) return
+                    val watch = ClockWatch(view)
+                    clockWatches[view] = watch
+                    view.viewTreeObserver.addOnGlobalLayoutListener(watch)
+                    view.addOnAttachStateChangeListener(watch)
+                    main.post { watch.onGlobalLayout() }
+                }
+            })
+        }
+
+        private class ClockWatch(view: View) : OnGlobalLayoutListener, OnAttachStateChangeListener {
+            private val view = WeakReference(view)
+            private var detached = false
+
+            override fun onGlobalLayout() {
+                val owner = view.get() ?: return
+                if (detached) return
+                try {
+                    if (attachRoot(owner.rootView)) owner.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                } catch (error: Throwable) {
+                    detach(owner)
+                    stopHooks(error)
+                }
+            }
+
+            override fun onViewAttachedToWindow(view: View) = Unit
+
+            override fun onViewDetachedFromWindow(view: View) {
+                detach(view)
+                if (engine?.isAttached() == false) {
+                    engine?.close()
+                    engine = null
+                }
+            }
+
+            fun detach(view: View) {
+                detached = true
+                if (view.viewTreeObserver.isAlive) view.viewTreeObserver.removeOnGlobalLayoutListener(this)
+                view.removeOnAttachStateChangeListener(this)
+                clockWatches.remove(view)
+            }
         }
     }
 }

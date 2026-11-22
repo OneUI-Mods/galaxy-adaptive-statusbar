@@ -4,11 +4,29 @@ import dev.ryuya.galaxybar.compat.compatibleName
 import io.github.libxposed.api.XposedInterface
 import java.lang.reflect.Executable
 import java.util.concurrent.atomic.AtomicLong
+import java.util.concurrent.locks.ReentrantReadWriteLock
 
 /** Hooks belong to the currently attached API 102 framework instance. */
 object Hooks {
     @Volatile private var framework: XposedInterface? = null
     private val ids = AtomicLong()
+    private val calls = ReentrantReadWriteLock()
+    @Volatile private var retiresInPlace = false
+    @Volatile private var retired = false
+
+    fun enableRetirement() { retiresInPlace = true }
+
+    fun stopDispatch(save: () -> Unit): Boolean {
+        val lock = calls.writeLock()
+        if (!lock.tryLock()) return false
+        try {
+            save()
+            retired = true
+            return true
+        } finally {
+            lock.unlock()
+        }
+    }
 
     @JvmStatic
     fun attach(api: XposedInterface) {
@@ -28,7 +46,19 @@ object Hooks {
                 .hook(method)
                 .setExceptionMode(XposedInterface.ExceptionMode.PASSTHROUGH)
                 .setId("galaxy-${ids.incrementAndGet()}")
-                .intercept(callback::intercept)
+                .intercept { chain ->
+                    if (!retiresInPlace) callback.intercept(chain)
+                    else if (retired) chain.proceed()
+                    else {
+                        val lock = calls.readLock()
+                        lock.lock()
+                        try {
+                            if (retired) chain.proceed() else callback.intercept(chain)
+                        } finally {
+                            lock.unlock()
+                        }
+                    }
+                }
         )
 
     @JvmStatic

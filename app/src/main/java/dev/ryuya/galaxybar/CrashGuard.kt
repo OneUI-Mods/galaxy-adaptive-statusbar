@@ -17,8 +17,9 @@ import java.io.FileOutputStream
 import java.io.IOException
 import java.util.ArrayList
 import java.util.Properties
-import java.util.concurrent.ExecutorService
-import java.util.concurrent.Executors
+import java.util.concurrent.LinkedBlockingQueue
+import java.util.concurrent.ThreadPoolExecutor
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.ThreadFactory
 import kotlin.jvm.JvmOverloads
 import kotlin.jvm.JvmStatic
@@ -30,10 +31,15 @@ import kotlin.math.log
 class CrashGuard private constructor(context: Context) {
     private val context: Context
     private val file: AtomicFile
-    private val reports: ExecutorService? =
-        Executors.newSingleThreadExecutor(
-            ThreadFactory { r: Runnable? -> Thread(r, "GalaxyBarGuardReport") },
-        )
+    private val reports = ThreadPoolExecutor(
+        1, 1, 10, TimeUnit.SECONDS, LinkedBlockingQueue<Runnable>(),
+        ThreadFactory { task -> Thread(task, "GalaxyBarGuardReport") },
+    ).apply { allowCoreThreadTimeOut(true) }
+
+    internal fun readyForHotReload() = reports.activeCount == 0 && reports.queue.isEmpty()
+
+    internal fun retire() = reports.shutdown()
+
     private var state: CrashLoopState = CrashLoopState()
     private var armed: Boolean = false
 
@@ -132,7 +138,7 @@ class CrashGuard private constructor(context: Context) {
         result.putBoolean("blocked", state.blocked)
         result.putInt("count", state.crashes.size)
         result.putString("cause", state.cause)
-        reports!!.execute(
+        reports.execute(
             Runnable {
                 for (attempt in 0..2) {
                     try {
