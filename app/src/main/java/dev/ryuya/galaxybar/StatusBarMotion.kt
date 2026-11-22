@@ -71,9 +71,26 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
     private val keyguard: KeyguardManager?
     private var observingKeyguard = false
     private val keyguardListener = KeyguardManager.KeyguardLockedStateListener { locked ->
-        if (locked && active) cancel("keyguard")
+        if (locked) cancel("keyguard")
     }
-    private var overlay: StatusBarMotion.Overlay? = null
+    private var overlay: Overlay? = null
+    private var preparingOverlay = false
+    private var prepareFailed = false
+    private val prepareOverlay = Runnable {
+        preparingOverlay = false
+        if (enabled && !active && !closed && !failed && overlay == null &&
+            root.isAttachedToWindow && root.isShown && root.display?.state == Display.STATE_ON
+        ) {
+            // Prepare the window without a drawing surface. The next handoff can then
+            // show it without synchronously adding a new window in the animation callback.
+            runCatching {
+                if (keyguard?.isKeyguardLocked == false) addOverlay(View.GONE)
+            }.onFailure {
+                prepareFailed = true
+                Hooks.log("GalaxyBar: motion window preparation: " + it)
+            }
+        }
+    }
 
     @JvmRecord
     private data class Leaf(
@@ -154,6 +171,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         if (this.enabled == enabled) return
         this.enabled = enabled
         failed = false
+        prepareFailed = false
         if (!enabled) {
             stopObservingKeyguard()
             cancel("disabled")
@@ -247,6 +265,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         if (starting) {
             // A replacement for the same task preserves the drawing and fade. A different
             // task must get fresh view placements, even if its animation overlaps in time.
+            cancelPreparation()
             if (active) releaseDrawing()
             originalAlpha = root.getAlpha()
             timing = MotionTiming(ValueAnimator.getDurationScale())
@@ -270,41 +289,9 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
                 frame.overview,
                 frame.interactive,
             )
-        if (timing!!.handedOff() && overlay == null) {
-            overlay = Overlay()
-            val p =
-                LayoutParams(
-                    LayoutParams.MATCH_PARENT,
-                    LayoutParams.MATCH_PARENT,
-                    Reflect.getStaticIntField(
-                        LayoutParams::class.java,
-                        "TYPE_STATUS_BAR_SUB_PANEL",
-                    ),
-                    (LayoutParams.FLAG_NOT_FOCUSABLE or
-                        LayoutParams.FLAG_NOT_TOUCHABLE or
-                        LayoutParams.FLAG_LAYOUT_IN_SCREEN or
-                        LayoutParams.FLAG_LAYOUT_NO_LIMITS or
-                        LayoutParams.FLAG_HARDWARE_ACCELERATED),
-                    PixelFormat.TRANSLUCENT,
-                )
-            p.gravity = Gravity.TOP or Gravity.LEFT
-            p.setFitInsetsTypes(0)
-            p.layoutInDisplayCutoutMode = LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
-            p.setTitle("GalaxyBar transition")
-            p.packageName = "com.android.systemui"
-            // This is SystemUI's own visual-only surface, like its charging ripple. Give it
-            // no input channel and the same trusted-overlay classification as native effects.
-            Reflect.callMethod(p, "setTrustedOverlay")
-            Reflect.setIntField(
-                p,
-                "inputFeatures",
-                Reflect.getIntField(p, "inputFeatures") or
-                    Reflect.getStaticIntField(
-                        LayoutParams::class.java,
-                        "INPUT_FEATURE_NO_INPUT_CHANNEL",
-                    ),
-            )
-            windows.addView(overlay, p)
+        if (timing!!.handedOff() && visibleOverlay() == null) {
+            val drawing = overlay ?: addOverlay(View.VISIBLE)
+            drawing.visibility = View.VISIBLE
             handoffs++
             Hooks.log(
                 "GalaxyBar: motion handoff x=" + frame.x + " y=" + frame.y + " w=" + frame.width,
@@ -316,6 +303,53 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         val firstWatch = watchdogDeadline == 0L
         watchdogDeadline = SystemClock.uptimeMillis() + WATCHDOG_MS
         if (firstWatch) main.postAtTime(watchdog, watchdogDeadline)
+    }
+
+    private fun visibleOverlay(): Overlay? = overlay?.takeIf { it.visibility == View.VISIBLE }
+
+    private fun addOverlay(visibility: Int): Overlay {
+        val drawing = Overlay().apply { this.visibility = visibility }
+        val p =
+            LayoutParams(
+                LayoutParams.MATCH_PARENT,
+                LayoutParams.MATCH_PARENT,
+                Reflect.getStaticIntField(
+                    LayoutParams::class.java,
+                    "TYPE_STATUS_BAR_SUB_PANEL",
+                ),
+                (LayoutParams.FLAG_NOT_FOCUSABLE or
+                    LayoutParams.FLAG_NOT_TOUCHABLE or
+                    LayoutParams.FLAG_LAYOUT_IN_SCREEN or
+                    LayoutParams.FLAG_LAYOUT_NO_LIMITS or
+                    LayoutParams.FLAG_HARDWARE_ACCELERATED),
+                PixelFormat.TRANSLUCENT,
+            )
+        p.gravity = Gravity.TOP or Gravity.LEFT
+        p.setFitInsetsTypes(0)
+        p.layoutInDisplayCutoutMode = LayoutParams.LAYOUT_IN_DISPLAY_CUTOUT_MODE_ALWAYS
+        p.setTitle("GalaxyBar transition")
+        p.packageName = "com.android.systemui"
+        // This is SystemUI's own visual-only surface, like its charging ripple. Give it
+        // no input channel and the same trusted-overlay classification as native effects.
+        Reflect.callMethod(p, "setTrustedOverlay")
+        Reflect.setIntField(
+            p,
+            "inputFeatures",
+            Reflect.getIntField(p, "inputFeatures") or
+                Reflect.getStaticIntField(
+                    LayoutParams::class.java,
+                    "INPUT_FEATURE_NO_INPUT_CHANNEL",
+                ),
+        )
+        windows.addView(drawing, p)
+        overlay = drawing
+        return drawing
+    }
+
+    private fun cancelPreparation() {
+        if (!preparingOverlay) return
+        preparingOverlay = false
+        main.removeCallbacks(prepareOverlay)
     }
 
     private fun checkWatchdog() {
@@ -335,9 +369,9 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
     }
 
     private fun applyOpacity(opacity: MotionTiming.Opacity, frame: MotionFrame) {
-        if (overlay == null) return
-        overlay!!.opacity = opacity.moving * frame.alpha
-        overlay!!.invalidate()
+        val drawing = visibleOverlay() ?: return
+        drawing.opacity = opacity.moving * frame.alpha
+        drawing.invalidate()
         root.setAlpha(originalAlpha * opacity.fixed)
         val next = MotionPalette.choose(timing!!.handedOff(), timing!!.openingLeg(), opacity)
         if (next != colorSource) {
@@ -350,7 +384,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         if (
             !opacityScheduled &&
                 active &&
-                overlay != null &&
+                visibleOverlay() != null &&
                 timing!!.running(SystemClock.uptimeMillis())
         ) {
             opacityScheduled = true
@@ -360,7 +394,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
 
     private fun animateOpacity(frameTime: Long) {
         opacityScheduled = false
-        if (!active || overlay == null || timing == null || track.current() == null) return
+        if (!active || visibleOverlay() == null || timing == null || track.current() == null) return
         try {
             applyOpacity(timing!!.opacity(SystemClock.uptimeMillis())!!, track.current()!!)
             scheduleOpacity()
@@ -374,6 +408,9 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         if (!enabled || active || closed || failed || root.getAlpha() < .99f || !root.isShown())
             return
         collectLeaves()
+        if (overlay == null && !preparingOverlay && !prepareFailed) {
+            preparingOverlay = main.postDelayed(prepareOverlay, PREPARE_WINDOW_DELAY_MS)
+        }
     }
 
     private fun collectLeaves() {
@@ -480,20 +517,20 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
     }
 
     fun overlaySurface(): SurfaceControl? {
-        if (overlay == null) return null
-        val viewRoot = Reflect.callMethod(overlay!!, "getViewRootImpl")
+        val drawing = visibleOverlay() ?: return null
+        val viewRoot = Reflect.callMethod(drawing, "getViewRootImpl")
         if (viewRoot == null) return null
         return Reflect.callMethod(viewRoot, "getSurfaceControl") as SurfaceControl?
     }
 
     fun waitingForSurface(): Boolean {
-        if (overlay == null) return false
+        if (visibleOverlay() == null) return false
         val surface = overlaySurface()
         return surface == null || !surface.isValid()
     }
 
     fun colorsChanged() {
-        if (overlay != null) overlay!!.invalidate()
+        visibleOverlay()?.invalidate()
     }
 
     fun colorState(spans: Int, palette: Int) {
@@ -510,7 +547,9 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
                 root.getResources().getDisplayMetrics().heightPixels,
                 SystemClock.uptimeMillis(),
             )
+        cancelPreparation()
         finish(reason)
+        removeOverlay()
         leaves = java.util.List.of<StatusBarMotion.Leaf?>()
     }
 
@@ -539,18 +578,23 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         }
         active = false
         colorSource = MotionPalette.Source.SCREEN
-        if (overlay != null) {
-            try {
-                windows.removeViewImmediate(overlay)
-            } catch (error: Throwable) {
-                Hooks.log("GalaxyBar: motion cleanup: " + error)
-            } finally {
-                overlay = null
-            }
+        visibleOverlay()?.let { drawing ->
+            drawing.opacity = 0f
+            drawing.visibility = View.GONE
         }
         // The final native bar shows the same app/home background. Reject old geometry work,
         // but retain the current color interpolation and contrast history across this handoff.
         if (changed) motionChanged.accept(false)
+    }
+
+    private fun removeOverlay() {
+        val drawing = overlay ?: return
+        overlay = null
+        try {
+            windows.removeViewImmediate(drawing)
+        } catch (error: Throwable) {
+            Hooks.log("GalaxyBar: motion cleanup: " + error)
+        }
     }
 
     fun status(): String? {
@@ -585,6 +629,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
 
     private companion object {
         const val WATCHDOG_MS = 220L
+        const val PREPARE_WINDOW_DELAY_MS = 700L
     }
 
     private inner class Overlay : View(context) {
@@ -613,7 +658,7 @@ class StatusBarMotion(root: View, main: Handler, motionChanged: Consumer<Boolean
         fun drawBar(canvas: Canvas) {
             check(canvas.isHardwareAccelerated()) { "Hardware canvas required" }
             val alpha = Math.round(255 * opacity)
-            if (leaves!!.isEmpty() || track.current() == null || alpha <= 0) return
+            if (!active || leaves!!.isEmpty() || track.current() == null || alpha <= 0) return
             draws++
             val f = track.current()
             val scale: Float = f!!.width / root.getWidth()
