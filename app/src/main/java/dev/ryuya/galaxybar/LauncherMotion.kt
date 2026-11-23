@@ -22,6 +22,7 @@ import android.os.Parcel
 import android.os.PowerManager
 import android.os.RemoteException
 import android.os.SystemClock
+import android.os.Trace
 import android.os.UserManager
 import dev.ryuya.galaxybar.compat.compatibleName
 import dev.ryuya.galaxybar.hook.HookCallback
@@ -96,6 +97,7 @@ class LauncherMotion(
             else (field.get(receiver) as Number).toFloat()
     }
     private var heartbeatDue = 0L
+    private var heartbeatCheckingDisplay = false
     private val heartbeat: Runnable = Runnable {
         try {
             runHeartbeat()
@@ -535,6 +537,9 @@ class LauncherMotion(
     private fun end(s: LauncherMotion.Session) {
         if (s.ended) return
         s.ended = true
+        // The stock input reaches its player and animator set. Keeping it would hold every finished
+        // transition, and the callbacks other modules added to it, for the life of the process.
+        s.input = null
         send(
             MotionFrame(
                 s.id,
@@ -579,45 +584,72 @@ class LauncherMotion(
             return
         }
         heartbeatDue = 0L
+        val session = foreground ?: return
+        if (!enabled || session.ended || !session.interactive || heartbeatCheckingDisplay) return
+        heartbeatCheckingDisplay = true
+        io!!.execute {
+            val tracing = Trace.isEnabled()
+            if (tracing) Trace.beginSection("Galaxy Bar launcher heartbeat display check")
+            val available = try {
+                runCatching {
+                    context.getSystemService(PowerManager::class.java)?.isInteractive == true &&
+                        context.getSystemService(KeyguardManager::class.java)?.isKeyguardLocked == false
+                }.getOrDefault(false)
+            } finally {
+                if (tracing) Trace.endSection()
+            }
+            main.post {
+                if (retired) return@post
+                heartbeatCheckingDisplay = false
+                try {
+                    finishHeartbeat(session, available)
+                } catch (error: Throwable) {
+                    fail(error)
+                }
+            }
+        }
+    }
+
+    private fun finishHeartbeat(session: Session, available: Boolean) {
         if (!enabled) return
-        if (
-            (context.getSystemService<PowerManager?>(PowerManager::class.java)?.isInteractive() !=
-                true) ||
-                (context
-                    .getSystemService<KeyguardManager?>(KeyguardManager::class.java)
-                    ?.isKeyguardLocked() != false)
-        ) {
-            for (s in sessions.values) if (s!!.interactive) end(s!!)
+        val current = foreground ?: return
+        if (current.ended || !current.interactive) return
+        if (session !== current) {
+            if (heartbeatDue == 0L) postponeHeartbeat()
             return
         }
-        var again: Boolean = false
+        if (!available) {
+            for (active in sessions.values) {
+                if (active?.interactive == true) end(active)
+            }
+            return
+        }
+        if (heartbeatDue != 0L) return
+
         val now = SystemClock.uptimeMillis()
-        for (s in sessions.values) {
-            if (!s!!.interactive || s!!.ended || s != foreground) continue
-            again = true
-            if (s!!.last == null || now - s!!.lastSent < 60) continue
-            val f = s!!.last
+        val frame = session.last
+        if (frame != null && now - session.lastSent >= 60) {
             send(
                 MotionFrame(
-                    f!!.session,
+                    frame.session,
                     now,
-                    f!!.opening,
-                    f!!.taskId,
+                    frame.opening,
+                    frame.taskId,
                     true,
-                    f!!.overview,
-                    f!!.x,
-                    f!!.y,
-                    f!!.width,
-                    f!!.height,
-                    f!!.alpha,
+                    frame.overview,
+                    frame.x,
+                    frame.y,
+                    frame.width,
+                    frame.height,
+                    frame.alpha,
                     -1f,
-                    f!!.radius,
+                    frame.radius,
                     false,
                 ),
             )
-            s!!.lastSent = now
+            session.lastSent = now
         }
-        if (again) postponeHeartbeat()
+        postponeHeartbeat()
     }
 
     private fun disable() {
