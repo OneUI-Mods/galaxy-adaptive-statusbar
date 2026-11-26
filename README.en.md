@@ -1,5 +1,7 @@
 # Galaxy Adaptive Bar
 
+Installation requires Android 17 (API 37) or later.
+
 [日本語](README.md) · English
 
 A Vector module that keeps the Galaxy status bar readable against its background. Choose per-character coloring, per-part coloring, or automatic selection, or return to the normal status-bar appearance.
@@ -26,7 +28,7 @@ Hook initialization that needs settings or cached discovery results waits for th
 
 ## Requirements
 
-Physical-device coverage is Galaxy S26 Ultra (SM-S948Q), Android 16 / One UI 8.5 (AZHL), and Android 17 / One UI 9 (BZI9). Separate compatibility paths are maintained for both versions. A supported root environment and Vector with libxposed API 102 are required. Unverified paths are not applied on other devices, firmware, or launcher versions.
+Physical-device coverage is Galaxy S26 Ultra (SM-S948Q), Android 17 / One UI 9 (BZI9). A supported root environment and Vector with libxposed API 102 are required. Unverified paths are not applied on other devices, firmware, or launcher versions.
 
 ## Installation and updates
 

@@ -11,10 +11,10 @@ android {
 
     defaultConfig {
         applicationId 'dev.ryuya.galaxybar'
-        minSdk 35
+        minSdk 37
         targetSdk 37
-        versionCode 69
-        versionName '0.7.22'
+        versionCode 70
+        versionName '0.7.23'
         testInstrumentationRunner 'androidx.test.runner.AndroidJUnitRunner'
     }
 

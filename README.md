@@ -1,5 +1,7 @@
 # Galaxy Adaptive Bar
 
+インストールにはAndroid 17（API 37）以降が必要です。
+
 [日本語](README.md) · [English](README.en.md)
 
 Galaxyのステータスバーを、背景に合わせて読みやすくするVectorモジュールです。文字ごと・パーツごと・背景に合わせる自動モードで配色し、通常のステータスバー表示へ戻すこともできます。
@@ -26,7 +28,7 @@ Galaxyのステータスバーを、背景に合わせて読みやすくするVe
 
 ## 対応環境
 
-実機確認の対象はGalaxy S26 Ultra（SM-S948Q）のAndroid 16 / One UI 8.5（AZHL）とAndroid 17 / One UI 9（BZI9）です。両バージョンの処理を分けて維持しています。対応するroot環境とlibxposed API 102対応Vectorが必要です。別の端末・ファームウェア・ホームのバージョンでは、未確認の処理を適用しません。
+実機確認の対象はGalaxy S26 Ultra（SM-S948Q）のAndroid 17 / One UI 9（BZI9）です。対応するroot環境とlibxposed API 102対応Vectorが必要です。別の端末・ファームウェア・ホームのバージョンでは、未確認の処理を適用しません。
 
 ## 導入・更新
 
